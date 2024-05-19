@@ -20,3 +20,4 @@ pub use xyz::Xyz;
 pub use rgba::Rgba;
 pub use rgba::Rgb565;
 pub use rgba::Rgba1010102;
+pub use rgb::Rgb;
