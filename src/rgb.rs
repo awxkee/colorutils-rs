@@ -30,7 +30,7 @@ impl Rgb<u8> {
 }
 
 impl<T> Rgb<T> {
-    pub(crate) fn new(r: T, g: T, b: T) -> Rgb<T> {
+    pub fn new(r: T, g: T, b: T) -> Rgb<T> {
         Rgb { r, g, b }
     }
 }
