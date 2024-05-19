@@ -1,6 +1,6 @@
 [package]
 name = "colorutils-rs"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Rust utilities for color format handling and conversion."
 readme = "README.md"

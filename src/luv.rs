@@ -102,7 +102,11 @@ impl Luv {
         let x = y * 9f32 * u * den;
         let z = y * (12.0 - 3.0 * u - 20.0 * v) * den;
 
-        Xyz::new(x * 100f32, y * 100f32, z * 100f32).to_rgb()
+        Xyz::new(
+            Xyz::saturate_x(x * 100f32),
+            Xyz::saturate_y(y * 100f32),
+            Xyz::saturate_z(z * 100f32),
+        ).to_rgb()
     }
 
     pub fn new(l: f32, u: f32, v: f32) -> Luv {
