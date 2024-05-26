@@ -77,7 +77,7 @@ unsafe fn sse_triple_to_lab(x: __m128, y: __m128, z: __m128) -> (__m128, __m128,
     let x = _mm_select_ps(_mm_cmpgt_ps(x, cutoff), cbrt_x, lower_x);
     let y = _mm_select_ps(_mm_cmpgt_ps(y, cutoff), cbrt_y, lower_y);
     let z = _mm_select_ps(_mm_cmpgt_ps(z, cutoff), cbrt_z, lower_z);
-    let l = _mm_prefer_fma_ps(_mm_set1_ps(-16.0f32), x, _mm_set1_ps(116.0f32));
+    let l = _mm_prefer_fma_ps(_mm_set1_ps(-16.0f32), y, _mm_set1_ps(116.0f32));
     let a = _mm_mul_ps(_mm_sub_ps(x, y), _mm_set1_ps(500f32));
     let b = _mm_mul_ps(_mm_sub_ps(y, z), _mm_set1_ps(200f32));
     (l, a, b)

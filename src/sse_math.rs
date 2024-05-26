@@ -9,6 +9,7 @@ use std::arch::x86::*;
 pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     #[cfg(target_feature = "fma")]
     return _mm_fmadd_ps(b, c, a);
+    #[allow(dead_code)]
     return _mm_add_ps(_mm_mul_ps(b, c), a);
 }
 
@@ -238,6 +239,14 @@ pub(crate) unsafe fn _mm_neg_epi32(x: __m128i) -> __m128i {
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_cbrt_ps(d: __m128) -> __m128 {
+    _mm_pow_n_ps(d, 1f32 / 3f32)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+/// Precise version of Cube Root, ULP 1.0
+pub unsafe fn _mm_cbrt_ps_ulp1(d: __m128) -> __m128 {
     let mut q = _mm_set1_ps(1f32);
     let e = _mm_add_epi32(_mm_vilogbk_ps(_mm_abs_ps(d)), _mm_set1_epi32(1));
     let mut d = _mm_vldexp2_ps(d, _mm_neg_epi32(e));

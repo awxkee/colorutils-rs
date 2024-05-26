@@ -5,8 +5,13 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+use crate::neon_xyz_lab_to_image::neon_xyz_to_channels;
 
-fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const SOURCE: u8>(
+fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
     src: &[f32],
     src_stride: u32,
     a_channel: &[f32],
@@ -18,7 +23,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) {
-    let source: XyzTarget = SOURCE.into();
+    let source: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if USE_ALPHA {
         if !image_configuration.has_alpha() {
@@ -35,6 +40,40 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
+
+        #[cfg(all(
+            any(target_arch = "aarch64", target_arch = "arm"),
+            target_feature = "neon"
+        ))]
+        unsafe {
+            if USE_ALPHA {
+                cx = neon_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    a_channel.as_ptr(),
+                    a_offset,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    width,
+                    &matrix,
+                    transfer_function,
+                )
+            } else {
+                cx = neon_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    std::ptr::null(),
+                    0usize,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    width,
+                    &matrix,
+                    transfer_function,
+                )
+            }
+        }
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };

@@ -26,25 +26,25 @@ impl Lab {
 impl Lab {
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
-        let x = xyz.x * 100f32 / 95.047;
-        let y = xyz.y * 100f32 / 100.0;
-        let z = xyz.z * 100f32 / 108.883;
-        let x = if x > 0.008856 {
+        let x = xyz.x * 100f32 / 95.047f32;
+        let y = xyz.y * 100f32 / 100f32;
+        let z = xyz.z * 100f32 / 108.883f32;
+        let x = if x > 0.008856f32 {
             x.cbrt()
         } else {
-            7.787 * x + 16.0 / 116.0
+            7.787f32 * x + 16f32 / 116f32
         };
-        let y = if y > 0.008856 {
+        let y = if y > 0.008856f32 {
             y.cbrt()
         } else {
-            7.787 * y + 16.0 / 116.0
+            7.787f32 * y + 16f32 / 116f32
         };
-        let z = if z > 0.008856 {
+        let z = if z > 0.008856f32 {
             z.cbrt()
         } else {
-            7.787 * z + 16.0 / 116.0
+            7.787f32 * z + 16f32 / 116f32
         };
-        Self::new((116.0 * y) - 16.0, 500.0 * (x - y), 200.0 * (y - z))
+        Self::new((116f32 * y) - 16f32, 500f32 * (x - y), 200f32 * (y - z))
     }
 }
 

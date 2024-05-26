@@ -248,7 +248,7 @@ pub fn srgb_to_xyz(
     );
 }
 
-/// This function converts RGB to CIE L*ab against D75 white point. This is much more effective than naive direct transformation
+/// This function converts RGB to CIE L*ab against D65 white point. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains RGB data
@@ -424,7 +424,7 @@ pub fn srgba_to_xyza(
     );
 }
 
-/// This function converts RGBA to CIE L*ab against D75 white point and preserving and linearizing alpha channels. This is much more effective than naive direct transformation
+/// This function converts RGBA to CIE L*ab against D65 white point and preserving and normalizing alpha channels. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains RGBA data
@@ -459,7 +459,7 @@ pub fn rgba_to_laba(
     );
 }
 
-/// This function converts BGRA to CIE L*ab against D75 white point and preserving and linearizing alpha channels. This is much more effective than naive direct transformation
+/// This function converts BGRA to CIE L*ab against D65 white point and preserving and linearizing alpha channels. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGRA data
@@ -492,7 +492,7 @@ pub fn bgra_to_laba(
     );
 }
 
-/// This function converts BGR to CIE L*ab against D75 white point. This is much more effective than naive direct transformation
+/// This function converts BGR to CIE L*ab against D65 white point. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGR data

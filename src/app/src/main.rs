@@ -51,7 +51,7 @@ fn main() {
         let m = vdupq_n_f32(27f32);
         let cbrt = vexpq_f32(m);
         let l = vgetq_lane_f32::<0>(cbrt);
-        println!("CBRT {}", l);
+        println!("Exp {}", l);
     }
 
     let img = ImageReader::open("./assets/asset.jpg")
@@ -76,37 +76,39 @@ fn main() {
     let mut a_plane: Vec<f32> = vec![];
     a_plane.resize(width as usize * height as usize, 0f32);
 
-    let start_time = Instant::now();
-    // srgba_to_xyza(
-    //     src_bytes,
-    //     width * components,
-    //     &mut xyz,
-    //     width * 3 * std::mem::size_of::<f32>() as u32,
-    //     &mut a_plane,
-    //     width as u32 * std::mem::size_of::<f32>() as u32,
-    //     width,
-    //     height,
-    // );
-    // srgb_to_xyz(
-    //     src_bytes,
-    //     width * components,
-    //     &mut xyz,
-    //     width * 3 * std::mem::size_of::<f32>() as u32,
-    //     width,
-    //     height,
-    // );
-    rgb_to_linear(
-        src_bytes,
-        width * components,
-        &mut xyz,
-        width * 3 * std::mem::size_of::<f32>() as u32,
-        width,
-        height,
-        TransferFunction::Srgb,
-    );
-    let elapsed_time = start_time.elapsed();
-    // Print the elapsed time in milliseconds
-    println!("sRGB to XYZ: {:.2?}", elapsed_time);
+    for i in 0..10 {
+        let start_time = Instant::now();
+        // srgba_to_xyza(
+        //     src_bytes,
+        //     width * components,
+        //     &mut xyz,
+        //     width * 3 * std::mem::size_of::<f32>() as u32,
+        //     &mut a_plane,
+        //     width as u32 * std::mem::size_of::<f32>() as u32,
+        //     width,
+        //     height,
+        // );
+        rgb_to_lab(
+            src_bytes,
+            width * components,
+            &mut xyz,
+            width * 3 * std::mem::size_of::<f32>() as u32,
+            width,
+            height,
+        );
+        // rgb_to_linear(
+        //     src_bytes,
+        //     width * components,
+        //     &mut xyz,
+        //     width * 3 * std::mem::size_of::<f32>() as u32,
+        //     width,
+        //     height,
+        //     TransferFunction::Srgb,
+        // );
+        let elapsed_time = start_time.elapsed();
+        // Print the elapsed time in milliseconds
+        println!("sRGB to XYZ: {:.2?}", elapsed_time);
+    }
 
     let mut dst_bytes: Vec<u8> = vec![];
     dst_bytes.resize(width as usize * components as usize * height as usize, 0u8);
@@ -121,24 +123,24 @@ fn main() {
     //     height,
     // );
 
-    // xyz_to_srgb(
-    //     &xyz,
-    //     width * 3 * std::mem::size_of::<f32>() as u32,
-    //     &mut dst_bytes,
-    //     width * components,
-    //     width,
-    //     height,
-    // );
-
-    linear_to_rgb(
+    lab_to_srgb(
         &xyz,
         width * 3 * std::mem::size_of::<f32>() as u32,
         &mut dst_bytes,
         width * components,
         width,
         height,
-        TransferFunction::Srgb,
     );
+
+    // linear_to_rgb(
+    //     &xyz,
+    //     width * 3 * std::mem::size_of::<f32>() as u32,
+    //     &mut dst_bytes,
+    //     width * components,
+    //     width,
+    //     height,
+    //     TransferFunction::Srgb,
+    // );
 
     let elapsed_time = start_time.elapsed();
     // Print the elapsed time in milliseconds

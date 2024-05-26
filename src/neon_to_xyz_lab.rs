@@ -73,22 +73,21 @@ unsafe fn neon_triple_to_lab(
     y: float32x4_t,
     z: float32x4_t,
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let x = vmulq_n_f32(x, 100f32 / 95.047);
-    let y = vmulq_n_f32(y, 100f32 / 100.0);
-    let z = vmulq_n_f32(z, 100f32 / 108.883);
+    let x = vmulq_n_f32(x, 100f32 / 95.047f32);
+    let z = vmulq_n_f32(z, 100f32 / 108.883f32);
     let cbrt_x = vcbrtq_f32(x);
     let cbrt_y = vcbrtq_f32(y);
     let cbrt_z = vcbrtq_f32(z);
-    let s_1 = vdupq_n_f32(16.0 / 116.0);
-    let s_2 = vdupq_n_f32(7.787);
+    let s_1 = vdupq_n_f32(16f32 / 116f32);
+    let s_2 = vdupq_n_f32(7.787f32);
     let lower_x = prefer_vfmaq_f32(s_1, s_2, x);
     let lower_y = prefer_vfmaq_f32(s_1, s_2, y);
     let lower_z = prefer_vfmaq_f32(s_1, s_2, z);
-    let cutoff = vdupq_n_f32(0.008856f32);
-    let x = vbslq_f32(vcgtq_f32(x, cutoff), cbrt_x, lower_x);
-    let y = vbslq_f32(vcgtq_f32(y, cutoff), cbrt_y, lower_y);
-    let z = vbslq_f32(vcgtq_f32(z, cutoff), cbrt_z, lower_z);
-    let l = prefer_vfmaq_f32(vdupq_n_f32(-16.0f32), x, vdupq_n_f32(116.0f32));
+    let kappa = vdupq_n_f32(0.008856f32);
+    let x = vbslq_f32(vcgtq_f32(x, kappa), cbrt_x, lower_x);
+    let y = vbslq_f32(vcgtq_f32(y, kappa), cbrt_y, lower_y);
+    let z = vbslq_f32(vcgtq_f32(z, kappa), cbrt_z, lower_z);
+    let l = prefer_vfmaq_f32(vdupq_n_f32(-16.0f32), y, vdupq_n_f32(116.0f32));
     let a = vmulq_n_f32(vsubq_f32(x, y), 500f32);
     let b = vmulq_n_f32(vsubq_f32(y, z), 200f32);
     (l, a, b)

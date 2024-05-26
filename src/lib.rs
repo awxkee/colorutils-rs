@@ -23,6 +23,7 @@ mod image_to_linear;
 mod linear_to_image;
 mod neon_linear_to_image;
 mod sse_linear_to_image;
+mod neon_xyz_lab_to_image;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;
