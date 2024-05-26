@@ -1,5 +1,6 @@
+use crate::{SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use crate::gamma_curves::TransferFunction;
 use crate::rgb::Rgb;
-use crate::{srgb_from_linear, srgb_to_linear};
 
 /// A CIE 1931 XYZ color.
 #[derive(Copy, Clone, Debug, Default)]
@@ -37,30 +38,64 @@ impl Xyz {
 
 static XYZ_SCALE_U8: f32 = 1f32 / 255f32;
 
+/// This class avoid to scale by 100 for a reason: in common there are no need to scale by 100 in digital image processing,
+/// Normalized values are speeding up computing.
+/// if you need this multiply by yourself or use `scaled`
 impl Xyz {
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
-        let r = srgb_to_linear(rgb.r as f32 * XYZ_SCALE_U8);
-        let g = srgb_to_linear(rgb.g as f32 * XYZ_SCALE_U8);
-        let b = srgb_to_linear(rgb.b as f32 * XYZ_SCALE_U8);
+    /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
+    #[inline(always)]
+    pub fn from_srgb(rgb: &Rgb<u8>) -> Self {
+        Xyz::from_rgb(rgb, &SRGB_TO_XYZ_D65, TransferFunction::Srgb)
+    }
+
+    /// This function converts from non-linear RGB components to XYZ
+    /// # Arguments
+    /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
+    /// * `transfer_function` - Transfer functions for current colorspace
+    #[inline(always)]
+    pub fn from_rgb(
+        rgb: &Rgb<u8>,
+        matrix: &[[f32; 3]; 3],
+        transfer_function: TransferFunction,
+    ) -> Self {
+        let linear_function = transfer_function.get_linearize_function();
+        let r = linear_function(rgb.r as f32 * XYZ_SCALE_U8);
+        let g = linear_function(rgb.g as f32 * XYZ_SCALE_U8);
+        let b = linear_function(rgb.b as f32 * XYZ_SCALE_U8);
         Self::new(
-            (0.4124 * r + 0.3576 * g + 0.1805 * b) * 100.0,
-            (0.2126 * r + 0.7152 * g + 0.0722 * b) * 100.0,
-            (0.0193 * r + 0.1192 * g + 0.9505 * b) * 100.0,
+            matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b,
+            matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b,
+            matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b,
         )
+    }
+
+    pub fn scaled(&self) -> (f32, f32, f32) {
+        (self.x * 100f32, self.y * 100f32, self.z * 100f32)
     }
 }
 
 impl Xyz {
-    pub(crate) fn to_rgb(&self) -> Rgb<u8> {
-        let x = self.x / 100.0;
-        let y = self.y / 100.0;
-        let z = self.z / 100.0;
-        let r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
-        let g = x * -0.9692660 + y * 1.8760108 + z * 0.0415560;
-        let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
-        let r = 255f32 * srgb_from_linear(r);
-        let g = 255f32 * srgb_from_linear(g);
-        let b = 255f32 * srgb_from_linear(b);
+    /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
+    pub fn to_srgb(&self) -> Rgb<u8> {
+        self.to_rgb(&XYZ_TO_SRGB_D65, TransferFunction::Srgb)
+    }
+
+    /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
+    /// # Arguments
+    /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
+    /// * `transfer_function` - Transfer functions for current colorspace
+    #[inline(always)]
+    pub fn to_rgb(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Rgb<u8> {
+        let gamma_function = transfer_function.get_gamma_function();
+        let x = self.x;
+        let y = self.y;
+        let z = self.z;
+        let r = x * matrix[0][0] + y * matrix[0][1] + z * matrix[0][2];
+        let g = x * matrix[1][0] + y * matrix[1][1] + z * matrix[1][2];
+        let b = x * matrix[2][0] + y * matrix[2][1] + z * matrix[2][2];
+        let r = 255f32 * gamma_function(r);
+        let g = 255f32 * gamma_function(g);
+        let b = 255f32 * gamma_function(b);
         Rgb::new(r as u8, g as u8, b as u8)
     }
 }

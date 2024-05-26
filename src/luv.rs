@@ -57,22 +57,19 @@ const WHITE_V_PRIME: f32 =
 
 const CUTOFF_FORWARD_Y: f32 = (6f32 / 29f32) * (6f32 / 29f32) * (6f32 / 29f32);
 const MULTIPLIER_FORWARD_Y: f32 = (29f32 / 3f32) * (29f32 / 3f32) * (29f32 / 3f32);
-const SCALE_XYZ_FORWARD: f32 = 1f32 / 100f32;
 const MULTIPLIER_INVERSE_Y: f32 = (3f32 / 29f32) * (3f32 / 29f32) * (3f32 / 29f32);
 impl Luv {
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
-        let xyz = Xyz::from_rgb(rgb);
-        let [x, y, z] = [
-            xyz.x * SCALE_XYZ_FORWARD,
-            xyz.y * SCALE_XYZ_FORWARD,
-            xyz.z * SCALE_XYZ_FORWARD,
-        ];
+        let xyz = Xyz::from_srgb(rgb);
+        let [x, y, z] = [xyz.x, xyz.y, xyz.z];
 
         let l = (if y < CUTOFF_FORWARD_Y {
             MULTIPLIER_FORWARD_Y * y
         } else {
             116f32 * y.cbrt() - 16f32
-        }).min(100f32).max(0f32);
+        })
+        .min(100f32)
+        .max(0f32);
         let u_prime = 4.0 * x / (x + 15.0 * y + 3.0 * z);
         let v_prime = 9.0 * y / (x + 15.0 * y + 3.0 * z);
         let u = 13f32 * l * (u_prime - WHITE_U_PRIME);
@@ -88,7 +85,7 @@ impl Luv {
     #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
         if self.l <= 0f32 {
-            return Xyz::new(0f32, 0f32, 0f32).to_rgb();
+            return Xyz::new(0f32, 0f32, 0f32).to_srgb();
         }
         let l13 = 1f32 / (13f32 * self.l);
         let u = self.u * l13 + WHITE_U_PRIME;
@@ -102,11 +99,7 @@ impl Luv {
         let x = y * 9f32 * u * den;
         let z = y * (12.0 - 3.0 * u - 20.0 * v) * den;
 
-        Xyz::new(
-            Xyz::saturate_x(x * 100f32),
-            Xyz::saturate_y(y * 100f32),
-            Xyz::saturate_z(z * 100f32),
-        ).to_rgb()
+        Xyz::new(x, y, z).to_srgb()
     }
 
     pub fn new(l: f32, u: f32, v: f32) -> Luv {
@@ -115,7 +108,6 @@ impl Luv {
 }
 
 impl LCh {
-
     #[allow(dead_code)]
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         LCh::from_luv(Luv::from_rgb(rgb))

@@ -25,18 +25,26 @@ impl Lab {
 
 impl Lab {
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
-        let xyz = Xyz::from_rgb(rgb);
-        let x = xyz.x / 95.047;
-        let y = xyz.y / 100.0;
-        let z = xyz.z / 108.883;
-        let x = if x > 0.008856 { x.cbrt() } else { 7.787 * x + 16.0 / 116.0 };
-        let y = if y > 0.008856 { y.cbrt() } else { 7.787 * y + 16.0 / 116.0 };
-        let z = if z > 0.008856 { z.cbrt() } else { 7.787 * z + 16.0 / 116.0 };
-        Self::new(
-            (116.0 * y) - 16.0,
-            500.0 * (x - y),
-            200.0 * (y - z)
-        )
+        let xyz = Xyz::from_srgb(rgb);
+        let x = xyz.x * 100f32 / 95.047;
+        let y = xyz.y * 100f32 / 100.0;
+        let z = xyz.z * 100f32 / 108.883;
+        let x = if x > 0.008856 {
+            x.cbrt()
+        } else {
+            7.787 * x + 16.0 / 116.0
+        };
+        let y = if y > 0.008856 {
+            y.cbrt()
+        } else {
+            7.787 * y + 16.0 / 116.0
+        };
+        let z = if z > 0.008856 {
+            z.cbrt()
+        } else {
+            7.787 * z + 16.0 / 116.0
+        };
+        Self::new((116.0 * y) - 16.0, 500.0 * (x - y), 200.0 * (y - z))
     }
 }
 
@@ -48,10 +56,25 @@ impl Lab {
         let x3 = x.powf(3.0);
         let y3 = y.powf(3.0);
         let z3 = z.powf(3.0);
-        let x = 95.047 * if x3 > 0.008856 { x3 } else { (x - 16.0 / 116.0) / 7.787 };
-        let y = 100.0 * if y3 > 0.008856 { y3 } else { (y - 16.0 / 116.0) / 7.787 };
-        let z = 108.883 * if z3 > 0.008856 { z3 } else { (z - 16.0 / 116.0) / 7.787 };
-        Xyz::new(x, y, z).to_rgb()
+        let x = 95.047
+            * if x3 > 0.008856 {
+                x3
+            } else {
+                (x - 16.0 / 116.0) / 7.787
+            };
+        let y = 100.0
+            * if y3 > 0.008856 {
+                y3
+            } else {
+                (y - 16.0 / 116.0) / 7.787
+            };
+        let z = 108.883
+            * if z3 > 0.008856 {
+                z3
+            } else {
+                (z - 16.0 / 116.0) / 7.787
+            };
+        Xyz::new(x / 100f32, y / 100f32, z / 100f32).to_srgb()
     }
 
     pub fn to_rgb(&self) -> Rgb<u8> {

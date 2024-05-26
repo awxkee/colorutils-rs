@@ -1,7 +1,7 @@
-use crate::Hsl;
 use crate::hsv::Hsv;
 use crate::lab::Lab;
 use crate::luv::Luv;
+use crate::Hsl;
 
 pub struct Rgb<T> {
     pub r: T,
@@ -26,6 +26,14 @@ impl Rgb<u8> {
 
     pub fn to_luv(&self) -> Luv {
         Luv::from_rgb(self)
+    }
+
+    pub fn to_rgb_f32(&self) -> Rgb<f32> {
+        Rgb::<f32>::new(
+            self.r as f32 * (1f32 / 255f32),
+            self.g as f32 * (1f32 / 255f32),
+            self.b as f32 * (1f32 / 255f32),
+        )
     }
 }
 

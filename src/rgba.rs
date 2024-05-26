@@ -81,12 +81,12 @@ pub trait ToRgbaF32 {
 
 impl ToRgbaF32 for Rgba<u8> {
     fn to_rgba_f32(&self) -> Rgba<f32> {
-        let scale_u8 = 1f32 / 255f32;
+        const SCALE_U8: f32 = 1f32 / 255f32;
         return Rgba::<f32>::new(
-            self.r as f32 * scale_u8,
-            self.g as f32 * scale_u8,
-            self.b as f32 * scale_u8,
-            self.a as f32 * scale_u8,
+            self.r as f32 * SCALE_U8,
+            self.g as f32 * SCALE_U8,
+            self.b as f32 * SCALE_U8,
+            self.a as f32 * SCALE_U8,
         );
     }
 }

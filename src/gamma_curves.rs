@@ -31,7 +31,7 @@ pub fn rec709_to_linear(gamma: f32) -> f32 {
         ((gamma + 0.09929682680944f32) / 1.09929682680944f32).powf(1.0f32 / 0.45f32)
     } else {
         1.0f32
-    }
+    };
 }
 
 pub fn rec709_from_linear(linear: f32) -> f32 {
@@ -43,5 +43,29 @@ pub fn rec709_from_linear(linear: f32) -> f32 {
         1.09929682680944f32 * linear.powf(0.45f32) - 0.09929682680944f32
     } else {
         1.0f32
+    };
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum TransferFunction {
+    Srgb,
+    Rec709,
+}
+
+impl TransferFunction {
+    #[inline(always)]
+    pub fn get_linearize_function(&self) -> fn(f32) -> f32 {
+        match self {
+            TransferFunction::Srgb => srgb_to_linear,
+            TransferFunction::Rec709 => rec709_to_linear,
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_gamma_function(&self) -> fn(f32) -> f32 {
+        match self {
+            TransferFunction::Srgb => srgb_from_linear,
+            TransferFunction::Rec709 => rec709_from_linear,
+        }
     }
 }
