@@ -68,7 +68,6 @@ pub unsafe fn vrintq_s32(d: float32x4_t) -> int32x4_t {
     ));
 }
 
-
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -140,6 +139,35 @@ pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
 ))]
 #[inline(always)]
 #[allow(dead_code)]
+/// High precision exp. ULP = 1.0
+pub unsafe fn vexpq_f32_ulp1(d: float32x4_t) -> float32x4_t {
+    let q = vrintq_s32(vmulq_f32(d, vdupq_n_f32(std::f32::consts::LOG2_E)));
+
+    let mut s = vmlafq_f32(vcvtq_f32_s32(q), vdupq_n_f32(-std::f32::consts::LN_2), d);
+    s = vmlafq_f32(vcvtq_f32_s32(q), vdupq_n_f32(-1.428606765330187045e-06f32), s);
+
+    let mut u = vdupq_n_f32(0.000198527617612853646278381f32);
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.00139304355252534151077271f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.00833336077630519866943359f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.0416664853692054748535156f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.166666671633720397949219f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.5f32));
+
+    u = vaddq_f32(vdupq_n_f32(1.0f32), vmlafq_f32(vmulq_f32(s, s), u, s));
+
+    u = vldexp2q_f32(u, q);
+
+    u = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(u), vcltq_f32(d, vdupq_n_f32(-104f32))));
+    u = vbslq_f32(vcltq_f32(vdupq_n_f32(100f32), d), vdupq_n_f32(f32::INFINITY), u);
+    u
+}
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+#[allow(dead_code)]
 pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
     let const_ln127 = vdupq_n_s32(127); // 127
     let const_ln2 = vdupq_n_f32(std::f32::consts::LN_2); // ln(2)
@@ -168,6 +196,53 @@ pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
     poly = prefer_vfmaq_f32(poly, vcvtq_f32_s32(m), const_ln2);
 
     return poly;
+}
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn visnanq_f32(x: float32x4_t) -> uint32x4_t { return vmvnq_u32(vceqq_f32(x, x)); }
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn vispinfq_f32(d: float32x4_t) -> uint32x4_t { return vceqq_f32(d, vdupq_n_f32(f32::INFINITY)); }
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+#[allow(dead_code)]
+/// High precision log ULP = 3.5
+pub unsafe fn vlogq_f32_ulp35(d: float32x4_t) -> float32x4_t {
+    let o = vceqq_f32(d, vdupq_n_f32(f32::MIN));
+    let m = (1i64 << 32i64) as f32;
+    let d = vbslq_f32(o, vmulq_f32(d, vdupq_n_f32(m * m)), d);
+    let e = vilogbk_vi2_vf(vmulq_f32(d, vdupq_n_f32(1.0f32/0.75f32)));
+    let m = vldexp2q_f32(d, vnegq_s32(e));
+    let e = vbslq_s32(o, vsubq_s32(e, vdupq_n_s32(64)), e);
+
+    let mut x = vdivq_f32(vsubq_f32(m, vdupq_n_f32(1.0f32)), vaddq_f32(vdupq_n_f32(1.0f32), m));
+    let x2 = vmulq_f32(x, x);
+
+    let mut t = vdupq_n_f32(0.2392828464508056640625f32);
+    t = vmlafq_f32(t, x2, vdupq_n_f32(0.28518211841583251953125f32));
+    t = vmlafq_f32(t, x2, vdupq_n_f32(0.400005877017974853515625f32));
+    t = vmlafq_f32(t, x2, vdupq_n_f32(0.666666686534881591796875f32));
+    t = vmlafq_f32(t, x2, vdupq_n_f32(2.0f32));
+
+    x = vmlafq_f32(x, t, vmulq_f32(vdupq_n_f32(std::f32::consts::LN_2), vcvtq_f32_s32(e)));
+    x = vbslq_f32(vispinfq_f32(d), vdupq_n_f32(f32::NAN), x);
+    x = vbslq_f32(vorrq_u32(vcltq_f32(d, vdupq_n_f32(0f32)), visnanq_f32(d)), vdupq_n_f32(f32::NAN), x);
+    x = vbslq_f32(vceqq_f32(d, vdupq_n_f32(0f32)), vdupq_n_f32(-f32::NAN), x);
+    return x;
 }
 
 #[cfg(all(
@@ -269,6 +344,9 @@ pub(crate) unsafe fn vmlafq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) 
 ))]
 #[inline(always)]
 #[allow(dead_code)]
+/// This is Cube Root using Pow functions,
+/// it also precise however due to of inexact nature of power 1/3 result slightly differ
+/// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
 pub unsafe fn vcbrtq_f32(d: float32x4_t) -> float32x4_t {
     vpowq_n_f32(d, 1f32 / 3f32)
 }

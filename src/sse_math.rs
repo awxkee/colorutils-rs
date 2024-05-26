@@ -238,6 +238,9 @@ pub(crate) unsafe fn _mm_neg_epi32(x: __m128i) -> __m128i {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
+/// This is Cube Root using Pow functions,
+/// it also precise however due to of inexact nature of power 1/3 result slightly differ
+/// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
 pub unsafe fn _mm_cbrt_ps(d: __m128) -> __m128 {
     _mm_pow_n_ps(d, 1f32 / 3f32)
 }

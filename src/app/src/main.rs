@@ -46,13 +46,13 @@ fn main() {
     //     _mm_storeu_ps(dst.as_mut_ptr() as *mut f32, ln);
     //     println!("{:?}", dst);
     // }
-    // #[cfg(target_arch = "aarch64")]
-    // unsafe {
-    //     let m = vdupq_n_f32(27f32);
-    //     let cbrt = vexpq_f32(m);
-    //     let l = vgetq_lane_f32::<0>(cbrt);
-    //     println!("Exp {}", l);
-    // }
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        let m = vdupq_n_f32(std::f32::consts::E);
+        let cbrt = vlogq_f32_ulp35(m);
+        let l = vgetq_lane_f32::<0>(cbrt);
+        println!("Exp {}", l);
+    }
 
     let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
