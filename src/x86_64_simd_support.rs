@@ -164,68 +164,34 @@ pub unsafe fn avx2_deinterleave_rgb(
     let s02_low = _mm256_permute2x128_si256::<32>(rgb0, rgb2);
     let s02_high = _mm256_permute2x128_si256::<49>(rgb0, rgb2);
 
-    #[rustfmt::skip]
-    let m0 = _mm256_setr_epi8(
-        0, 0, -1, 0, 0,
-        -1, 0, 0, -1, 0,
-        0, -1, 0, 0, -1,
-        0, 0, -1, 0, 0,
-        -1, 0, 0, -1, 0,
-        0, -1, 0, 0, -1,
-        0, 0,
-    );
+    let b0 = _mm256_blend_epi32::<0x92>(_mm256_blend_epi32::<0x24>(s02_low, s02_high), rgb1);
+    let g0 = _mm256_blend_epi32::<0x24>(_mm256_blend_epi32::<0x92>(s02_high, s02_low), rgb1);
+    let r0 = _mm256_blend_epi32::<0x92>(_mm256_blend_epi32::<0x24>(rgb1, s02_low), s02_high);
 
-    #[rustfmt::skip]
-    let m1 = _mm256_setr_epi8(
-        0, -1, 0, 0, -1,
-        0, 0, -1, 0, 0,
-        -1, 0, 0, -1, 0,
-        0, -1, 0, 0, -1,
-        0, 0, -1, 0, 0,
-        -1, 0, 0, -1, 0,
-        0, -1,
-    );
-
-    let b0 = _mm256_blendv_epi8(_mm256_blendv_epi8(s02_low, s02_high, m0), rgb1, m1);
-    let g0 = _mm256_blendv_epi8(_mm256_blendv_epi8(s02_high, s02_low, m1), rgb1, m0);
-    let r0 = _mm256_blendv_epi8(_mm256_blendv_epi8(rgb1, s02_low, m0), s02_high, m1);
-
-    #[rustfmt::skip]
-    let sh_b = _mm256_setr_epi8(
-        0, 3, 6, 9, 12,
-        15, 2, 5, 8, 11,
-        14, 1, 4, 7, 10,
-        13, 0, 3, 6, 9,
-        12, 15, 2, 5, 8,
-        11, 14, 1, 4, 7,
-        10, 13,
-    );
-
-    #[rustfmt::skip]
-    let sh_g = _mm256_setr_epi8(
-        1, 4, 7, 10, 13,
-        0, 3, 6, 9, 12,
-        15, 2, 5, 8, 11,
-        14, 1, 4, 7, 10,
-        13, 0, 3, 6, 9,
-        12, 15, 2, 5, 8,
-        11, 14,
-    );
-
-    #[rustfmt::skip]
-    let sh_r = _mm256_setr_epi8(
-        2, 5, 8, 11, 14,
-        1, 4, 7, 10, 13,
-        0, 3, 6, 9, 12,
-        15, 2, 5, 8, 11,
-        14, 1, 4, 7, 10,
-        13, 0, 3, 6, 9,
-        12, 15,
-    );
-    let b0 = _mm256_shuffle_epi8(b0, sh_b);
-    let g0 = _mm256_shuffle_epi8(g0, sh_g);
-    let r0 = _mm256_shuffle_epi8(r0, sh_r);
+    let b0 = _mm256_shuffle_epi32::<0x6c>(b0);
+    let g0 = _mm256_shuffle_epi32::<0xb1>(g0);
+    let r0 = _mm256_shuffle_epi32::<0xc6>(r0);
     (b0, g0, r0)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_deinterleave_rgb_ps(
+    rgb0: __m256,
+    rgb1: __m256,
+    rgb2: __m256,
+) -> (__m256, __m256, __m256) {
+    let (r, g, b) = avx2_deinterleave_rgb(
+        _mm256_castps_si256(rgb0),
+        _mm256_castps_si256(rgb1),
+        _mm256_castps_si256(rgb2),
+    );
+    (
+        _mm256_castsi256_ps(r),
+        _mm256_castsi256_ps(g),
+        _mm256_castsi256_ps(b),
+    )
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -292,7 +258,12 @@ pub unsafe fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i, a: __m256i) {
+pub unsafe fn avx2_interleave_rgba(
+    r: __m256i,
+    g: __m256i,
+    b: __m256i,
+    a: __m256i,
+) -> (__m256i, __m256i, __m256i, __m256i) {
     let bg0 = _mm256_unpacklo_epi8(r, g);
     let bg1 = _mm256_unpackhi_epi8(r, g);
     let ra0 = _mm256_unpacklo_epi8(b, a);
@@ -307,6 +278,37 @@ pub unsafe fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256
     let rgba2 = _mm256_permute2x128_si256::<49>(rgba0_, rgba1_);
     let rgba1 = _mm256_permute2x128_si256::<32>(rgba2_, rgba3_);
     let rgba3 = _mm256_permute2x128_si256::<49>(rgba2_, rgba3_);
+    (rgba0, rgba1, rgba2, rgba3)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_interleave_rgba_ps(
+    r: __m256,
+    g: __m256,
+    b: __m256,
+    a: __m256,
+) -> (__m256, __m256, __m256, __m256) {
+    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba(
+        _mm256_castps_si256(r),
+        _mm256_castps_si256(g),
+        _mm256_castps_si256(b),
+        _mm256_castps_si256(a),
+    );
+    (
+        _mm256_castsi256_ps(rgba0),
+        _mm256_castsi256_ps(rgba1),
+        _mm256_castsi256_ps(rgba2),
+        _mm256_castsi256_ps(rgba3),
+    )
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i, a: __m256i) {
+    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba(r, g, b, a);
 
     _mm256_storeu_si256(ptr as *mut __m256i, rgba0);
     _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgba1);

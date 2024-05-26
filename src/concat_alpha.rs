@@ -1,16 +1,17 @@
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::x86_64_simd_support::{sse_deinterleave_rgb_ps, sse_interleave_ps_rgba};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 #[allow(unused_imports)]
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::{sse_deinterleave_rgb_ps, sse_interleave_ps_rgba};
+use crate::x86_64_simd_support::{avx2_deinterleave_rgb_ps, avx2_interleave_rgba_ps};
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(
@@ -27,6 +28,22 @@ pub fn append_alpha(
     let mut src_offset = 0usize;
     let mut a_offset = 0usize;
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut use_sse = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut use_avx = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    {
+        if is_x86_feature_detected!("sse4.1") {
+            use_sse = true;
+        }
+        if is_x86_feature_detected!("avx2") {
+            use_avx = true;
+        }
+    }
+
     for _ in 0..height {
         let mut cx = 0usize;
 
@@ -39,21 +56,44 @@ pub fn append_alpha(
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
-            while cx + 4 < width as usize {
-                let xyz_chan_ptr = src_ptr.add(cx * 3usize);
-                let a_chan_ptr = a_ptr.add(cx);
-                let xyz0= _mm_loadu_ps(xyz_chan_ptr);
-                let xyz1= _mm_loadu_ps(xyz_chan_ptr.add(4));
-                let xyz2= _mm_loadu_ps(xyz_chan_ptr.add(8));
-                let a_pixel = _mm_loadu_ps(a_chan_ptr);
-                let (x_p, y_p, z_p) = sse_deinterleave_rgb_ps(xyz0, xyz1, xyz2);
-                let (xyza0, xyza1, xyza2, xyza3) = sse_interleave_ps_rgba(x_p, y_p, z_p, a_pixel);
-                let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
-                _mm_storeu_ps(xyza_chan_ptr, xyza0);
-                _mm_storeu_ps(xyza_chan_ptr.add(4), xyza1);
-                _mm_storeu_ps(xyza_chan_ptr.add(8), xyza2);
-                _mm_storeu_ps(xyza_chan_ptr.add(12), xyza3);
-                cx += 4;
+            if use_avx {
+                while cx + 8 < width as usize {
+                    let xyz_chan_ptr = src_ptr.add(cx * 3usize);
+                    let a_chan_ptr = a_ptr.add(cx);
+                    let xyz0 = _mm256_loadu_ps(xyz_chan_ptr);
+                    let xyz1 = _mm256_loadu_ps(xyz_chan_ptr.add(8));
+                    let xyz2 = _mm256_loadu_ps(xyz_chan_ptr.add(16));
+                    let a_pixel = _mm256_loadu_ps(a_chan_ptr);
+                    let (x_p, y_p, z_p) = avx2_deinterleave_rgb_ps(xyz0, xyz1, xyz2);
+
+                    let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
+
+                    let (xyza0, xyza1, xyza2, xyza3) = avx2_interleave_rgba_ps(x_p, y_p, z_p, a_pixel);
+                    _mm256_store_ps(xyza_chan_ptr, xyza0);
+                    _mm256_store_ps(xyza_chan_ptr.add(8), xyza1);
+                    _mm256_store_ps(xyza_chan_ptr.add(16), xyza2);
+                    _mm256_store_ps(xyza_chan_ptr.add(32), xyza3);
+                    cx += 8;
+                }
+            }
+            if use_sse {
+                while cx + 4 < width as usize {
+                    let xyz_chan_ptr = src_ptr.add(cx * 3usize);
+                    let a_chan_ptr = a_ptr.add(cx);
+                    let xyz0 = _mm_loadu_ps(xyz_chan_ptr);
+                    let xyz1 = _mm_loadu_ps(xyz_chan_ptr.add(4));
+                    let xyz2 = _mm_loadu_ps(xyz_chan_ptr.add(8));
+                    let a_pixel = _mm_loadu_ps(a_chan_ptr);
+                    let (x_p, y_p, z_p) = sse_deinterleave_rgb_ps(xyz0, xyz1, xyz2);
+                    let (xyza0, xyza1, xyza2, xyza3) =
+                        sse_interleave_ps_rgba(x_p, y_p, z_p, a_pixel);
+                    let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
+                    _mm_storeu_ps(xyza_chan_ptr, xyza0);
+                    _mm_storeu_ps(xyza_chan_ptr.add(4), xyza1);
+                    _mm_storeu_ps(xyza_chan_ptr.add(8), xyza2);
+                    _mm_storeu_ps(xyza_chan_ptr.add(12), xyza3);
+                    cx += 4;
+                }
             }
         }
 
