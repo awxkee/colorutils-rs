@@ -279,8 +279,8 @@ pub unsafe fn vcbrtq_f32(d: float32x4_t) -> float32x4_t {
 ))]
 #[inline(always)]
 #[allow(dead_code)]
-/// Precise version of Cube Root with ULP 1.0
-pub unsafe fn vcbrtq_f32_ulp1(d: float32x4_t) -> float32x4_t {
+/// Precise version of Cube Root with ULP 3.5
+pub unsafe fn vcbrtq_f32_ulp35(d: float32x4_t) -> float32x4_t {
     let mut q = vdupq_n_f32(1f32);
     let e = vaddq_s32(vilogbk_vi2_vf(vabsq_f32(d)), vdupq_n_s32(1));
     let mut d = vldexp2q_f32(d, vnegq_s32(e));

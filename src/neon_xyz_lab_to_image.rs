@@ -1,7 +1,18 @@
+#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
+#[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_linear_to_image::get_neon_gamma_transfer;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_math::vcolorq_matrix_f32;
+#[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),

@@ -245,8 +245,8 @@ pub unsafe fn _mm_cbrt_ps(d: __m128) -> __m128 {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-/// Precise version of Cube Root, ULP 1.0
-pub unsafe fn _mm_cbrt_ps_ulp1(d: __m128) -> __m128 {
+/// Precise version of Cube Root, ULP 3.5
+pub unsafe fn _mm_cbrt_ps_ulp35(d: __m128) -> __m128 {
     let mut q = _mm_set1_ps(1f32);
     let e = _mm_add_epi32(_mm_vilogbk_ps(_mm_abs_ps(d)), _mm_set1_epi32(1));
     let mut d = _mm_vldexp2_ps(d, _mm_neg_epi32(e));

@@ -24,6 +24,7 @@ mod linear_to_image;
 mod neon_linear_to_image;
 mod sse_linear_to_image;
 mod neon_xyz_lab_to_image;
+mod concat_alpha;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;
@@ -57,4 +58,4 @@ pub use xyz_lab_to_image::lab_to_srgb;
 pub use xyz_lab_to_image::xyz_to_srgb;
 pub use image_to_linear::*;
 pub use linear_to_image::*;
-pub use neon_math::vexpq_f32;
+pub use concat_alpha::append_alpha;
