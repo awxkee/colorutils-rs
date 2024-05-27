@@ -27,6 +27,7 @@ mod neon_xyz_lab_to_image;
 mod concat_alpha;
 mod avx_math;
 mod avx_gamma_curves;
+mod rgb_expand;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;
@@ -62,5 +63,4 @@ pub use image_to_linear::*;
 pub use linear_to_image::*;
 pub use concat_alpha::append_alpha;
 
-pub use neon_math::vexpq_f32_ulp1;
-pub use neon_math::vlogq_f32_ulp35;
+pub use rgb_expand::*;

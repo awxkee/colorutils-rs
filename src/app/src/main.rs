@@ -16,22 +16,6 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
     ((z << 6) | (y << 4) | (x << 2) | w) as i32
 }
 
-fn rgb_to_rgba(vec: &[u8], width: u32, height: u32) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    bytes.resize(height as usize * width as usize * 4usize, 0u8);
-    let src_stride = width as usize * 3;
-    let dst_stride = width as usize * 4;
-    for y in 0..height as usize {
-        for x in 0..width as usize {
-            bytes[dst_stride * y + x * 4] = vec[src_stride * y + x * 3];
-            bytes[dst_stride * y + x * 4 + 1] = vec[src_stride * y + x * 3 + 1];
-            bytes[dst_stride * y + x * 4 + 2] = vec[src_stride * y + x * 3 + 2];
-            bytes[dst_stride * y + x * 4 + 3] = 255;
-        }
-    }
-    bytes
-}
-
 fn main() {
     // #[cfg(target_arch = "x86_64")]
     // unsafe {
@@ -46,13 +30,13 @@ fn main() {
     //     _mm_storeu_ps(dst.as_mut_ptr() as *mut f32, ln);
     //     println!("{:?}", dst);
     // }
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        let m = vdupq_n_f32(std::f32::consts::E);
-        let cbrt = vlogq_f32_ulp35(m);
-        let l = vgetq_lane_f32::<0>(cbrt);
-        println!("Exp {}", l);
-    }
+    // #[cfg(target_arch = "aarch64")]
+    // unsafe {
+    //     let m = vdupq_n_f32(std::f32::consts::E);
+    //     let cbrt = vlogq_f32_ulp35(m);
+    //     let l = vgetq_lane_f32::<0>(cbrt);
+    //     println!("Exp {}", l);
+    // }
 
     let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
@@ -67,7 +51,17 @@ fn main() {
     let height = dimensions.1;
     let components = 3;
 
-    // let rgba = &rgb_to_rgba(&src_bytes, width, height);
+    let mut dst_rgba = vec![];
+    dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
+    // let rgba = &rgb_to_rgba(
+    //     &src_bytes,
+    //     3u32 * width,
+    //     &mut dst_rgba,
+    //     4u32 * width,
+    //     width,
+    //     height,
+    //     255,
+    // );
     // src_bytes = rgba;
 
     let mut xyz: Vec<f32> = vec![];

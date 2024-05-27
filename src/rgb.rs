@@ -29,10 +29,11 @@ impl Rgb<u8> {
     }
 
     pub fn to_rgb_f32(&self) -> Rgb<f32> {
+        const SCALE: f32 = 1f32 / 255f32;
         Rgb::<f32>::new(
-            self.r as f32 * (1f32 / 255f32),
-            self.g as f32 * (1f32 / 255f32),
-            self.b as f32 * (1f32 / 255f32),
+            self.r as f32 * SCALE,
+            self.g as f32 * SCALE,
+            self.b as f32 * SCALE,
         )
     }
 }
