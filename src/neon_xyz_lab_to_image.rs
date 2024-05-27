@@ -245,7 +245,7 @@ pub unsafe fn neon_xyz_to_channels<
         let g_row = vcombine_u8(vqmovn_u16(g_row01), vqmovn_u16(g_row23));
         let b_row = vcombine_u8(vqmovn_u16(b_row01), vqmovn_u16(b_row23));
 
-        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+        let dst_ptr = dst.add(dst_offset + cx * channels);
         
         if USE_ALPHA {
             let offset_a_src_ptr =
