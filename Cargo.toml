@@ -4,7 +4,7 @@ workspace = { members = ["src/app"] }
 name = "colorutils-rs"
 version = "0.2.0"
 edition = "2021"
-description = "Rust utilities for color format handling and conversion."
+description = "Hig performance utilities for color format handling and conversion."
 readme = "README.md"
 keywords = ["lab", "hsv", "xyz", "luv", "hsl"]
 license = "Apache-2.0 OR BSD-3-Clause"
