@@ -35,10 +35,10 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     let mut _has_sse = false;
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if is_x86_feature_detected!("sse4.1") {
         _has_sse = true;
     }
