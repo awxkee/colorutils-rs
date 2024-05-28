@@ -65,7 +65,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
-        #[cfg(feature = "avx2")]
+        #[cfg(target_feature = "avx2")]
         if is_x86_feature_detected!("avx2") {
             _has_avx2 = true;
         }

@@ -24,18 +24,19 @@ pub fn rgb_to_rgba(
     let mut src_offset = 0usize;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut use_sse = false;
+    let mut _use_sse = false;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut use_avx = false;
+    let mut _use_avx = false;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
         if is_x86_feature_detected!("sse4.1") {
-            use_sse = true;
+            _use_sse = true;
         }
+        #[cfg(target_feature = "avx2")]
         if is_x86_feature_detected!("avx2") {
-            use_avx = true;
+            _use_avx = true;
         }
     }
 
@@ -47,7 +48,7 @@ pub fn rgb_to_rgba(
         unsafe {
             let src_ptr = src.as_ptr().add(src_offset);
             let dst_ptr = dst.as_mut_ptr().add(dst_offset);
-            if use_avx {
+            if _use_avx {
                 let v_alpha = _mm256_set1_epi8(default_alpha as i8);
                 while cx + 32 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(cx * 3usize);
@@ -66,7 +67,7 @@ pub fn rgb_to_rgba(
                     cx += 32;
                 }
             }
-            if use_sse {
+            if _use_sse {
                 let v_alpha = _mm_set1_epi8(default_alpha as i8);
                 while cx + 16 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(cx * 3usize);
@@ -105,7 +106,7 @@ pub fn rgb_to_rgba(
             dst[dst_offset + x * 4] = src[src_offset + x * 3];
             dst[dst_offset + x * 4 + 1] = src[src_offset + x * 3 + 1];
             dst[dst_offset + x * 4 + 2] = src[src_offset + x * 3 + 2];
-            dst[dst_offset + x * 4 + 3] = 255;
+            dst[dst_offset + x * 4 + 3] = default_alpha;
         }
 
         dst_offset += dst_stride as usize;
