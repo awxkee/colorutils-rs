@@ -4,14 +4,21 @@ use std::arch::x86_64::*;
 use std::arch::x86::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(not(target_feature = "fma"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
-    #[cfg(target_feature = "fma")]
-    return _mm256_fmadd_ps(b, c, a);
-    #[allow(dead_code)]
     return _mm256_add_ps(_mm256_mul_ps(b, c), a);
 }
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(target_feature = "fma")]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
+    return _mm256_fmadd_ps(b, c, a);
+}
+
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]

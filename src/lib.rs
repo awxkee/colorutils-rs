@@ -28,6 +28,8 @@ mod concat_alpha;
 mod avx_math;
 mod avx_gamma_curves;
 mod rgb_expand;
+mod avx2_to_xyz_lab;
+mod avx2_utils;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;

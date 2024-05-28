@@ -4,17 +4,23 @@ use std::arch::x86_64::*;
 use std::arch::x86::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[cfg(not(target_feature = "fma"))]
+#[inline]
 #[allow(dead_code)]
 pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
-    #[cfg(target_feature = "fma")]
     return _mm_fmadd_ps(b, c, a);
-    #[allow(dead_code)]
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(target_feature = "fma")]
+#[inline]
+#[allow(dead_code)]
+pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     return _mm_add_ps(_mm_mul_ps(b, c), a);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
 #[allow(dead_code)]
 unsafe fn _mm_taylorpoly_ps(
     x: __m128,

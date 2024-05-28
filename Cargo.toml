@@ -2,11 +2,11 @@ workspace = { members = ["src/app"] }
 
 [package]
 name = "colorutils-rs"
-version = "0.1.4"
+version = "0.2.0"
 edition = "2021"
 description = "Rust utilities for color format handling and conversion."
 readme = "README.md"
-keywords = ["yuv"]
+keywords = ["lab", "hsv", "xyz", "luv", "hsl"]
 license = "Apache-2.0 OR BSD-3-Clause"
 authors = ["Radzivon Bartoshyk"]
 documentation = "https://github.com/awxkee/colorutils-rs"
@@ -17,3 +17,7 @@ exclude = ["*.jpg"]
 
 [dependencies]
 half = "2.4.1"
+
+[features]
+default = []
+avx2 = []

@@ -283,32 +283,28 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
 
             let u8_scale = _mm_set1_ps(1f32 / 255f32);
 
-            let mut a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
+            let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
 
-            a_low_low = transfer(a_low_low);
             _mm_storeu_ps(a_ptr.add(cx), a_low_low);
 
-            let mut a_low_high = _mm_mul_ps(
+            let a_low_high = _mm_mul_ps(
                 _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_srli_si128::<8>(a_low))),
                 u8_scale,
             );
 
-            a_low_high = transfer(a_low_high);
             _mm_storeu_ps(a_ptr.add(cx + 4), a_low_high);
 
             let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
 
-            let mut a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
+            let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
 
-            a_high_low = transfer(a_high_low);
             _mm_storeu_ps(a_ptr.add(cx + 4 * 2), a_high_low);
 
-            let mut a_high_high = _mm_mul_ps(
+            let a_high_high = _mm_mul_ps(
                 _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_srli_si128::<8>(a_high))),
                 u8_scale,
             );
 
-            a_high_high = transfer(a_high_high);
             _mm_storeu_ps(a_ptr.add(cx + 4 * 3), a_high_high);
         }
 

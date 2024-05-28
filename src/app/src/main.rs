@@ -46,7 +46,7 @@ fn main() {
     println!("dimensions {:?}", img.dimensions());
 
     println!("{:?}", img.color());
-    let mut src_bytes = img.as_bytes();
+    let src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
     let components = 3;
@@ -70,7 +70,7 @@ fn main() {
     let mut a_plane: Vec<f32> = vec![];
     a_plane.resize(width as usize * height as usize, 0f32);
 
-    for i in 0..10 {
+    for i in 0..1 {
         let start_time = Instant::now();
         // srgba_to_xyza(
         //     src_bytes,

@@ -10,6 +10,9 @@ use crate::neon_to_xyz_lab::neon_channels_to_xyz_or_lab;
 use crate::sse_to_xyz_lab::sse_channels_to_xyz_or_lab;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[allow(unused_imports)]
+use crate::avx2_to_xyz_lab::*;
 
 pub(crate) enum XyzTarget {
     LAB = 0,
@@ -56,11 +59,19 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
     let channels = image_configuration.get_channels_count();
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut has_sse = false;
+    let mut _has_sse = false;
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_avx2 = false;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("sse4.1") {
-        has_sse = true;
+    {
+        #[cfg(feature = "avx2")]
+        if is_x86_feature_detected!("avx2") {
+            _has_avx2 = true;
+        }
+        if is_x86_feature_detected!("sse4.1") {
+            _has_sse = true;
+        }
     }
 
     for _ in 0..height as usize {
@@ -69,7 +80,35 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
-            if has_sse {
+            if _has_avx2 {
+                if USE_ALPHA {
+                    cx = avx2_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        a_channel.as_mut_ptr(),
+                        a_offset,
+                        &matrix,
+                        transfer_function,
+                    );
+                } else {
+                    cx = avx2_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        std::ptr::null_mut(),
+                        0usize,
+                        &matrix,
+                        transfer_function,
+                    );
+                }
+            } else if _has_sse {
                 if USE_ALPHA {
                     cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
                         cx,
