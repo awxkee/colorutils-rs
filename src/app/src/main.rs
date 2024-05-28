@@ -46,26 +46,26 @@ fn main() {
     println!("dimensions {:?}", img.dimensions());
 
     println!("{:?}", img.color());
-    let src_bytes = img.as_bytes();
+    let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
-    let components = 3;
+    let components = 4;
 
     let mut dst_rgba = vec![];
     dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
-    // let rgba = &rgb_to_rgba(
-    //     &src_bytes,
-    //     3u32 * width,
-    //     &mut dst_rgba,
-    //     4u32 * width,
-    //     width,
-    //     height,
-    //     255,
-    // );
-    // src_bytes = rgba;
+    rgb_to_rgba(
+        &src_bytes,
+        3u32 * width,
+        &mut dst_rgba,
+        4u32 * width,
+        width,
+        height,
+        255,
+    );
+    src_bytes = &dst_rgba;
 
     let mut xyz: Vec<f32> = vec![];
-    xyz.resize(3 * width as usize * height as usize, 0f32);
+    xyz.resize(4 * width as usize * height as usize, 0f32);
 
     let mut a_plane: Vec<f32> = vec![];
     a_plane.resize(width as usize * height as usize, 0f32);
@@ -82,15 +82,7 @@ fn main() {
         //     width,
         //     height,
         // );
-        rgb_to_lab(
-            src_bytes,
-            width * components,
-            &mut xyz,
-            width * 3 * std::mem::size_of::<f32>() as u32,
-            width,
-            height,
-        );
-        // rgb_to_linear(
+        // rgba_to_linear(
         //     src_bytes,
         //     width * components,
         //     &mut xyz,
@@ -99,6 +91,15 @@ fn main() {
         //     height,
         //     TransferFunction::Srgb,
         // );
+        rgba_to_linear(
+            src_bytes,
+            width * components,
+            &mut xyz,
+            width * 4 * std::mem::size_of::<f32>() as u32,
+            width,
+            height,
+            TransferFunction::Srgb,
+        );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
         println!("sRGB to XYZ: {:.2?}", elapsed_time);
@@ -117,13 +118,14 @@ fn main() {
     //     height,
     // );
 
-    lab_to_srgb(
+    linear_to_rgba(
         &xyz,
-        width * 3 * std::mem::size_of::<f32>() as u32,
+        width * 4 * std::mem::size_of::<f32>() as u32,
         &mut dst_bytes,
         width * components,
         width,
         height,
+        TransferFunction::Srgb,
     );
 
     // linear_to_rgb(

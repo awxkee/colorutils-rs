@@ -156,7 +156,7 @@ pub fn linear_to_rgba(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    linear_to_gamma_channels::<{ ImageConfiguration::Rgba as u8 }, false>(
+    linear_to_gamma_channels::<{ ImageConfiguration::Rgba as u8 }, true>(
         src,
         src_stride,
         dst,

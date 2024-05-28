@@ -157,7 +157,7 @@ pub fn rgba_to_linear(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_linear::<{ ImageConfiguration::Rgba as u8 }, false>(
+    channels_to_linear::<{ ImageConfiguration::Rgba as u8 }, true>(
         src,
         src_stride,
         dst,
