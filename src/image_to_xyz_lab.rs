@@ -463,6 +463,41 @@ pub fn srgba_to_xyza(
     );
 }
 
+/// This function converts RGBA to CIE L*ab against D65 white point without alpha. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGBA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `a_plane` - A mutable slice to receive XYZ data
+/// * `a_stride` - Bytes per row for dst data
+pub fn rgba_to_lab(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    a_plane: &mut [f32],
+    a_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { LAB as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        a_plane,
+        a_stride,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
 /// This function converts RGBA to CIE L*ab against D65 white point and preserving and normalizing alpha channels. This is much more effective than naive direct transformation
 ///
 /// # Arguments

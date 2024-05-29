@@ -64,6 +64,20 @@ fn main() {
     );
     src_bytes = &dst_rgba;
 
+    // {
+    //     let mut store: Vec<f32> = vec![];
+    //     let store_stride = width as usize * 3usize * std::mem::size_of::<f32>();
+    //     store.resize(width as usize * 3usize * height as usize, 0f32);
+    //     let mut alpha_store: Vec<f32> = vec![];
+    //     let alpha_stride = width as usize * std::mem::size_of::<f32>();
+    //     alpha_store.resize(width as usize * height as usize, 0f32);
+    //     rgba_to_laba(src_bytes, 4u32 * width, &mut store, store_stride as u32, &mut alpha_store, alpha_stride as u32, width, height);
+    //     let mut destination: Vec<f32> = vec![];
+    //     destination.resize(width as usize * height as usize * 4, 0f32);
+    //     let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
+    //     append_alpha(&mut destination, dst_stride, &store, store_stride as u32, &alpha_store, alpha_stride as u32, width, height);
+    // }
+
     let mut xyz: Vec<f32> = vec![];
     xyz.resize(4 * width as usize * height as usize, 0f32);
 

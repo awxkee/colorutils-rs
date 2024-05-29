@@ -58,6 +58,7 @@ pub use image_to_xyz_lab::rgba_to_laba;
 pub use image_to_xyz_lab::bgra_to_laba;
 pub use image_to_xyz_lab::bgr_to_lab;
 pub use image_to_xyz_lab::srgb_to_xyz;
+pub use image_to_xyz_lab::rgba_to_lab;
 pub use xyz_lab_to_image::xyz_to_rgb;
 pub use xyz_lab_to_image::lab_to_srgb;
 pub use xyz_lab_to_image::xyz_to_srgb;

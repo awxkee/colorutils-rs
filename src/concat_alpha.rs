@@ -53,7 +53,7 @@ pub fn append_alpha(
         let a_ptr = unsafe { (a_plane.as_ptr() as *const u8).add(a_offset) as *const f32 };
         let a_slice = unsafe { slice::from_raw_parts(a_ptr, width as usize) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize) };
+        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * 4) };
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
