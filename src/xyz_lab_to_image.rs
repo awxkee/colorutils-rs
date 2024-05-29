@@ -1,6 +1,5 @@
 use std::slice;
 
-use crate::{Lab, Xyz, XYZ_TO_SRGB_D65};
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
@@ -10,6 +9,7 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
     target_feature = "neon"
 ))]
 use crate::neon_xyz_lab_to_image::neon_xyz_to_channels;
+use crate::{Lab, Xyz, XYZ_TO_SRGB_D65};
 
 fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
     src: &[f32],
@@ -105,7 +105,8 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                     unsafe { (a_channel.as_ptr() as *const u8).add(a_offset) as *const f32 };
                 let a_slice = unsafe { slice::from_raw_parts(a_ptr, width as usize) };
                 let a_value = ((a_slice[x]) * 255f32).max(0f32);
-                dst_slice[x * channels + image_configuration.get_a_channel_offset()] = a_value as u8;
+                dst_slice[x * channels + image_configuration.get_a_channel_offset()] =
+                    a_value as u8;
             }
         }
 
@@ -212,5 +213,77 @@ pub fn lab_to_srgb(
         height,
         &XYZ_TO_SRGB_D65,
         TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LAB with separate alpha channel to RGBA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `a_plane` - A slice contains Alpha data
+/// * `a_stride` - Bytes per row for alpha plane data
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn laba_to_srgb(
+    src: &[f32],
+    src_stride: u32,
+    a_plane: &[f32],
+    a_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { LAB as u8 }>(
+        src,
+        src_stride,
+        &a_plane,
+        a_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts XYZ with separate alpha channel to RGBA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `a_plane` - A slice contains Alpha data
+/// * `a_stride` - Bytes per row for alpha plane data
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn xyza_to_rgba(
+    src: &[f32],
+    src_stride: u32,
+    a_plane: &[f32],
+    a_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
+) {
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XYZ as u8 }>(
+        src,
+        src_stride,
+        &a_plane,
+        a_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        matrix,
+        transfer_function,
     );
 }

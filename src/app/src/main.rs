@@ -1,8 +1,6 @@
 use colorutils_rs::*;
 use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem::transmute;

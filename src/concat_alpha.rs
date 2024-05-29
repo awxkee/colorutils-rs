@@ -30,18 +30,18 @@ pub fn append_alpha(
     let mut a_offset = 0usize;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut use_sse = false;
+    let mut _use_sse = false;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut use_avx = false;
+    let mut _use_avx = false;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
         if is_x86_feature_detected!("sse4.1") {
-            use_sse = true;
+            _use_sse = true;
         }
         if is_x86_feature_detected!("avx2") {
-            use_avx = true;
+            _use_avx = true;
         }
     }
 
@@ -57,7 +57,7 @@ pub fn append_alpha(
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
-            if use_avx {
+            if _use_avx {
                 while cx + 8 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(cx * 3usize);
                     let a_chan_ptr = a_ptr.add(cx);
@@ -77,7 +77,7 @@ pub fn append_alpha(
                     cx += 8;
                 }
             }
-            if use_sse {
+            if _use_sse {
                 while cx + 4 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(cx * 3usize);
                     let a_chan_ptr = a_ptr.add(cx);

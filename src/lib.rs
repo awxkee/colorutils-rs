@@ -62,6 +62,8 @@ pub use image_to_xyz_lab::rgba_to_lab;
 pub use xyz_lab_to_image::xyz_to_rgb;
 pub use xyz_lab_to_image::lab_to_srgb;
 pub use xyz_lab_to_image::xyz_to_srgb;
+pub use xyz_lab_to_image::laba_to_srgb;
+pub use xyz_lab_to_image::xyza_to_rgba;
 pub use image_to_linear::*;
 pub use linear_to_image::*;
 pub use concat_alpha::append_alpha;
