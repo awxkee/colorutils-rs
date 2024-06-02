@@ -4,10 +4,6 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use crate::{Lab, Xyz, XYZ_TO_SRGB_D65};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
