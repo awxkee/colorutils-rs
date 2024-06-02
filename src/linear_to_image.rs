@@ -7,9 +7,9 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon_linear_to_image::neon_linear_to_gamma;
-use crate::Rgb;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse_linear_to_image::sse_linear_to_gamma;
+use crate::Rgb;
 
 #[inline(always)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -85,20 +85,32 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
         for x in cx..width as usize {
             let px = x * channels;
-            let r = src_slice[px + image_configuration.get_r_channel_offset()];
-            let g = src_slice[px + image_configuration.get_g_channel_offset()];
-            let b = src_slice[px + image_configuration.get_b_channel_offset()];
+            let r = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+            };
+            let g = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+            };
+            let b = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+            };
 
             let rgb = Rgb::<f32>::new(r, g, b);
 
-            dst_slice[px] = (transfer(rgb.r) * 255f32) as u8;
-            dst_slice[px + 1] = (transfer(rgb.g) * 255f32) as u8;
-            dst_slice[px + 2] = (transfer(rgb.b) * 255f32) as u8;
+            unsafe {
+                *dst_slice.get_unchecked_mut(px) = (transfer(rgb.r) * 255f32) as u8;
+                *dst_slice.get_unchecked_mut(px + 1) = (transfer(rgb.g) * 255f32) as u8;
+                *dst_slice.get_unchecked_mut(px + 2) = (transfer(rgb.b) * 255f32) as u8;
+            }
 
             if USE_ALPHA && image_configuration.has_alpha() {
-                let a = src_slice[px + image_configuration.get_a_channel_offset()];
+                let a = unsafe {
+                    *src_slice.get_unchecked(px + image_configuration.get_a_channel_offset())
+                };
                 let a_lin = (a * 255f32) as u8;
-                dst_slice[px + 3] = a_lin;
+                unsafe {
+                    *dst_slice.get_unchecked_mut(px + 3) = a_lin;
+                }
             }
         }
 

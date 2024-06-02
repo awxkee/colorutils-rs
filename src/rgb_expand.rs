@@ -103,10 +103,14 @@ pub fn rgb_to_rgba(
         }
 
         for x in cx..width as usize {
-            dst[dst_offset + x * 4] = src[src_offset + x * 3];
-            dst[dst_offset + x * 4 + 1] = src[src_offset + x * 3 + 1];
-            dst[dst_offset + x * 4 + 2] = src[src_offset + x * 3 + 2];
-            dst[dst_offset + x * 4 + 3] = default_alpha;
+            let px = dst_offset + x * 4;
+            let s_x = src_offset + x * 3;
+            unsafe {
+                *dst.get_unchecked_mut(px) = *src.get_unchecked(s_x);
+                *dst.get_unchecked_mut(px + 1) = *src.get_unchecked(s_x + 1);
+                *dst.get_unchecked_mut(px + 2) = *src.get_unchecked(s_x + 2);
+                *dst.get_unchecked_mut(px + 3) = default_alpha;
+            }
         }
 
         dst_offset += dst_stride as usize;

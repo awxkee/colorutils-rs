@@ -1,4 +1,6 @@
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::x86_64_simd_support::{avx2_deinterleave_rgb_ps, avx2_interleave_rgba_ps};
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::x86_64_simd_support::{sse_deinterleave_rgb_ps, sse_interleave_ps_rgba};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -11,8 +13,6 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 #[allow(unused_imports)]
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::{avx2_deinterleave_rgb_ps, avx2_interleave_rgba_ps};
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(
@@ -69,7 +69,8 @@ pub fn append_alpha(
 
                     let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
 
-                    let (xyza0, xyza1, xyza2, xyza3) = avx2_interleave_rgba_ps(x_p, y_p, z_p, a_pixel);
+                    let (xyza0, xyza1, xyza2, xyza3) =
+                        avx2_interleave_rgba_ps(x_p, y_p, z_p, a_pixel);
                     _mm256_store_ps(xyza_chan_ptr, xyza0);
                     _mm256_store_ps(xyza_chan_ptr.add(8), xyza1);
                     _mm256_store_ps(xyza_chan_ptr.add(16), xyza2);
@@ -113,10 +114,14 @@ pub fn append_alpha(
         }
 
         for x in cx..width as usize {
-            dst_slice[x * 4] = src_slice[x * 3];
-            dst_slice[x * 4 + 1] = src_slice[x * 3 + 1];
-            dst_slice[x * 4 + 2] = src_slice[x * 3 + 2];
-            dst_slice[x * 4 + 3] = a_slice[x];
+            unsafe {
+                let px = x * 4;
+                let s_x = x * 3;
+                *dst_slice.get_unchecked_mut(px) = *src_slice.get_unchecked(s_x);
+                *dst_slice.get_unchecked_mut(px + 1) = *src_slice.get_unchecked(s_x + 1);
+                *dst_slice.get_unchecked_mut(px + 2) = *src_slice.get_unchecked(s_x + 2);
+                *dst_slice.get_unchecked_mut(px + 3) = *a_slice.get_unchecked(x);
+            }
         }
 
         dst_offset += dst_stride as usize;
