@@ -6,8 +6,20 @@ use crate::image_to_xyz_lab::XyzTarget;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_linear_to_image::get_neon_gamma_transfer;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_math::vcolorq_matrix_f32;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_xyz_lab_to_image::neon_lab_to_xyz;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
