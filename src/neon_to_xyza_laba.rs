@@ -1,3 +1,9 @@
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+use std::arch::aarch64::*;
+
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[allow(unused_imports)]
@@ -10,97 +16,20 @@ use crate::neon_gamma_curves::*;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_math::{prefer_vfmaq_f32, vcbrtq_f32, vcolorq_matrix_f32};
+use crate::neon_to_xyz_lab::get_neon_linear_transfer;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use std::arch::aarch64::*;
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-pub unsafe fn get_neon_linear_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(float32x4_t) -> float32x4_t {
-    match transfer_function {
-        TransferFunction::Srgb => neon_srgb_to_linear,
-        TransferFunction::Rec709 => neon_rec709_to_linear,
-    }
-}
+use crate::neon_to_xyz_lab::{neon_triple_to_lab, neon_triple_to_xyz};
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 #[inline(always)]
-pub(crate) unsafe fn neon_triple_to_xyz(
-    r: uint32x4_t,
-    g: uint32x4_t,
-    b: uint32x4_t,
-    c1: float32x4_t,
-    c2: float32x4_t,
-    c3: float32x4_t,
-    c4: float32x4_t,
-    c5: float32x4_t,
-    c6: float32x4_t,
-    c7: float32x4_t,
-    c8: float32x4_t,
-    c9: float32x4_t,
-    transfer: &unsafe fn(float32x4_t) -> float32x4_t,
-) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let r_f = vmulq_n_f32(vcvtq_f32_u32(r), 1f32 / 255f32);
-    let g_f = vmulq_n_f32(vcvtq_f32_u32(g), 1f32 / 255f32);
-    let b_f = vmulq_n_f32(vcvtq_f32_u32(b), 1f32 / 255f32);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
-
-    let (x, y, z) = vcolorq_matrix_f32(
-        r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
-    );
-    (x, y, z)
-}
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[inline(always)]
-pub(crate) unsafe fn neon_triple_to_lab(
-    x: float32x4_t,
-    y: float32x4_t,
-    z: float32x4_t,
-) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let x = vmulq_n_f32(x, 100f32 / 95.047f32);
-    let z = vmulq_n_f32(z, 100f32 / 108.883f32);
-    let cbrt_x = vcbrtq_f32(x);
-    let cbrt_y = vcbrtq_f32(y);
-    let cbrt_z = vcbrtq_f32(z);
-    let s_1 = vdupq_n_f32(16f32 / 116f32);
-    let s_2 = vdupq_n_f32(7.787f32);
-    let lower_x = prefer_vfmaq_f32(s_1, s_2, x);
-    let lower_y = prefer_vfmaq_f32(s_1, s_2, y);
-    let lower_z = prefer_vfmaq_f32(s_1, s_2, z);
-    let kappa = vdupq_n_f32(0.008856f32);
-    let x = vbslq_f32(vcgtq_f32(x, kappa), cbrt_x, lower_x);
-    let y = vbslq_f32(vcgtq_f32(y, kappa), cbrt_y, lower_y);
-    let z = vbslq_f32(vcgtq_f32(z, kappa), cbrt_z, lower_z);
-    let l = prefer_vfmaq_f32(vdupq_n_f32(-16.0f32), y, vdupq_n_f32(116.0f32));
-    let a = vmulq_n_f32(vsubq_f32(x, y), 500f32);
-    let b = vmulq_n_f32(vsubq_f32(y, z), 200f32);
-    (l, a, b)
-}
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[inline(always)]
-pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
+pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
     const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
     const TARGET: u8,
 >(
     start_cx: usize,
@@ -109,16 +38,9 @@ pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    a_linearized: *mut f32,
-    a_offset: usize,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> usize {
-    if USE_ALPHA {
-        if a_linearized.is_null() {
-            panic!("Null alpha channel with requirements of linearized alpha if not supported");
-        }
-    }
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
@@ -193,8 +115,12 @@ pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
             XyzTarget::XYZ => {}
         }
 
-        let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
-        vst3q_f32(dst_ptr.add(cx * 3), xyz_low_low);
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+
+        let a_low_low = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
+
+        let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_low_low);
+        vst4q_f32(dst_ptr.add(cx * 4), xyz_low_low);
 
         let r_low_high = vmovl_high_u16(r_low);
         let g_low_high = vmovl_high_u16(g_low);
@@ -215,8 +141,10 @@ pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
             XyzTarget::XYZ => {}
         }
 
-        let xyz_low_low = float32x4x3_t(x_low_high, y_low_high, z_low_high);
-        vst3q_f32(dst_ptr.add(cx * 3 + 4 * 3), xyz_low_low);
+        let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
+
+        let xyz_low_low = float32x4x4_t(x_low_high, y_low_high, z_low_high, a_low_high);
+        vst4q_f32(dst_ptr.add(cx * 4 + 4 * 4), xyz_low_low);
 
         let r_high = vmovl_high_u8(r_chan);
         let g_high = vmovl_high_u8(g_chan);
@@ -241,8 +169,14 @@ pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
             XyzTarget::XYZ => {}
         }
 
-        let xyz_low_low = float32x4x3_t(x_high_low, y_high_low, z_high_low);
-        vst3q_f32(dst_ptr.add(cx * 3 + 4 * 3 * 2), xyz_low_low);
+        let a_high = vmovl_high_u8(a_chan);
+        let a_high_low = vmulq_n_f32(
+            vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_high))),
+            1f32 / 255f32,
+        );
+
+        let xyz_low_low = float32x4x4_t(x_high_low, y_high_low, z_high_low, a_high_low);
+        vst4q_f32(dst_ptr.add(cx * 4 + 4 * 4 * 2), xyz_low_low);
 
         let r_high_high = vmovl_high_u16(r_high);
         let g_high_high = vmovl_high_u16(g_high);
@@ -274,36 +208,10 @@ pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
             XyzTarget::XYZ => {}
         }
 
-        let xyz_low_low = float32x4x3_t(x_high_high, y_high_high, z_high_high);
-        vst3q_f32(dst_ptr.add(cx * 3 + 4 * 3 * 3), xyz_low_low);
+        let a_high_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_high)), 1f32 / 255f32);
 
-        if USE_ALPHA {
-            let a_ptr = (a_linearized as *mut u8).add(a_offset) as *mut f32;
-
-            let a_low = vmovl_u8(vget_low_u8(a_chan));
-
-            let a_low_low =
-                vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
-
-            vst1q_f32(a_ptr.add(cx), a_low_low);
-
-            let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
-
-            vst1q_f32(a_ptr.add(cx + 4), a_low_high);
-
-            let a_high = vmovl_high_u8(a_chan);
-
-            let a_high_low = vmulq_n_f32(
-                vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_high))),
-                1f32 / 255f32,
-            );
-
-            vst1q_f32(a_ptr.add(cx + 4 * 2), a_high_low);
-
-            let a_high_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_high)), 1f32 / 255f32);
-
-            vst1q_f32(a_ptr.add(cx + 4 * 3), a_high_high);
-        }
+        let xyz_low_low = float32x4x4_t(x_high_high, y_high_high, z_high_high, a_high_high);
+        vst4q_f32(dst_ptr.add(cx * 4 + 4 * 4 * 3), xyz_low_low);
 
         cx += 16;
     }

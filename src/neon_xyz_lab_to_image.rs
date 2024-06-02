@@ -34,7 +34,7 @@ unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
     target_feature = "neon"
 ))]
 #[inline(always)]
-unsafe fn neon_lab_to_xyz(
+pub(crate) unsafe fn neon_lab_to_xyz(
     l: float32x4_t,
     a: float32x4_t,
     b: float32x4_t,
@@ -64,7 +64,7 @@ unsafe fn neon_lab_to_xyz(
     target_feature = "neon"
 ))]
 #[inline(always)]
-unsafe fn neon_xyz_lab_vld<
+pub(crate) unsafe fn neon_xyz_lab_vld<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
@@ -111,9 +111,9 @@ unsafe fn neon_xyz_lab_vld<
     g_f32 = vmulq_f32(g_f32, v_scale_color);
     b_f32 = vmulq_f32(b_f32, v_scale_color);
     (
-        vcvtq_u32_f32(r_f32),
-        vcvtq_u32_f32(g_f32),
-        vcvtq_u32_f32(b_f32),
+        vcvtaq_u32_f32(r_f32),
+        vcvtaq_u32_f32(g_f32),
+        vcvtaq_u32_f32(b_f32),
     )
 }
 

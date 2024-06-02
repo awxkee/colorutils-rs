@@ -77,10 +77,10 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
         a_f32 = vmulq_f32(a_f32, v_scale_alpha);
     }
     (
-        vcvtq_u32_f32(r_f32),
-        vcvtq_u32_f32(g_f32),
-        vcvtq_u32_f32(b_f32),
-        vcvtq_u32_f32(a_f32),
+        vcvtaq_u32_f32(r_f32),
+        vcvtaq_u32_f32(g_f32),
+        vcvtaq_u32_f32(b_f32),
+        vcvtaq_u32_f32(a_f32),
     )
 }
 

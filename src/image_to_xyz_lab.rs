@@ -1,3 +1,6 @@
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[allow(unused_imports)]
+use crate::avx2_to_xyz_lab::*;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
@@ -10,9 +13,6 @@ use crate::neon_to_xyz_lab::neon_channels_to_xyz_or_lab;
 use crate::sse_to_xyz_lab::sse_channels_to_xyz_or_lab;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[allow(unused_imports)]
-use crate::avx2_to_xyz_lab::*;
 
 pub(crate) enum XyzTarget {
     LAB = 0,
@@ -181,33 +181,47 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
         for x in cx..width as usize {
             let px = x * channels;
-            let r = src_slice[px + image_configuration.get_r_channel_offset()];
-            let g = src_slice[px + image_configuration.get_g_channel_offset()];
-            let b = src_slice[px + image_configuration.get_b_channel_offset()];
+            let r = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+            };
+            let g = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+            };
+            let b = unsafe {
+                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+            };
 
             let rgb = Rgb::<u8>::new(r, g, b);
             match target {
                 LAB => {
                     let lab = rgb.to_lab();
-                    dst_slice[x * 3] = lab.l;
-                    dst_slice[x * 3 + 1] = lab.a;
-                    dst_slice[x * 3 + 2] = lab.b;
+                    unsafe {
+                        *dst_slice.get_unchecked_mut(x * 3) = lab.l;
+                        *dst_slice.get_unchecked_mut(x * 3 + 1) = lab.a;
+                        *dst_slice.get_unchecked_mut(x * 3 + 2) = lab.b;
+                    }
                 }
                 XYZ => {
                     let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
-                    dst_slice[x * 3] = xyz.x;
-                    dst_slice[x * 3 + 1] = xyz.y;
-                    dst_slice[x * 3 + 2] = xyz.z;
+                    unsafe {
+                        *dst_slice.get_unchecked_mut(x * 3) = xyz.x;
+                        *dst_slice.get_unchecked_mut(x * 3 + 1) = xyz.y;
+                        *dst_slice.get_unchecked_mut(x * 3 + 2) = xyz.z;
+                    }
                 }
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
-                let a = src_slice[px + image_configuration.get_a_channel_offset()];
+                let a = unsafe {
+                    *src_slice.get_unchecked(px + image_configuration.get_a_channel_offset())
+                };
                 let a_lin = a as f32 * (1f32 / 255f32);
                 let a_ptr =
                     unsafe { (a_channel.as_mut_ptr() as *mut u8).add(a_offset) as *mut f32 };
                 let a_slice = unsafe { slice::from_raw_parts_mut(a_ptr, width as usize) };
-                a_slice[x] = a_lin;
+                unsafe {
+                    *a_slice.get_unchecked_mut(x) = a_lin;
+                }
             }
         }
 

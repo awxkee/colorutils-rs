@@ -3,7 +3,6 @@ use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use std::mem::transmute;
 use std::time::Instant;
 
 #[cfg(target_arch = "x86_64")]
@@ -36,7 +35,7 @@ fn main() {
     //     println!("Exp {}", l);
     // }
 
-    let img = ImageReader::open("./assets/asset.jpg")
+    let img = ImageReader::open("./assets/asset_middle.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -62,19 +61,68 @@ fn main() {
     );
     src_bytes = &dst_rgba;
 
-    // {
-    //     let mut store: Vec<f32> = vec![];
-    //     let store_stride = width as usize * 3usize * std::mem::size_of::<f32>();
-    //     store.resize(width as usize * 3usize * height as usize, 0f32);
-    //     let mut alpha_store: Vec<f32> = vec![];
-    //     let alpha_stride = width as usize * std::mem::size_of::<f32>();
-    //     alpha_store.resize(width as usize * height as usize, 0f32);
-    //     rgba_to_laba(src_bytes, 4u32 * width, &mut store, store_stride as u32, &mut alpha_store, alpha_stride as u32, width, height);
-    //     let mut destination: Vec<f32> = vec![];
-    //     destination.resize(width as usize * height as usize * 4, 0f32);
-    //     let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
-    //     append_alpha(&mut destination, dst_stride, &store, store_stride as u32, &alpha_store, alpha_stride as u32, width, height);
-    // }
+    let mut dst_slice: Vec<u8> = Vec::new();
+    dst_slice.resize(width as usize * 4 * height as usize, 0u8);
+
+    {
+        let mut lab_store: Vec<f32> = vec![];
+        let store_stride = width as usize * 4usize * std::mem::size_of::<f32>();
+        lab_store.resize(width as usize * 4usize * height as usize, 0f32);
+        let mut alpha_store: Vec<f32> = vec![];
+        let alpha_stride = width as usize * std::mem::size_of::<f32>();
+        alpha_store.resize(width as usize * height as usize, 0f32);
+        rgba_to_lab_with_alpha(
+            src_bytes,
+            4u32 * width,
+            &mut lab_store,
+            store_stride as u32,
+            width,
+            height,
+        );
+        // let mut destination: Vec<f32> = vec![];
+        // destination.resize(width as usize * height as usize * 4, 0f32);
+        // let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
+        // append_alpha(&mut destination, dst_stride, &store, store_stride as u32, &alpha_store, alpha_stride as u32, width, height);
+
+        let lab_stride = width as usize * 3usize * std::mem::size_of::<f32>();
+        //
+        // let mut src_shift = 0usize;
+        // for _ in 0..height as usize {
+        //     let src_ptr = unsafe { (src.as_ptr() as *mut u8).add(src_shift) as *mut f32 };
+        //     let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * 4) };
+        //
+        //     for x in 0..width as usize {
+        //         let px = x * 4;
+        //         lab_store[px] = src_slice[px];
+        //         lab_store[px + 1] = src_slice[px + 1];
+        //         lab_store[px + 2] = src_slice[px + 2];
+        //         a_store[x] = src_slice[px + 3];
+        //     }
+        //     src_shift += src_stride as usize;
+        // }
+
+        lab_with_alpha_to_rgba(
+            &lab_store,
+            store_stride as u32,
+            &mut dst_slice,
+            4u32 * width,
+            width,
+            height,
+        );
+
+        // laba_to_srgb(
+        //     &lab_store,
+        //     lab_stride as u32,
+        //     &alpha_store,
+        //     width * std::mem::size_of::<f32>() as u32,
+        //     &mut dst_slice,
+        //     width * 4,
+        //     width,
+        //     height,
+        // );
+        //
+        src_bytes = &dst_slice;
+    }
 
     let mut xyz: Vec<f32> = vec![];
     xyz.resize(4 * width as usize * height as usize, 0f32);

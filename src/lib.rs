@@ -30,6 +30,10 @@ mod avx_gamma_curves;
 mod rgb_expand;
 mod avx2_to_xyz_lab;
 mod avx2_utils;
+mod image_xyza_laba;
+mod neon_to_xyza_laba;
+mod xyza_laba_to_image;
+mod neon_xyza_laba_to_image;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;
@@ -67,5 +71,9 @@ pub use xyz_lab_to_image::xyza_to_rgba;
 pub use image_to_linear::*;
 pub use linear_to_image::*;
 pub use concat_alpha::append_alpha;
+pub use image_xyza_laba::rgba_to_lab_with_alpha;
+pub use image_xyza_laba::bgra_to_lab_with_alpha;
+pub use xyza_laba_to_image::lab_with_alpha_to_bgra;
+pub use xyza_laba_to_image::lab_with_alpha_to_rgba;
 
 pub use rgb_expand::*;
