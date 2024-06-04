@@ -30,9 +30,10 @@ pub mod sse_image_to_linear_unsigned {
         let r_f = _mm_mul_ps(_mm_cvtepi32_ps(r), u8_scale);
         let g_f = _mm_mul_ps(_mm_cvtepi32_ps(g), u8_scale);
         let b_f = _mm_mul_ps(_mm_cvtepi32_ps(b), u8_scale);
-        let r_linear = transfer(r_f);
-        let g_linear = transfer(g_f);
-        let b_linear = transfer(b_f);
+        let u8_backwards = _mm_set1_ps(255f32);
+        let r_linear = _mm_mul_ps(transfer(r_f), u8_backwards);
+        let g_linear = _mm_mul_ps(transfer(g_f), u8_backwards);
+        let b_linear = _mm_mul_ps(transfer(b_f), u8_backwards);
         (
             _mm_cvtps_epi32(r_linear),
             _mm_cvtps_epi32(g_linear),

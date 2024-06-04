@@ -16,9 +16,10 @@ pub mod neon_image_linear_to_u8 {
         let r_f = vmulq_n_f32(vcvtq_f32_u32(r), 1f32 / 255f32);
         let g_f = vmulq_n_f32(vcvtq_f32_u32(g), 1f32 / 255f32);
         let b_f = vmulq_n_f32(vcvtq_f32_u32(b), 1f32 / 255f32);
-        let r_linear = transfer(r_f);
-        let g_linear = transfer(g_f);
-        let b_linear = transfer(b_f);
+        let r_linear = vmulq_n_f32(transfer(r_f), 255f32);
+        let g_linear = vmulq_n_f32(transfer(g_f), 255f32);
+        let b_linear = vmulq_n_f32(transfer(b_f), 255f32);
+
         (
             vcvtaq_u32_f32(r_linear),
             vcvtaq_u32_f32(g_linear),
@@ -26,7 +27,7 @@ pub mod neon_image_linear_to_u8 {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) unsafe fn neon_channels_to_linear_u8<
         const CHANNELS_CONFIGURATION: u8,
         const USE_ALPHA: bool,
@@ -142,5 +143,4 @@ pub mod neon_image_linear_to_u8 {
 
         cx
     }
-
 }

@@ -115,9 +115,9 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             let rgb_f32 = rgb.to_rgb_f32();
 
             unsafe {
-                let t_r = transfer(rgb_f32.r).min(255f32).max(0f32) as u8;
-                let t_g = transfer(rgb_f32.g).min(255f32).max(0f32) as u8;
-                let t_b = transfer(rgb_f32.b).min(255f32).max(0f32) as u8;
+                let t_r = (transfer(rgb_f32.r) * 255f32).min(255f32).max(0f32) as u8;
+                let t_g = (transfer(rgb_f32.g) * 255f32).min(255f32).max(0f32) as u8;
+                let t_b = (transfer(rgb_f32.b) * 255f32).min(255f32).max(0f32) as u8;
                 *dst_slice.get_unchecked_mut(px) = t_r;
                 *dst_slice.get_unchecked_mut(px + 1) = t_g;
                 *dst_slice.get_unchecked_mut(px + 2) = t_b;
