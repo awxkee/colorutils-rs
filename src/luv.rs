@@ -9,7 +9,7 @@ pub struct Luv {
     /// Together with v\* value, it defines chromaticity of the colour.  The u\*
     /// coordinate represents colour’s position on red-green axis with negative
     /// values indicating more red and positive more green colour.  Typical
-    /// values are in -100–100 range (but exact range for ‘valid’ colours
+    /// values are in -134–220 range (but exact range for ‘valid’ colours
     /// depends on luminance and v\* value).
     pub u: f32,
     /// The u\* value of the colour.
@@ -17,7 +17,7 @@ pub struct Luv {
     /// Together with u\* value, it defines chromaticity of the colour.  The v\*
     /// coordinate represents colour’s position on blue-yellow axis with
     /// negative values indicating more blue and positive more yellow colour.
-    /// Typical values are in -100–100 range (but exact range for ‘valid’
+    /// Typical values are in -140–122 range (but exact range for ‘valid’
     /// colours depends on luminance and u\* value).
     pub v: f32,
 }
@@ -62,6 +62,7 @@ impl Luv {
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
         let [x, y, z] = [xyz.x, xyz.y, xyz.z];
+        let den = x + 15.0 * y + 3.0 * z;
 
         let l = (if y < CUTOFF_FORWARD_Y {
             MULTIPLIER_FORWARD_Y * y
@@ -70,10 +71,16 @@ impl Luv {
         })
         .min(100f32)
         .max(0f32);
-        let u_prime = 4.0 * x / (x + 15.0 * y + 3.0 * z);
-        let v_prime = 9.0 * y / (x + 15.0 * y + 3.0 * z);
-        let u = 13f32 * l * (u_prime - WHITE_U_PRIME);
-        let v = 13f32 * l * (v_prime - WHITE_V_PRIME);
+        let (u, v);
+        if den != 0f32 {
+            let u_prime = 4.0 * x / den;
+            let v_prime = 9.0 * y / den;
+            u = 13f32 * l * (u_prime - WHITE_U_PRIME);
+            v = 13f32 * l * (v_prime - WHITE_V_PRIME);
+        } else {
+            u = 0f32;
+            v = 0f32;
+        }
 
         Luv { l, u, v }
     }
@@ -91,13 +98,19 @@ impl Luv {
         let u = self.u * l13 + WHITE_U_PRIME;
         let v = self.v * l13 + WHITE_V_PRIME;
         let y = if self.l > 8f32 {
-            ((self.l + 16f32) / 116f32).powf(3f32)
+            ((self.l + 16f32) / 116f32).powi(3)
         } else {
             self.l * MULTIPLIER_INVERSE_Y
         };
-        let den = 1f32 / (4f32 * v);
-        let x = y * 9f32 * u * den;
-        let z = y * (12.0 - 3.0 * u - 20.0 * v) * den;
+        let (x, z);
+        if v != 0f32 {
+            let den = 1f32 / (4f32 * v);
+            x = y * 9f32 * u * den;
+            z = y * (12.0f32 - 3.0f32 * u - 20f32 * v) * den;
+        } else {
+            x = 0f32;
+            z = 0f32;
+        }
 
         Xyz::new(x, y, z).to_srgb()
     }
@@ -116,6 +129,11 @@ impl LCh {
     #[allow(dead_code)]
     pub fn from_rgba(rgba: &Rgba<u8>) -> Self {
         LCh::from_luv(Luv::from_rgba(rgba))
+    }
+
+    #[allow(dead_code)]
+    pub fn new(l: f32, c: f32, h: f32) -> Self {
+        LCh { l, c, h }
     }
 
     pub fn from_luv(luv: Luv) -> Self {

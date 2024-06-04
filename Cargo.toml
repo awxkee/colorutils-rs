@@ -2,9 +2,9 @@ workspace = { members = ["src/app"] }
 
 [package]
 name = "colorutils-rs"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2021"
-description = "Hig performance utilities for color format handling and conversion."
+description = "High performance utilities for color format handling and conversion."
 readme = "README.md"
 keywords = ["lab", "hsv", "xyz", "luv", "hsl"]
 license = "Apache-2.0 OR BSD-3-Clause"
