@@ -30,7 +30,7 @@ pub unsafe fn get_neon_linear_transfer(
     target_feature = "neon"
 ))]
 #[inline(always)]
-unsafe fn neon_triple_to_linear(
+pub(crate) unsafe fn neon_triple_to_linear(
     r: uint32x4_t,
     g: uint32x4_t,
     b: uint32x4_t,

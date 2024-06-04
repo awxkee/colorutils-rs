@@ -46,7 +46,7 @@ pub fn rec709_from_linear(linear: f32) -> f32 {
     };
 }
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TransferFunction {
     Srgb,
     Rec709,

@@ -34,6 +34,10 @@ mod image_xyza_laba;
 mod neon_to_xyza_laba;
 mod xyza_laba_to_image;
 mod neon_xyza_laba_to_image;
+mod image_to_linear_u8;
+mod neon_to_linear_u8;
+mod sse_image_to_linear_u8;
+mod linear_to_image_u8;
 
 pub use gamma_curves::*;
 pub use hsl::Hsl;
@@ -75,5 +79,8 @@ pub use image_xyza_laba::rgba_to_lab_with_alpha;
 pub use image_xyza_laba::bgra_to_lab_with_alpha;
 pub use xyza_laba_to_image::lab_with_alpha_to_bgra;
 pub use xyza_laba_to_image::lab_with_alpha_to_rgba;
+
+pub use image_to_linear_u8::*;
+pub use linear_to_image_u8::*;
 
 pub use rgb_expand::*;
