@@ -17,6 +17,7 @@ use crate::x86_64_simd_support::*;
 use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
