@@ -36,11 +36,11 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     let channels = image_configuration.get_channels_count();
 
     #[cfg(target_arch = "x86_64")]
-    let mut has_sse = false;
+    let mut _has_sse = false;
 
     #[cfg(all(target_arch = "x86_64", target_feature = "sse4.1"))]
     if is_x86_feature_detected!("sse4.1") {
-        has_sse = true;
+        _has_sse = true;
     }
 
     for _ in 0..height as usize {
@@ -48,7 +48,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            if has_sse {
+            if _has_sse {
                 cx = sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
                     cx,
                     src.as_ptr(),
