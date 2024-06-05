@@ -1,6 +1,6 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
+use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
 #[cfg(all(
@@ -73,11 +73,11 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
+            let px = x * CHANNELS;
             match target {
                 LAB => {
                     let lab = rgb.to_lab();
                     unsafe {
-                        let px = x * CHANNELS;
                         *dst_slice.get_unchecked_mut(px) = lab.l;
                         *dst_slice.get_unchecked_mut(px + 1) = lab.a;
                         *dst_slice.get_unchecked_mut(px + 2) = lab.b;
@@ -85,11 +85,18 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                 }
                 XYZ => {
                     let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
-                    let px = x * CHANNELS;
                     unsafe {
                         *dst_slice.get_unchecked_mut(px) = xyz.x;
                         *dst_slice.get_unchecked_mut(px + 1) = xyz.y;
                         *dst_slice.get_unchecked_mut(px + 2) = xyz.z;
+                    }
+                }
+                XyzTarget::LUV => {
+                    let luv = rgb.to_luv();
+                    unsafe {
+                        *dst_slice.get_unchecked_mut(px) = luv.l;
+                        *dst_slice.get_unchecked_mut(px + 1) = luv.u;
+                        *dst_slice.get_unchecked_mut(px + 2) = luv.v;
                     }
                 }
             }
@@ -164,6 +171,75 @@ pub fn bgra_to_lab_with_alpha(
     channels_to_xyz_with_alpha::<
         { ImageConfiguration::Bgra as u8 },
         { LAB as u8 },
+    >(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+
+/// This function converts RGBA to CIE L*uv against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGBA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `a_plane` - A mutable slice to receive XYZ data
+/// * `a_stride` - Bytes per row for dst data
+pub fn rgba_to_luv_with_alpha(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    channels_to_xyz_with_alpha::<
+        { ImageConfiguration::Rgba as u8 },
+        { LUV as u8 },
+    >(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts BGRA to CIE L*uv against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGRA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `a_plane` - A mutable slice to receive XYZ data
+/// * `a_stride` - Bytes per row for dst data
+pub fn bgra_to_luv_with_alpha(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    channels_to_xyz_with_alpha::<
+        { ImageConfiguration::Bgra as u8 },
+        { LUV as u8 },
     >(
         src,
         src_stride,

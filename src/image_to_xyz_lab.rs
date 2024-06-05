@@ -3,7 +3,7 @@
 use crate::avx2_to_xyz_lab::*;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
+use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -17,6 +17,7 @@ use std::slice;
 pub(crate) enum XyzTarget {
     LAB = 0,
     XYZ = 1,
+    LUV = 2,
 }
 
 impl From<u8> for XyzTarget {
@@ -24,6 +25,7 @@ impl From<u8> for XyzTarget {
         match value {
             0 => LAB,
             1 => XYZ,
+            2 => LUV,
             _ => {
                 panic!("Not implemented")
             }
@@ -69,6 +71,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         if is_x86_feature_detected!("avx2") {
             _has_avx2 = true;
         }
+        #[cfg(target_feature = "sse4.1")]
         if is_x86_feature_detected!("sse4.1") {
             _has_sse = true;
         }
@@ -207,6 +210,14 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         *dst_slice.get_unchecked_mut(x * 3) = xyz.x;
                         *dst_slice.get_unchecked_mut(x * 3 + 1) = xyz.y;
                         *dst_slice.get_unchecked_mut(x * 3 + 2) = xyz.z;
+                    }
+                }
+                XyzTarget::LUV => {
+                    let luv = rgb.to_luv();
+                    unsafe {
+                        *dst_slice.get_unchecked_mut(x * 3) = luv.l;
+                        *dst_slice.get_unchecked_mut(x * 3 + 1) = luv.u;
+                        *dst_slice.get_unchecked_mut(x * 3 + 2) = luv.v;
                     }
                 }
             }
@@ -599,6 +610,70 @@ pub fn bgr_to_lab(
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { LAB as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        &mut empty_vec,
+        0,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts RGB to CIE L*uv against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn rgb_to_luv(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let mut empty_vec = vec![];
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { LUV as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        &mut empty_vec,
+        0,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts BGR to CIE L*ab against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGR data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn bgr_to_luv(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let mut empty_vec = vec![];
+    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { LUV as u8 }>(
         src,
         src_stride,
         dst,

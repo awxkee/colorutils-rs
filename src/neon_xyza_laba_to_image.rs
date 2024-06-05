@@ -32,6 +32,11 @@ use crate::TransferFunction;
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+use crate::neon_xyz_lab_to_image::*;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -60,6 +65,12 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     match target {
         XyzTarget::LAB => {
             let (x, y, z) = neon_lab_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LUV => {
+            let (x, y, z) = neon_luv_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;

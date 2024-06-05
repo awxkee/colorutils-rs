@@ -6,12 +6,17 @@ use crate::image_to_xyz_lab::XyzTarget;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
+use crate::luv::*;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_linear_to_image::get_neon_gamma_transfer;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_math::vcolorq_matrix_f32;
+use crate::neon_math::*;
 #[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(all(
@@ -27,6 +32,50 @@ use std::arch::aarch64::*;
 #[inline(always)]
 unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
     vmulq_f32(vmulq_f32(x, x), x)
+}
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+pub(crate) unsafe fn neon_luv_to_xyz(
+    l: float32x4_t,
+    u: float32x4_t,
+    v: float32x4_t,
+) -> (float32x4_t, float32x4_t, float32x4_t) {
+    let zero_mask = vclezq_f32(l);
+    let zeros = vdupq_n_f32(0f32);
+    let l13 = vrecpeq_f32(vmulq_n_f32(l, 13f32));
+    let u = prefer_vfmaq_f32(vdupq_n_f32(LUV_WHITE_U_PRIME), l13, u);
+    let v = prefer_vfmaq_f32(vdupq_n_f32(LUV_WHITE_V_PRIME), l13, v);
+    let l_h = vmulq_n_f32(vaddq_f32(l, vdupq_n_f32(16f32)), 1f32 / 116f32);
+    let y_high = vmulq_f32(vmulq_f32(l_h, l_h), l_h);
+    let y_low = vmulq_n_f32(l, LUV_MULTIPLIER_INVERSE_Y);
+    let y = vbslq_f32(
+        zero_mask,
+        zeros,
+        vbslq_f32(vcgtq_f32(l, vdupq_n_f32(8f32)), y_high, y_low),
+    );
+    let zero_mask_2 = vclezq_f32(v);
+    let den = vrecpeq_f32(vmulq_n_f32(v, 4f32));
+    let mut x = vmulq_n_f32(vmulq_f32(vmulq_f32(y, u), den), 9f32);
+    x = vbslq_f32(zero_mask, zeros, x);
+    x = vbslq_f32(zero_mask_2, zeros, x);
+    let mut z = vmulq_f32(
+        vmulq_f32(
+            prefer_vfmaq_f32(
+                prefer_vfmaq_f32(vdupq_n_f32(12f32), vdupq_n_f32(-3f32), u),
+                v,
+                vdupq_n_f32(-20f32),
+            ),
+            y,
+        ),
+        den,
+    );
+    z = vbslq_f32(zero_mask, zeros, z);
+    z = vbslq_f32(zero_mask_2, zeros, z);
+    (x, y, z)
 }
 
 #[cfg(all(
@@ -90,6 +139,12 @@ pub(crate) unsafe fn neon_xyz_lab_vld<
     match target {
         XyzTarget::LAB => {
             let (x, y, z) = neon_lab_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LUV => {
+            let (x, y, z) = neon_luv_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
@@ -246,10 +301,9 @@ pub unsafe fn neon_xyz_to_channels<
         let b_row = vcombine_u8(vqmovn_u16(b_row01), vqmovn_u16(b_row23));
 
         let dst_ptr = dst.add(dst_offset + cx * channels);
-        
+
         if USE_ALPHA {
-            let offset_a_src_ptr =
-                ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
+            let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
             let a_low_0_f = vld1q_f32(offset_a_src_ptr);
             let a_row0_ = vcvtq_u32_f32(vmulq_n_f32(a_low_0_f, 255f32));
 

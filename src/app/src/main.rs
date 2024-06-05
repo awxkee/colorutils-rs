@@ -27,13 +27,13 @@ fn main() {
     //     _mm_storeu_ps(dst.as_mut_ptr() as *mut f32, ln);
     //     println!("{:?}", dst);
     // }
-    // #[cfg(target_arch = "aarch64")]
-    // unsafe {
-    //     let m = vdupq_n_f32(std::f32::consts::E);
-    //     let cbrt = vlogq_f32_ulp35(m);
-    //     let l = vgetq_lane_f32::<0>(cbrt);
-    //     println!("Exp {}", l);
-    // }
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        let m = vdupq_n_f32(27f32);
+        let cbrt = vcbrtq_f32_ulp2(m);
+        let l = vgetq_lane_f32::<0>(cbrt);
+        println!("Cbrt {}", l);
+    }
 
     let img = ImageReader::open("./assets/asset_middle.jpg")
         .unwrap()
@@ -68,9 +68,7 @@ fn main() {
         let mut lab_store: Vec<f32> = vec![];
         let store_stride = width as usize * 4usize * std::mem::size_of::<f32>();
         lab_store.resize(width as usize * 4usize * height as usize, 0f32);
-        let mut alpha_store: Vec<f32> = vec![];
-        let alpha_stride = width as usize * std::mem::size_of::<f32>();
-        alpha_store.resize(width as usize * height as usize, 0f32);
+        let start_time = Instant::now();
         rgba_to_lab_with_alpha(
             src_bytes,
             4u32 * width,
@@ -110,6 +108,10 @@ fn main() {
             height,
         );
 
+        let elapsed_time = start_time.elapsed();
+        // Print the elapsed time in milliseconds
+        println!("Fast image resize: {:.2?}", elapsed_time);
+
         // laba_to_srgb(
         //     &lab_store,
         //     lab_stride as u32,
@@ -124,51 +126,16 @@ fn main() {
         src_bytes = &dst_slice;
     }
 
-    let mut xyz: Vec<f32> = vec![];
-    xyz.resize(4 * width as usize * height as usize, 0f32);
-
-    let mut a_plane: Vec<f32> = vec![];
-    a_plane.resize(width as usize * height as usize, 0f32);
-
-    for i in 0..1 {
-        let start_time = Instant::now();
-        // srgba_to_xyza(
-        //     src_bytes,
-        //     width * components,
-        //     &mut xyz,
-        //     width * 3 * std::mem::size_of::<f32>() as u32,
-        //     &mut a_plane,
-        //     width as u32 * std::mem::size_of::<f32>() as u32,
-        //     width,
-        //     height,
-        // );
-        // rgba_to_linear(
-        //     src_bytes,
-        //     width * components,
-        //     &mut xyz,
-        //     width * 3 * std::mem::size_of::<f32>() as u32,
-        //     width,
-        //     height,
-        //     TransferFunction::Srgb,
-        // );
-        rgba_to_linear(
-            src_bytes,
-            width * components,
-            &mut xyz,
-            width * 4 * std::mem::size_of::<f32>() as u32,
-            width,
-            height,
-            TransferFunction::Srgb,
-        );
-        let elapsed_time = start_time.elapsed();
-        // Print the elapsed time in milliseconds
-        println!("sRGB to XYZ: {:.2?}", elapsed_time);
-    }
-
-    let mut dst_bytes: Vec<u8> = vec![];
-    dst_bytes.resize(width as usize * components as usize * height as usize, 0u8);
-
-    let start_time = Instant::now();
+    // let mut xyz: Vec<f32> = vec![];
+    // xyz.resize(4 * width as usize * height as usize, 0f32);
+    //
+    // let mut a_plane: Vec<f32> = vec![];
+    // a_plane.resize(width as usize * height as usize, 0f32);
+    //
+    // let mut dst_bytes: Vec<u8> = vec![];
+    // dst_bytes.resize(width as usize * components as usize * height as usize, 0u8);
+    //
+    // let start_time = Instant::now();
     // xyz_to_srgb(
     //     &xyz,
     //     width * 3 * std::mem::size_of::<f32>() as u32,
@@ -177,16 +144,16 @@ fn main() {
     //     width,
     //     height,
     // );
-
-    linear_to_rgba(
-        &xyz,
-        width * 4 * std::mem::size_of::<f32>() as u32,
-        &mut dst_bytes,
-        width * components,
-        width,
-        height,
-        TransferFunction::Srgb,
-    );
+    //
+    // linear_to_rgba(
+    //     &xyz,
+    //     width * 4 * std::mem::size_of::<f32>() as u32,
+    //     &mut dst_bytes,
+    //     width * components,
+    //     width,
+    //     height,
+    //     TransferFunction::Srgb,
+    // );
 
     // linear_to_rgb(
     //     &xyz,
@@ -198,16 +165,16 @@ fn main() {
     //     TransferFunction::Srgb,
     // );
 
-    let elapsed_time = start_time.elapsed();
+    // let elapsed_time = start_time.elapsed();
     // Print the elapsed time in milliseconds
-    println!("XYZ to sRGB: {:.2?}", elapsed_time);
+    // println!("XYZ to sRGB: {:.2?}", elapsed_time);
 
     // let rgba = rgb_to_rgba(&dst_bytes, width, height);
 
     if components == 4 {
         image::save_buffer(
             "converted.png",
-            dst_bytes.as_bytes(),
+            src_bytes.as_bytes(),
             dimensions.0,
             dimensions.1,
             image::ExtendedColorType::Rgba8,
@@ -216,7 +183,7 @@ fn main() {
     } else {
         image::save_buffer(
             "converted.jpg",
-            dst_bytes.as_bytes(),
+            src_bytes.as_bytes(),
             dimensions.0,
             dimensions.1,
             image::ExtendedColorType::Rgb8,

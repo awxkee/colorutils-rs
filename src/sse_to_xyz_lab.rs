@@ -17,6 +17,7 @@ use crate::x86_64_simd_support::*;
 use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub unsafe fn get_sse_linear_transfer(
@@ -57,6 +58,37 @@ unsafe fn sse_triple_to_xyz(
         r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
     );
     (x, y, z)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+pub(crate) unsafe fn sse_triple_to_luv(
+    x: __m128,
+    y: __m128,
+    z: __m128,
+) -> (__m128, __m128, __m128) {
+    let zeros = _mm_setzero_ps();
+    let den = _mm_prefer_fma_ps(
+        _mm_prefer_fma_ps(x, z, _mm_set1_ps(3f32)),
+        y,
+        _mm_set1_ps(15f32),
+    );
+    let nan_mask = _mm_cmpeq_ps(den, _mm_set1_ps(0f32));
+    let l_low_mask = _mm_cmplt_ps(y, _mm_set1_ps(LUV_CUTOFF_FORWARD_Y));
+    let y_cbrt = _mm_cbrt_ps(y);
+    let l = _mm_select_ps(
+        l_low_mask,
+        _mm_mul_ps(y, _mm_set1_ps(LUV_MULTIPLIER_FORWARD_Y)),
+        _mm_prefer_fma_ps(_mm_set1_ps(-16f32), y_cbrt, _mm_set1_ps(116f32)),
+    );
+    let u_prime = _mm_div_ps(_mm_mul_ps(x, _mm_set1_ps(4f32)), den);
+    let v_prime = _mm_div_ps(_mm_mul_ps(y, _mm_set1_ps(9f32)), den);
+    let sub_u_prime = _mm_sub_ps(u_prime, _mm_set1_ps(crate::luv::LUV_WHITE_U_PRIME));
+    let sub_v_prime = _mm_sub_ps(v_prime, _mm_set1_ps(crate::luv::LUV_WHITE_V_PRIME));
+    let l13 = _mm_mul_ps(l, _mm_set1_ps(13f32));
+    let u = _mm_select_ps(nan_mask, zeros, _mm_mul_ps(l13, sub_u_prime));
+    let v = _mm_select_ps(nan_mask, zeros, _mm_mul_ps(l13, sub_v_prime));
+    (l, u, v)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -182,6 +214,12 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
                 z_low_low = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = u;
+                z_low_low = v;
+            }
         }
 
         let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_low, y_low_low, z_low_low);
@@ -206,6 +244,12 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
                 z_low_high = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = u;
+                z_low_high = v;
+            }
         }
 
         let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_high, y_low_high, z_low_high);
@@ -234,6 +278,12 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
                 z_high_low = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_high_low, y_high_low, z_high_low);
+                x_high_low = l;
+                y_high_low = u;
+                z_high_low = v;
+            }
         }
 
         let (v0, v1, v2) = sse_interleave_ps_rgb(x_high_low, y_high_low, z_high_low);
@@ -269,6 +319,12 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
                 z_high_high = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_high_high, y_high_high, z_high_high);
+                x_high_high = l;
+                y_high_high = u;
+                z_high_high = v;
+            }
         }
 
         let (v0, v1, v2) = sse_interleave_ps_rgb(x_high_high, y_high_high, z_high_high);

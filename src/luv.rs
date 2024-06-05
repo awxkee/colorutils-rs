@@ -50,22 +50,22 @@ use crate::rgb::Rgb;
 use crate::rgba::Rgba;
 use crate::xyz::Xyz;
 
-const WHITE_U_PRIME: f32 =
+pub(crate) const LUV_WHITE_U_PRIME: f32 =
     4.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);
-const WHITE_V_PRIME: f32 =
+pub(crate) const LUV_WHITE_V_PRIME: f32 =
     9.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);
 
-const CUTOFF_FORWARD_Y: f32 = (6f32 / 29f32) * (6f32 / 29f32) * (6f32 / 29f32);
-const MULTIPLIER_FORWARD_Y: f32 = (29f32 / 3f32) * (29f32 / 3f32) * (29f32 / 3f32);
-const MULTIPLIER_INVERSE_Y: f32 = (3f32 / 29f32) * (3f32 / 29f32) * (3f32 / 29f32);
+pub(crate) const LUV_CUTOFF_FORWARD_Y: f32 = (6f32 / 29f32) * (6f32 / 29f32) * (6f32 / 29f32);
+pub(crate) const LUV_MULTIPLIER_FORWARD_Y: f32 = (29f32 / 3f32) * (29f32 / 3f32) * (29f32 / 3f32);
+pub(crate) const LUV_MULTIPLIER_INVERSE_Y: f32 = (3f32 / 29f32) * (3f32 / 29f32) * (3f32 / 29f32);
 impl Luv {
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
         let [x, y, z] = [xyz.x, xyz.y, xyz.z];
         let den = x + 15.0 * y + 3.0 * z;
 
-        let l = (if y < CUTOFF_FORWARD_Y {
-            MULTIPLIER_FORWARD_Y * y
+        let l = (if y < LUV_CUTOFF_FORWARD_Y {
+            LUV_MULTIPLIER_FORWARD_Y * y
         } else {
             116f32 * y.cbrt() - 16f32
         })
@@ -73,10 +73,10 @@ impl Luv {
         .max(0f32);
         let (u, v);
         if den != 0f32 {
-            let u_prime = 4.0 * x / den;
-            let v_prime = 9.0 * y / den;
-            u = 13f32 * l * (u_prime - WHITE_U_PRIME);
-            v = 13f32 * l * (v_prime - WHITE_V_PRIME);
+            let u_prime = 4f32 * x / den;
+            let v_prime = 9f32 * y / den;
+            u = 13f32 * l * (u_prime - LUV_WHITE_U_PRIME);
+            v = 13f32 * l * (v_prime - LUV_WHITE_V_PRIME);
         } else {
             u = 0f32;
             v = 0f32;
@@ -95,12 +95,12 @@ impl Luv {
             return Xyz::new(0f32, 0f32, 0f32).to_srgb();
         }
         let l13 = 1f32 / (13f32 * self.l);
-        let u = self.u * l13 + WHITE_U_PRIME;
-        let v = self.v * l13 + WHITE_V_PRIME;
+        let u = self.u * l13 + LUV_WHITE_U_PRIME;
+        let v = self.v * l13 + LUV_WHITE_V_PRIME;
         let y = if self.l > 8f32 {
             ((self.l + 16f32) / 116f32).powi(3)
         } else {
-            self.l * MULTIPLIER_INVERSE_Y
+            self.l * LUV_MULTIPLIER_INVERSE_Y
         };
         let (x, z);
         if v != 0f32 {

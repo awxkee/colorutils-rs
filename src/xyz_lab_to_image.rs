@@ -3,13 +3,13 @@ use std::slice;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, XYZ};
+use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use crate::neon_xyz_lab_to_image::neon_xyz_to_channels;
-use crate::{Lab, Xyz, XYZ_TO_SRGB_D65};
+use crate::{Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
 
 fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
     src: &[f32],
@@ -94,6 +94,10 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 XYZ => {
                     let xyz = Xyz::new(l_x, l_y, l_z);
                     rgb = xyz.to_rgb(&matrix, transfer_function);
+                }
+                XyzTarget::LUV => {
+                    let luv = Luv::new(l_x, l_y, l_z);
+                    rgb = luv.to_rgb();
                 }
             }
 
@@ -285,5 +289,69 @@ pub fn xyza_to_rgba(
         height,
         matrix,
         transfer_function,
+    );
+}
+
+/// This function converts LUV to RGB. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn luv_to_rgb(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let empty_vec = vec![];
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { LUV as u8 }>(
+        src,
+        src_stride,
+        &empty_vec,
+        0,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LUV to RGB. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn luv_to_bgr(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let empty_vec = vec![];
+    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { LUV as u8 }>(
+        src,
+        src_stride,
+        &empty_vec,
+        0,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
     );
 }

@@ -21,6 +21,11 @@ use crate::neon_to_xyz_lab::get_neon_linear_transfer;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
+use crate::neon_to_xyz_lab::neon_triple_to_luv;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon_to_xyz_lab::{neon_triple_to_lab, neon_triple_to_xyz};
 
 #[cfg(all(
@@ -113,6 +118,12 @@ pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
                 z_low_low = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = u;
+                z_low_low = v;
+            }
         }
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -139,6 +150,12 @@ pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
                 z_low_high = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = neon_triple_to_luv(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = u;
+                z_low_high = v;
+            }
         }
 
         let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -167,6 +184,12 @@ pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
                 z_high_low = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = neon_triple_to_luv(x_high_low, y_high_low, z_high_low);
+                x_high_low = l;
+                y_high_low = u;
+                z_high_low = v;
+            }
         }
 
         let a_high = vmovl_high_u8(a_chan);
@@ -206,6 +229,12 @@ pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
                 z_high_high = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = neon_triple_to_luv(x_high_high, y_high_high, z_high_high);
+                x_high_high = l;
+                y_high_high = u;
+                z_high_high = v;
+            }
         }
 
         let a_high_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_high)), 1f32 / 255f32);

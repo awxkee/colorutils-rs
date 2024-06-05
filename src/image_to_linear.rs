@@ -38,7 +38,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     #[cfg(target_arch = "x86_64")]
     let mut has_sse = false;
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", target_feature = "sse4.1"))]
     if is_x86_feature_detected!("sse4.1") {
         has_sse = true;
     }

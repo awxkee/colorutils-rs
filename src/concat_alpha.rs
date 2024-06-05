@@ -37,6 +37,7 @@ pub fn append_alpha(
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
+        #[cfg(target_feature = "sse4.1")]
         if is_x86_feature_detected!("sse4.1") {
             _use_sse = true;
         }

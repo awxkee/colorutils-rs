@@ -14,9 +14,9 @@ use crate::neon_linear_to_image::get_neon_gamma_transfer;
 use crate::neon_to_linear_u8::neon_image_linear_to_u8;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse_image_to_linear_u8::sse_image_to_linear_unsigned;
-use crate::Rgb;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse_linear_to_image::get_sse_gamma_transfer;
+use crate::Rgb;
 
 #[inline]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -45,7 +45,10 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     let mut _has_sse = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     if is_x86_feature_detected!("sse4.1") {
         _has_sse = true;
     }
