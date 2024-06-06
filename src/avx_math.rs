@@ -19,7 +19,6 @@ pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
     return _mm256_fmadd_ps(b, c, a);
 }
 
-
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]

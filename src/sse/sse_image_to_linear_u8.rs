@@ -8,17 +8,12 @@ pub mod sse_image_to_linear_unsigned {
     use crate::image_to_xyz_lab::XyzTarget;
     #[allow(unused_imports)]
     use crate::neon_gamma_curves::*;
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    #[allow(unused_imports)]
-    use crate::sse_gamma_curves::{sse_rec709_to_linear, sse_srgb_to_linear};
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    use crate::x86_64_simd_support::*;
+    use crate::sse::*;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[inline(always)]
     unsafe fn sse_triple_to_linear_u8(
         r: __m128i,
@@ -41,9 +36,8 @@ pub mod sse_image_to_linear_unsigned {
         )
     }
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[inline(always)]
-    pub(crate) unsafe fn sse_channels_to_linear<
+    pub(crate) unsafe fn sse_channels_to_linear_u8<
         const CHANNELS_CONFIGURATION: u8,
         const USE_ALPHA: bool,
     >(

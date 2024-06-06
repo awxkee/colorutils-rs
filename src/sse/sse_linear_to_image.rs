@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
-use crate::sse_gamma_curves::*;
+use crate::sse::*;
 #[allow(unused_imports)]
 use crate::x86_64_simd_support::*;
 #[allow(unused_imports)]

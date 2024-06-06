@@ -1,7 +1,5 @@
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::x86_64_simd_support::{avx2_deinterleave_rgb_ps, avx2_interleave_rgba_ps};
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::{sse_deinterleave_rgb_ps, sse_interleave_ps_rgba};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -13,6 +11,8 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 #[allow(unused_imports)]
 use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::*;
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(

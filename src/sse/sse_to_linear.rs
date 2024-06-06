@@ -8,23 +8,11 @@ use crate::image_to_xyz_lab::XyzTarget;
 use crate::neon_gamma_curves::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[allow(unused_imports)]
-use crate::sse_gamma_curves::{sse_rec709_to_linear, sse_srgb_to_linear};
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::*;
+use crate::sse::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-pub unsafe fn get_sse_linear_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m128) -> __m128 {
-    match transfer_function {
-        TransferFunction::Srgb => sse_srgb_to_linear,
-        TransferFunction::Rec709 => sse_rec709_to_linear,
-    }
-}
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -46,7 +34,7 @@ unsafe fn sse_triple_to_linear(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub(crate) unsafe fn sse_channels_to_linear<
+pub unsafe fn sse_channels_to_linear<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
 >(

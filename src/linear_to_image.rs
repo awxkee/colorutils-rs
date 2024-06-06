@@ -7,9 +7,9 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon_linear_to_image::neon_linear_to_gamma;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_linear_to_image::sse_linear_to_gamma;
 use crate::Rgb;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_linear_to_gamma;
 
 #[inline(always)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(

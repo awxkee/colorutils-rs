@@ -9,10 +9,10 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     target_feature = "neon"
 ))]
 use crate::neon_to_xyz_lab::neon_channels_to_xyz_or_lab;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_to_xyz_lab::sse_channels_to_xyz_or_lab;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_channels_to_xyz_or_lab;
 
 pub(crate) enum XyzTarget {
     LAB = 0,

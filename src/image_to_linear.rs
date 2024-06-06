@@ -7,8 +7,8 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon_to_linear::neon_channels_to_linear;
-#[cfg(target_arch = "x86_64")]
-use crate::sse_to_linear::sse_channels_to_linear;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::*;
 use crate::Rgb;
 
 #[inline(always)]
@@ -35,10 +35,13 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     let mut _has_sse = false;
 
-    #[cfg(all(target_arch = "x86_64", target_feature = "sse4.1"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     if is_x86_feature_detected!("sse4.1") {
         _has_sse = true;
     }
@@ -46,7 +49,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     for _ in 0..height as usize {
         let mut cx = 0usize;
 
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
             if _has_sse {
                 cx = sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(

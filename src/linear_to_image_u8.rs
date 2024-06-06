@@ -13,10 +13,10 @@ use crate::neon_linear_to_image::get_neon_gamma_transfer;
 ))]
 use crate::neon_to_linear_u8::neon_image_linear_to_u8;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_image_to_linear_u8::sse_image_to_linear_unsigned;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_linear_to_image::get_sse_gamma_transfer;
+use crate::sse::get_sse_gamma_transfer;
 use crate::Rgb;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
 
 #[inline]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -60,7 +60,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         unsafe {
             if _has_sse {
                 let transfer = get_sse_gamma_transfer(transfer_function);
-                cx = sse_image_to_linear_unsigned::sse_channels_to_linear::<
+                cx = sse_channels_to_linear_u8::<
                     CHANNELS_CONFIGURATION,
                     USE_ALPHA,
                 >(

@@ -13,9 +13,6 @@ use crate::image_to_xyz_lab::XyzTarget;
 #[allow(unused_imports)]
 use crate::neon_gamma_curves::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[allow(unused_imports)]
-use crate::sse_gamma_curves::{sse_rec709_to_linear, sse_srgb_to_linear};
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::x86_64_simd_support::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

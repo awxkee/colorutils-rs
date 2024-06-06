@@ -9,6 +9,8 @@ use std::arch::aarch64::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::*;
 
 /// Expands RGB to RGBA.
 pub fn rgb_to_rgba(

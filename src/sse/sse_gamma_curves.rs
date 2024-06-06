@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_math::*;
+use crate::sse::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
@@ -85,4 +85,14 @@ pub unsafe fn sse_rec709_to_linear(linear: __m128) -> __m128 {
     );
     low = _mm_mul_ps(low, _mm_set1_ps(1f32 / 4.5f32));
     return _mm_select_ps(mask, high, low);
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub unsafe fn get_sse_linear_transfer(
+    transfer_function: TransferFunction,
+) -> unsafe fn(__m128) -> __m128 {
+    match transfer_function {
+        TransferFunction::Srgb => sse_srgb_to_linear,
+        TransferFunction::Rec709 => sse_rec709_to_linear,
+    }
 }

@@ -2,37 +2,23 @@
 use crate::gamma_curves::TransferFunction;
 #[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 #[allow(unused_imports)]
 use crate::neon_gamma_curves::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[allow(unused_imports)]
-use crate::sse_gamma_curves::{sse_rec709_to_linear, sse_srgb_to_linear};
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse_math::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use crate::sse::*;
+#[allow(unused_imports)]
+use crate::image_to_xyz_lab::XyzTarget;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-pub unsafe fn get_sse_linear_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m128) -> __m128 {
-    match transfer_function {
-        TransferFunction::Srgb => sse_srgb_to_linear,
-        TransferFunction::Rec709 => sse_rec709_to_linear,
-    }
-}
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-unsafe fn sse_triple_to_xyz(
+pub(crate) unsafe fn sse_triple_to_xyz(
     r: __m128i,
     g: __m128i,
     b: __m128i,
@@ -94,7 +80,11 @@ pub(crate) unsafe fn sse_triple_to_luv(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-unsafe fn sse_triple_to_lab(x: __m128, y: __m128, z: __m128) -> (__m128, __m128, __m128) {
+pub(crate) unsafe fn sse_triple_to_lab(
+    x: __m128,
+    y: __m128,
+    z: __m128,
+) -> (__m128, __m128, __m128) {
     let x = _mm_mul_ps(x, _mm_set1_ps(100f32 / 95.047f32));
     let y = _mm_mul_ps(y, _mm_set1_ps(100f32 / 100f32));
     let z = _mm_mul_ps(z, _mm_set1_ps(100f32 / 108.883f32));
@@ -118,7 +108,7 @@ unsafe fn sse_triple_to_lab(x: __m128, y: __m128, z: __m128) -> (__m128, __m128,
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
+pub unsafe fn sse_channels_to_xyz_or_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,

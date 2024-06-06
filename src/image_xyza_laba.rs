@@ -1,13 +1,15 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
-use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
-use std::slice;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use crate::neon_to_xyza_laba::neon_channels_to_xyza_or_laba;
+use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
+use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_channels_to_xyza_laba;
 
 #[inline(always)]
 fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -29,6 +31,17 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_sse = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    {
+        #[cfg(target_feature = "sse4.1")]
+        if is_x86_feature_detected!("sse4.1") {
+            _has_sse = true;
+        }
+    }
+
     const CHANNELS: usize = 4;
 
     let channels = image_configuration.get_channels_count();
@@ -36,6 +49,22 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            if _has_sse {
+                cx = sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    width,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    &matrix,
+                    transfer_function,
+                );
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),
@@ -134,10 +163,7 @@ pub fn rgba_to_lab_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<
-        { ImageConfiguration::Rgba as u8 },
-        { LAB as u8 },
-    >(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -168,10 +194,7 @@ pub fn bgra_to_lab_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<
-        { ImageConfiguration::Bgra as u8 },
-        { LAB as u8 },
-    >(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -182,7 +205,6 @@ pub fn bgra_to_lab_with_alpha(
         TransferFunction::Srgb,
     );
 }
-
 
 /// This function converts RGBA to CIE L*uv against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
 ///
@@ -203,10 +225,7 @@ pub fn rgba_to_luv_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<
-        { ImageConfiguration::Rgba as u8 },
-        { LUV as u8 },
-    >(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { LUV as u8 }>(
         src,
         src_stride,
         dst,
@@ -237,10 +256,7 @@ pub fn bgra_to_luv_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<
-        { ImageConfiguration::Bgra as u8 },
-        { LUV as u8 },
-    >(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { LUV as u8 }>(
         src,
         src_stride,
         dst,
