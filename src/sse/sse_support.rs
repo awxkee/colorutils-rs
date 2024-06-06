@@ -2,6 +2,7 @@
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::x86_64_simd_support::shuffle;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
