@@ -1,9 +1,3 @@
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx2_utils::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx_gamma_curves::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx_math::*;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[allow(unused_imports)]
@@ -12,13 +6,12 @@ use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 #[allow(unused_imports)]
 use crate::neon_gamma_curves::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::*;
+use crate::avx::avx_gamma_curves::{avx2_rec709_to_linear, avx2_srgb_to_linear};
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]

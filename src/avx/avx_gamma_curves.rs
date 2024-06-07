@@ -1,11 +1,10 @@
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx_math::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+use crate::avx::avx_math::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]

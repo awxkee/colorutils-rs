@@ -1,6 +1,3 @@
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[allow(unused_imports)]
-use crate::avx2_to_xyz_lab::*;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
@@ -11,6 +8,8 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 use crate::neon_to_xyz_lab::neon_channels_to_xyz_or_lab;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::avx2_channels_to_xyz_or_lab;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_xyz_or_lab;
 

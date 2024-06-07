@@ -3,8 +3,6 @@ use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
 use crate::sse::*;
 #[allow(unused_imports)]
-use crate::x86_64_simd_support::*;
-#[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

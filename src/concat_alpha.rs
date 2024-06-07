@@ -1,5 +1,3 @@
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::x86_64_simd_support::{avx2_deinterleave_rgb_ps, avx2_interleave_rgba_ps};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -11,6 +9,8 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 #[allow(unused_imports)]
 use std::slice;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::*;
 
