@@ -1,3 +1,4 @@
+use std::arch::aarch64::{vdupq_n_f32, vdupq_n_u32, vgetq_lane_f32, vgetq_lane_u32};
 use colorutils_rs::*;
 use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};
@@ -43,54 +44,54 @@ fn main() {
     println!("Back RGB {:?}", hsl.to_rgb8());
 
     // unsafe {
-    //     let (h, s, l) = sse_rgb_to_hsl(
-    //         _mm_set1_epi32(r as i32),
-    //         _mm_set1_epi32(g as i32),
-    //         _mm_set1_epi32(b as i32),
-    //         _mm_set1_ps(1f32),
+    //     let (h, s, l) = neon_rgb_to_hsl(
+    //         vdupq_n_u32(r as u32),
+    //         vdupq_n_u32(g as u32),
+    //         vdupq_n_u32(b as u32),
+    //         vdupq_n_f32(1f32),
     //     );
     //     println!(
     //         "NEON HSL {}, {}, {}",
-    //         f32::from_bits(_mm_extract_ps::<0>(h) as u32),
-    //         f32::from_bits(_mm_extract_ps::<0>(s) as u32),
-    //         f32::from_bits(_mm_extract_ps::<0>(l) as u32)
+    //         vgetq_lane_f32::<0>(h),
+    //         vgetq_lane_f32::<0>(s),
+    //         vgetq_lane_f32::<0>(l)
     //     );
-    //     let (r1, g1, b1) = sse_hsl_to_rgb(h, s, l, _mm_set1_ps(1f32));
+    //     let (r1, g1, b1) = neon_hsl_to_rgb(h, s, l, vdupq_n_f32(1f32));
     //
     //     println!(
     //         "NEON HSL -> RGB {}, {}, {}",
-    //         _mm_extract_epi32::<0>(r1),
-    //         _mm_extract_epi32::<0>(g1),
-    //         _mm_extract_epi32::<0>(b1)
+    //         vgetq_lane_u32::<0>(r1),
+    //         vgetq_lane_u32::<0>(g1),
+    //         vgetq_lane_u32::<0>(b1)
     //     );
     // }
     //
     // unsafe {
-    //     let (h, s, v) = sse_rgb_to_hsv(
-    //         _mm_set1_epi32(r as i32),
-    //         _mm_set1_epi32(g as i32),
-    //         _mm_set1_epi32(b as i32),
-    //         _mm_set1_ps(1f32),
+    //     let (h, s, v) = neon_rgb_to_hsv(
+    //         vdupq_n_u32(r as u32),
+    //         vdupq_n_u32(g as u32),
+    //         vdupq_n_u32(b as u32),
+    //         vdupq_n_f32(1f32),
     //     );
     //     let hsv = rgb.to_hsv();
     //     println!("HSV {:?}", hsv);
     //     println!("HSV->RBB {:?}", hsv.to_rgb8());
     //     println!(
     //         "NEON HSV {}, {}, {}",
-    //         f32::from_bits(_mm_extract_ps::<0>(h) as u32),
-    //         f32::from_bits(_mm_extract_ps::<0>(s) as u32),
-    //         f32::from_bits(_mm_extract_ps::<0>(v) as u32)
+    //         vgetq_lane_f32::<0>(h),
+    //         vgetq_lane_f32::<0>(s),
+    //         vgetq_lane_f32::<0>(v)
     //     );
-    //     let (r1, g1, b1) = sse_hsv_to_rgb(h, s, v, _mm_set1_ps(1f32));
+    //     let (r1, g1, b1) = neon_hsv_to_rgb(h, s, v, vdupq_n_f32(1f32));
     //     println!(
     //         "NEON RGB {}, {}, {}",
-    //         _mm_extract_epi32::<0>(r1),
-    //         _mm_extract_epi32::<0>(g1),
-    //         _mm_extract_epi32::<0>(b1)
+    //         vgetq_lane_u32::<0>(r1),
+    //         vgetq_lane_u32::<0>(g1),
+    //         vgetq_lane_u32::<0>(b1)
     //     );
     // }
 
-    let img = ImageReader::open("./assets/asset.jpg")
+    let img = ImageReader::open("./assets/asset_middle.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -125,7 +126,7 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0u16);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_hsl(
+        rgb_to_hsv(
             src_bytes,
             src_stride,
             &mut lab_store,
@@ -160,7 +161,7 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        hsl_to_rgb(
+        hsv_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,

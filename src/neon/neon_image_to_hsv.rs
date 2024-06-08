@@ -1,6 +1,6 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-use crate::{neon_rgb_to_hsl, neon_rgb_to_hsv};
+use crate::neon::{neon_rgb_to_hsl, neon_rgb_to_hsv};
 use std::arch::aarch64::*;
 
 #[cfg(all(

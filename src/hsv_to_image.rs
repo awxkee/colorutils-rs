@@ -75,8 +75,8 @@ fn hsv_u16_to_channels<
             target_feature = "neon"
         ))]
         unsafe {
-            cx = neon_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                cx,
+            _cx = neon_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                _cx,
                 src.as_ptr(),
                 src_offset,
                 width,
