@@ -49,17 +49,17 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     }
 
     for _ in 0..height as usize {
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
             if _has_sse {
                 let transfer = get_sse_gamma_transfer(transfer_function);
-                cx = sse_channels_to_linear_u8::<
+                _cx = sse_channels_to_linear_u8::<
                     CHANNELS_CONFIGURATION,
                     USE_ALPHA,
                 >(
-                    cx,
+                    _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
@@ -76,11 +76,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         ))]
         unsafe {
             let transfer = get_neon_gamma_transfer(transfer_function);
-            cx = neon_image_linear_to_u8::neon_channels_to_linear_u8::<
+            _cx = neon_image_linear_to_u8::neon_channels_to_linear_u8::<
                 CHANNELS_CONFIGURATION,
                 USE_ALPHA,
             >(
-                cx,
+                _cx,
                 src.as_ptr(),
                 src_offset,
                 width,
@@ -96,7 +96,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let r = unsafe {
                 *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
