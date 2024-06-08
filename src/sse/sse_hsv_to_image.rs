@@ -5,6 +5,9 @@ use crate::sse::{
     sse_deinterleave_rgb_epi16, sse_deinterleave_rgba_epi16, sse_interleave_rgb,
     sse_interleave_rgba,
 };
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
 #[inline]

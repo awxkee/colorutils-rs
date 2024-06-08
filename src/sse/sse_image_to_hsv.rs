@@ -9,7 +9,6 @@ use crate::sse::{
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-
 #[inline]
 pub unsafe fn sse_channels_to_hsv_u16<
     const CHANNELS_CONFIGURATION: u8,
