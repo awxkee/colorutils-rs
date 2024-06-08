@@ -47,13 +47,13 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     }
 
     for _ in 0..height as usize {
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
             if _has_sse {
-                cx = sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                    cx,
+                _cx = sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+                    _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
@@ -69,8 +69,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             target_feature = "neon"
         ))]
         unsafe {
-            cx = neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                cx,
+            _cx = neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+                _cx,
                 src.as_ptr(),
                 src_offset,
                 width,
@@ -86,7 +86,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let r = unsafe {
                 *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
