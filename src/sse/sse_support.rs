@@ -1,8 +1,8 @@
+use crate::avx::shuffle;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use crate::avx::shuffle;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -21,7 +21,6 @@ pub unsafe fn sse_interleave_even(x: __m128i) -> __m128i {
     let new_lane = _mm_shuffle_epi8(x, shuffle);
     return new_lane;
 }
-
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -65,7 +64,6 @@ pub unsafe fn sse_transpose_x4(
 
     (row1, row2, row3, row4)
 }
-
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -257,13 +255,101 @@ pub unsafe fn sse_interleave_rgb(
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
+pub unsafe fn sse_interleave_rgb_epi16(
+    a: __m128i,
+    b: __m128i,
+    c: __m128i,
+) -> (__m128i, __m128i, __m128i) {
+    let sh_a = _mm_setr_epi8(0, 1, 6, 7, 12, 13, 2, 3, 8, 9, 14, 15, 4, 5, 10, 11);
+    let sh_b = _mm_setr_epi8(10, 11, 0, 1, 6, 7, 12, 13, 2, 3, 8, 9, 14, 15, 4, 5);
+    let sh_c = _mm_setr_epi8(4, 5, 10, 11, 0, 1, 6, 7, 12, 13, 2, 3, 8, 9, 14, 15);
+    let a0 = _mm_shuffle_epi8(a, sh_a);
+    let b0 = _mm_shuffle_epi8(b, sh_b);
+    let c0 = _mm_shuffle_epi8(c, sh_c);
+
+    let v0 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(a0, b0), c0);
+    let v1 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(c0, a0), b0);
+    let v2 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(b0, c0), a0);
+    (v0, v1, v2)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn sse_interleave_rgba_epi16(
+    a: __m128i,
+    b: __m128i,
+    c: __m128i,
+    d: __m128i,
+) -> (__m128i, __m128i, __m128i, __m128i) {
+    let u0 = _mm_unpacklo_epi16(a, c); // a0 c0 a1 c1 ...
+    let u1 = _mm_unpackhi_epi16(a, c); // a4 c4 a5 c5 ...
+    let u2 = _mm_unpacklo_epi16(b, d); // b0 d0 b1 d1 ...
+    let u3 = _mm_unpackhi_epi16(b, d); // b4 d4 b5 d5 ...
+
+    let v0 = _mm_unpacklo_epi16(u0, u2); // a0 b0 c0 d0 ...
+    let v1 = _mm_unpackhi_epi16(u0, u2); // a2 b2 c2 d2 ...
+    let v2 = _mm_unpacklo_epi16(u1, u3); // a4 b4 c4 d4 ...
+    let v3 = _mm_unpackhi_epi16(u1, u3); // a6 b6 c6 d6 ...
+    (v0, v1, v2, v3)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn sse_deinterleave_rgba_epi16(
+    u0: __m128i,
+    u1: __m128i,
+    u2: __m128i,
+    u3: __m128i,
+) -> (__m128i, __m128i, __m128i, __m128i) {
+    let v0 = _mm_unpacklo_epi16(u0, u2); // a0 a4 b0 b4 ...
+    let v1 = _mm_unpackhi_epi16(u0, u2); // a1 a5 b1 b5 ...
+    let v2 = _mm_unpacklo_epi16(u1, u3); // a2 a6 b2 b6 ...
+    let v3 = _mm_unpackhi_epi16(u1, u3); // a3 a7 b3 b7 ...
+
+    let u0 = _mm_unpacklo_epi16(v0, v2); // a0 a2 a4 a6 ...
+    let u1 = _mm_unpacklo_epi16(v1, v3); // a1 a3 a5 a7 ...
+    let u2 = _mm_unpackhi_epi16(v0, v2); // c0 c2 c4 c6 ...
+    let u3 = _mm_unpackhi_epi16(v1, v3); // c1 c3 c5 c7 ...
+
+    let a = _mm_unpacklo_epi16(u0, u1);
+    let b = _mm_unpackhi_epi16(u0, u1);
+    let c = _mm_unpacklo_epi16(u2, u3);
+    let d = _mm_unpackhi_epi16(u2, u3);
+    (a, b, c ,d)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn sse_deinterleave_rgb_epi16(
+    v0: __m128i,
+    v1: __m128i,
+    v2: __m128i,
+) -> (__m128i, __m128i, __m128i) {
+    let a0 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(v0, v1), v2);
+    let b0 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(v2, v0), v1);
+    let c0 = _mm_blend_epi16::<0x24>(_mm_blend_epi16::<0x92>(v1, v2), v0);
+
+    let sh_a = _mm_setr_epi8(0, 1, 6, 7, 12, 13, 2, 3, 8, 9, 14, 15, 4, 5, 10, 11);
+    let sh_b = _mm_setr_epi8(2, 3, 8, 9, 14, 15, 4, 5, 10, 11, 0, 1, 6, 7, 12, 13);
+    let sh_c = _mm_setr_epi8(4, 5, 10, 11, 0, 1, 6, 7, 12, 13, 2, 3, 8, 9, 14, 15);
+    let a0 = _mm_shuffle_epi8(a0, sh_a);
+    let b0 = _mm_shuffle_epi8(b0, sh_b);
+    let c0 = _mm_shuffle_epi8(c0, sh_c);
+    (a0, b0, c0)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
 pub unsafe fn sse_store_rgb_u8(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i) {
     let (v0, v1, v2) = sse_interleave_rgb(r, g, b);
     _mm_storeu_si128(ptr as *mut __m128i, v0);
     _mm_storeu_si128(ptr.add(16) as *mut __m128i, v1);
     _mm_storeu_si128(ptr.add(32) as *mut __m128i, v2);
 }
-
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]

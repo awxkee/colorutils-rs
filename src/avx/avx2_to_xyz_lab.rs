@@ -4,8 +4,6 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
-#[allow(unused_imports)]
-use crate::neon_gamma_curves::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]

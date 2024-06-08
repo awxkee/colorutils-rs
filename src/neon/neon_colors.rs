@@ -147,10 +147,6 @@ pub unsafe fn neon_hsv_to_rgb(
     (vcvtaq_u32_f32(r), vcvtaq_u32_f32(g), vcvtaq_u32_f32(b))
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub unsafe fn neon_rgb_to_hsv(
     r: uint32x4_t,
@@ -209,10 +205,6 @@ pub unsafe fn neon_rgb_to_hsv(
     (h, vmulq_f32(s, scale), vmulq_f32(v, scale))
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub unsafe fn neon_rgb_to_hsl(
     r: uint32x4_t,

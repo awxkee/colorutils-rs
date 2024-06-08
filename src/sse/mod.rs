@@ -29,6 +29,10 @@ mod sse_xyza_laba_to_image;
 mod sse_color;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod sse_xyz_lab_to_image;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+mod sse_image_to_hsv;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+mod sse_hsv_to_image;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub use sse_image_to_linear_u8::*;
@@ -50,3 +54,7 @@ pub use sse_xyza_laba_to_image::*;
 pub use sse_xyz_lab_to_image::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub use sse_linear_to_image::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub use sse_image_to_hsv::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub use sse_hsv_to_image::*;

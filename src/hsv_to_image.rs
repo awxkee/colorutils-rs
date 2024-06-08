@@ -1,9 +1,15 @@
 use std::slice;
 
-use crate::{Hsl, Hsv};
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon::neon_hsv_u16_to_image;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_hsv_u16_to_image;
+use crate::{Hsl, Hsv};
 
 #[inline(always)]
 fn hsv_u16_to_channels<
@@ -27,6 +33,17 @@ fn hsv_u16_to_channels<
         }
     }
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_sse = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
+    }
+
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
@@ -36,7 +53,22 @@ fn hsv_u16_to_channels<
 
     for _ in 0..height as usize {
         #[allow(unused_mut)]
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            if _has_sse {
+                _cx = sse_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    _cx,
+                    src.as_ptr(),
+                    src_offset,
+                    width,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    scale,
+                )
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),
@@ -60,7 +92,7 @@ fn hsv_u16_to_channels<
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let h = unsafe { *src_slice.get_unchecked(px) };
             let s = unsafe { *src_slice.get_unchecked(px + 1) };

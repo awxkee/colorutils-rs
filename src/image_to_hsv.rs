@@ -8,8 +8,10 @@ use crate::image_to_hsv_support::HsvTarget;
 ))]
 use crate::neon::neon_channels_to_hsv_u16;
 use crate::Rgb;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_channels_to_hsv_u16;
 
-#[inline(always)]
+#[inline]
 fn channels_to_hsv_u16<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
@@ -31,6 +33,17 @@ fn channels_to_hsv_u16<
         }
     }
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_sse = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
+    }
+
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
@@ -39,6 +52,21 @@ fn channels_to_hsv_u16<
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            if _has_sse {
+                cx = sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    width,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    scale,
+                )
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),

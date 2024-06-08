@@ -1,7 +1,7 @@
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -219,7 +219,11 @@ pub unsafe fn _mm_vilogbk_ps(d: __m128) -> __m128i {
     );
     let q = _mm_sub_epi32(
         q,
-        _mm_select_si128(_mm_castps_si128(o), _mm_set1_epi32(64 + 0x7f), _mm_set1_epi32(0x7f)),
+        _mm_select_si128(
+            _mm_castps_si128(o),
+            _mm_set1_epi32(64 + 0x7f),
+            _mm_set1_epi32(0x7f),
+        ),
     );
     return q;
 }
@@ -250,6 +254,14 @@ pub(crate) unsafe fn _mm_neg_epi32(x: __m128i) -> __m128i {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
+pub(crate) unsafe fn _mm_neg_ps(x: __m128) -> __m128 {
+    let high = _mm_set1_ps(0f32);
+    return _mm_sub_ps(high, x);
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
 /// This is Cube Root using Pow functions,
 /// it is also precise however due to of inexact nature of power 1/3 result slightly differ
 /// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
@@ -268,7 +280,10 @@ pub unsafe fn _mm_cbrt_ps_ulp35(d: __m128) -> __m128 {
 
     let t = _mm_add_ps(_mm_cvtepi32_ps(e), _mm_set1_ps(6144f32));
     let qu = _mm_cvttps_epi32(_mm_mul_ps(t, _mm_set1_ps(1.0f32 / 3.0f32)));
-    let re = _mm_cvttps_epi32(_mm_sub_ps(t, _mm_mul_ps(_mm_cvtepi32_ps(qu), _mm_set1_ps(3f32))));
+    let re = _mm_cvttps_epi32(_mm_sub_ps(
+        t,
+        _mm_mul_ps(_mm_cvtepi32_ps(qu), _mm_set1_ps(3f32)),
+    ));
 
     q = _mm_selecti_ps(
         _mm_cmpeq_epi32(re, _mm_set1_epi32(1)),
@@ -326,4 +341,17 @@ pub unsafe fn _mm_color_matrix_ps(
     let new_g = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c5), b, c6), r, c4);
     let new_b = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub(crate) unsafe fn _mm_fmod_ps(a: __m128, b: __m128) -> __m128 {
+    let dividend_vec = a;
+    let divisor_vec = b;
+    let division = _mm_mul_ps(dividend_vec, _mm_rcp_ps(divisor_vec));  // Perform division
+    let int_part = _mm_floor_ps(division);                 // Get the integer part using floor
+    let product = _mm_mul_ps(int_part, divisor_vec);       // Multiply the integer part by the divisor
+    let remainder = _mm_sub_ps(dividend_vec, product);     // Subtract the product from the dividend
+    remainder
 }

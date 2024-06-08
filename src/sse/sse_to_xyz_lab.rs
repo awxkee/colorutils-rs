@@ -2,8 +2,6 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 #[allow(unused_imports)]
-use crate::neon_gamma_curves::*;
-#[allow(unused_imports)]
 use crate::sse::*;
 #[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;

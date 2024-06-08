@@ -1,9 +1,6 @@
-use std::arch::aarch64::{vdupq_n_f32, vdupq_n_u32, vgetq_lane_f32, vgetq_lane_u32};
 use colorutils_rs::*;
 use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 use std::time::Instant;
 
 #[cfg(target_arch = "x86_64")]
@@ -36,31 +33,64 @@ fn main() {
     //     println!("Cbrt {}", l);
     // }
 
-    let rgb = Rgb::<u8>::new(140, 164, 177);
+    let r = 140;
+    let g = 164;
+    let b = 177;
+    let rgb = Rgb::<u8>::new(r, g, b);
     let hsl = rgb.to_hsl();
     println!("RGB {:?}", rgb);
     println!("HSL {:?}", hsl);
     println!("Back RGB {:?}", hsl.to_rgb8());
 
-    // unsafe  {
-    //     let (h, s, l) = neon_rgb_to_hsl(vdupq_n_u32(255), vdupq_n_u32(156), vdupq_n_u32(255), vdupq_n_f32(1f32));
-    //     println!("NEON HSL {}, {}, {}", vgetq_lane_f32::<0>(h), vgetq_lane_f32::<0>(s), vgetq_lane_f32::<0>(l));
-    //     let (r1, g1, b1) = neon_hsl_to_rgb(h, s, l, vdupq_n_f32(1f32));
+    // unsafe {
+    //     let (h, s, l) = sse_rgb_to_hsl(
+    //         _mm_set1_epi32(r as i32),
+    //         _mm_set1_epi32(g as i32),
+    //         _mm_set1_epi32(b as i32),
+    //         _mm_set1_ps(1f32),
+    //     );
+    //     println!(
+    //         "NEON HSL {}, {}, {}",
+    //         f32::from_bits(_mm_extract_ps::<0>(h) as u32),
+    //         f32::from_bits(_mm_extract_ps::<0>(s) as u32),
+    //         f32::from_bits(_mm_extract_ps::<0>(l) as u32)
+    //     );
+    //     let (r1, g1, b1) = sse_hsl_to_rgb(h, s, l, _mm_set1_ps(1f32));
     //
-    //     println!("NEON HSL -> RHB {}, {}, {}", vgetq_lane_u32::<0>(r1), vgetq_lane_u32::<0>(g1), vgetq_lane_u32::<0>(b1));
+    //     println!(
+    //         "NEON HSL -> RGB {}, {}, {}",
+    //         _mm_extract_epi32::<0>(r1),
+    //         _mm_extract_epi32::<0>(g1),
+    //         _mm_extract_epi32::<0>(b1)
+    //     );
     // }
     //
-    // unsafe  {
-    //     let (h, s, v) = neon_rgb_to_hsv(vdupq_n_u32(255), vdupq_n_u32(156), vdupq_n_u32(255), vdupq_n_f32(1f32));
+    // unsafe {
+    //     let (h, s, v) = sse_rgb_to_hsv(
+    //         _mm_set1_epi32(r as i32),
+    //         _mm_set1_epi32(g as i32),
+    //         _mm_set1_epi32(b as i32),
+    //         _mm_set1_ps(1f32),
+    //     );
     //     let hsv = rgb.to_hsv();
     //     println!("HSV {:?}", hsv);
-    //     println!("NEON HSV {}, {}, {}", vgetq_lane_f32::<0>(h), vgetq_lane_f32::<0>(s), vgetq_lane_f32::<0>(v));
-    //     let (r1, g1, b1) = neon_hsv_to_rgb(h, s,v, vdupq_n_f32(1f32));
-    //     println!("NEON RGB {}, {}, {}", vgetq_lane_u32::<0>(r1), vgetq_lane_u32::<0>(g1), vgetq_lane_u32::<0>(b1));
-
+    //     println!("HSV->RBB {:?}", hsv.to_rgb8());
+    //     println!(
+    //         "NEON HSV {}, {}, {}",
+    //         f32::from_bits(_mm_extract_ps::<0>(h) as u32),
+    //         f32::from_bits(_mm_extract_ps::<0>(s) as u32),
+    //         f32::from_bits(_mm_extract_ps::<0>(v) as u32)
+    //     );
+    //     let (r1, g1, b1) = sse_hsv_to_rgb(h, s, v, _mm_set1_ps(1f32));
+    //     println!(
+    //         "NEON RGB {}, {}, {}",
+    //         _mm_extract_epi32::<0>(r1),
+    //         _mm_extract_epi32::<0>(g1),
+    //         _mm_extract_epi32::<0>(b1)
+    //     );
     // }
 
-    let img = ImageReader::open("./assets/asset_middle.jpg")
+    let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -71,37 +101,42 @@ fn main() {
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
-    let components = 4;
+    let components = 3;
 
-    let mut dst_rgba = vec![];
-    dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
-    rgb_to_rgba(
-        &src_bytes,
-        3u32 * width,
-        &mut dst_rgba,
-        4u32 * width,
-        width,
-        height,
-        255,
-    );
-    src_bytes = &dst_rgba;
+    // let mut dst_rgba = vec![];
+    // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
+    // rgb_to_rgba(
+    //     &src_bytes,
+    //     3u32 * width,
+    //     &mut dst_rgba,
+    //     4u32 * width,
+    //     width,
+    //     height,
+    //     255,
+    // );
+    // src_bytes = &dst_rgba;
 
     let mut dst_slice: Vec<u8> = Vec::new();
-    dst_slice.resize(width as usize * 4 * height as usize, 0u8);
+    dst_slice.resize(width as usize * components * height as usize, 0u8);
 
     {
         let mut lab_store: Vec<u16> = vec![];
-        let store_stride = width as usize * 4usize * std::mem::size_of::<u16>();
-        lab_store.resize(width as usize * 4usize * height as usize, 0u16);
+        let store_stride = width as usize * components * std::mem::size_of::<u16>();
+        lab_store.resize(width as usize * components * height as usize, 0u16);
+        let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgba_to_hsl(
+        rgb_to_hsl(
             src_bytes,
-            4u32 * width,
+            src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
-            height,100f32
+            height,
+            100f32,
         );
+        let elapsed_time = start_time.elapsed();
+        // Print the elapsed time in milliseconds
+        println!("RGBA To HSV: {:.2?}", elapsed_time);
         // let mut destination: Vec<f32> = vec![];
         // destination.resize(width as usize * height as usize * 4, 0f32);
         // let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
@@ -124,18 +159,20 @@ fn main() {
         //     src_shift += src_stride as usize;
         // }
 
-        hsl_to_rgba(
+        let start_time = Instant::now();
+        hsl_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
-            4u32 * width,
+            src_stride,
             width,
-            height,100f32,
+            height,
+            100f32,
         );
 
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
-        println!("Fast image resize: {:.2?}", elapsed_time);
+        println!("HSV To RGBA: {:.2?}", elapsed_time);
 
         // laba_to_srgb(
         //     &lab_store,

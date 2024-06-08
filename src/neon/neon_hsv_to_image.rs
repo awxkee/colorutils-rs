@@ -8,7 +8,7 @@ use crate::image_to_hsv_support::HsvTarget;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-#[inline(always)]
+#[inline]
 pub unsafe fn neon_hsv_u16_to_image<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,

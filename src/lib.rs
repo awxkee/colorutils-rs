@@ -80,7 +80,3 @@ pub use image_to_linear_u8::*;
 pub use linear_to_image_u8::*;
 
 pub use rgb_expand::*;
-pub use neon::neon_rgb_to_hsv;
-pub use neon::neon_rgb_to_hsl;
-pub use neon::neon_hsv_to_rgb;
-pub use neon::neon_hsl_to_rgb;

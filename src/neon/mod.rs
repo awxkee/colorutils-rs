@@ -1,9 +1,17 @@
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 mod neon_colors;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 mod neon_gamma_curves;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 mod neon_image_to_hsv;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),

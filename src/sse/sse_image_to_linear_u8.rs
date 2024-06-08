@@ -6,8 +6,6 @@ pub mod sse_image_to_linear_unsigned {
     use crate::image::ImageConfiguration;
     #[allow(unused_imports)]
     use crate::image_to_xyz_lab::XyzTarget;
-    #[allow(unused_imports)]
-    use crate::neon_gamma_curves::*;
     use crate::sse::*;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;

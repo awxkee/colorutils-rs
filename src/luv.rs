@@ -49,7 +49,6 @@ const D65_XYZ: [f32; 3] = [95.047f32, 100.0f32, 108.883f32];
 use crate::rgb::Rgb;
 use crate::rgba::Rgba;
 use crate::xyz::Xyz;
-use clap::Parser;
 
 pub(crate) const LUV_WHITE_U_PRIME: f32 =
     4.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);
