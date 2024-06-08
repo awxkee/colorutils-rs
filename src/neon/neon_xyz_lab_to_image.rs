@@ -11,12 +11,7 @@ use crate::luv::*;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_linear_to_image::get_neon_gamma_transfer;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon_math::*;
+use crate::neon::*;
 #[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(all(
@@ -24,6 +19,7 @@ use crate::TransferFunction;
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
+use crate::neon::neon_math::*;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -305,16 +301,16 @@ pub unsafe fn neon_xyz_to_channels<
         if USE_ALPHA {
             let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
             let a_low_0_f = vld1q_f32(offset_a_src_ptr);
-            let a_row0_ = vcvtq_u32_f32(vmulq_n_f32(a_low_0_f, 255f32));
+            let a_row0_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_0_f, 255f32));
 
             let a_low_1_f = vld1q_f32(offset_a_src_ptr.add(4));
-            let a_row1_ = vcvtq_u32_f32(vmulq_n_f32(a_low_1_f, 255f32));
+            let a_row1_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_1_f, 255f32));
 
             let a_low_2_f = vld1q_f32(offset_a_src_ptr.add(8));
-            let a_row2_ = vcvtq_u32_f32(vmulq_n_f32(a_low_2_f, 255f32));
+            let a_row2_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_2_f, 255f32));
 
             let a_low_3_f = vld1q_f32(offset_a_src_ptr.add(12));
-            let a_row3_ = vcvtq_u32_f32(vmulq_n_f32(a_low_3_f, 255f32));
+            let a_row3_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_3_f, 255f32));
 
             let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
             let a_row23 = vcombine_u16(vqmovn_u32(a_row2_), vqmovn_u32(a_row3_));

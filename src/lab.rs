@@ -2,7 +2,7 @@ use crate::rgb::Rgb;
 use crate::xyz::Xyz;
 
 /// A CIELAB color.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
 pub struct Lab {
     pub l: f32,
     pub a: f32,
@@ -51,8 +51,8 @@ impl Lab {
 impl Lab {
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let y = (self.l + 16.0) / 116.0;
-        let x = self.a / 500.0 + y;
-        let z = y - self.b / 200.0;
+        let x = self.a * (1f32 / 500f32) + y;
+        let z = y - self.b * (1f32 / 200f32);
         let x3 = x.powf(3.0);
         let y3 = y.powf(3.0);
         let z3 = z.powf(3.0);

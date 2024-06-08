@@ -1,6 +1,7 @@
 use crate::rgb::Rgb;
 
 #[allow(dead_code)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Hsl {
     pub h: f32,
     pub s: f32,
@@ -10,7 +11,15 @@ pub struct Hsl {
 impl Hsl {
     #[allow(dead_code)]
     pub fn new(h: u16, s: u16, l: u16) -> Hsl {
-        Hsl { h: h as f32, s: s as f32 / 100f32, l: l as f32 / 100f32 }
+        Hsl {
+            h: h as f32,
+            s: s as f32 * (1f32 / 100f32),
+            l: l as f32 * (1f32 / 100f32),
+        }
+    }
+
+    pub fn from_components(h: f32, s: f32, l: f32) -> Hsl {
+        Hsl { h, s, l }
     }
 
     #[allow(dead_code)]
@@ -90,11 +99,7 @@ fn rgb2hsl(o_r: u8, o_g: u8, o_b: u8) -> Hsl {
     }
 
     let l = 0.5f32 * (c_max + c_min);
-    let s = if delta == 0f32 {
-        0f32
-    } else {
-        delta / (1f32 - (2f32 * l - 1f32).abs())
-    };
+    let s = delta / (1f32 - (2f32 * l - 1f32).abs());
 
     Hsl { h, s, l }
 }

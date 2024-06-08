@@ -1,5 +1,7 @@
 use std::slice;
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::avx_xyz_to_channels;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
@@ -8,7 +10,9 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_xyz_lab_to_image::neon_xyz_to_channels;
+use crate::neon::neon_xyz_to_channels;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_xyz_to_channels;
 use crate::{Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
 
 fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
@@ -37,9 +41,91 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
     let channels = image_configuration.get_channels_count();
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_sse = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_avx2 = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    {
+        #[cfg(target_feature = "sse4.1")]
+        if is_x86_feature_detected!("sse4.1") {
+            _has_sse = true;
+        }
+
+        #[cfg(target_feature = "avx2")]
+        if is_x86_feature_detected!("avx2") {
+            _has_avx2 = true;
+        }
+    }
+
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            if _has_avx2 {
+                if USE_ALPHA {
+                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        a_channel.as_ptr(),
+                        a_offset,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                } else {
+                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        std::ptr::null(),
+                        0usize,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                }
+            }
+
+            if _has_sse {
+                if USE_ALPHA {
+                    cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        a_channel.as_ptr(),
+                        a_offset,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                } else {
+                    cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        std::ptr::null(),
+                        0usize,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                }
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),

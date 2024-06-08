@@ -1,6 +1,6 @@
 //! # Luv
 /// Struct representing a color in CIALuv, a.k.a. L\*u\*v\*, color space
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialOrd)]
 pub struct Luv {
     /// The L\* value (achromatic luminance) of the colour in 0–100 range.
     pub l: f32,
@@ -23,7 +23,7 @@ pub struct Luv {
 }
 
 /// Struct representing a color in cylindrical CIELCh(uv) color space
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialOrd)]
 pub struct LCh {
     /// The L\* value (achromatic luminance) of the colour in 0–100 range.
     ///
@@ -49,6 +49,7 @@ const D65_XYZ: [f32; 3] = [95.047f32, 100.0f32, 108.883f32];
 use crate::rgb::Rgb;
 use crate::rgba::Rgba;
 use crate::xyz::Xyz;
+use clap::Parser;
 
 pub(crate) const LUV_WHITE_U_PRIME: f32 =
     4.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);

@@ -11,17 +11,6 @@ use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub unsafe fn get_sse_gamma_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m128) -> __m128 {
-    match transfer_function {
-        TransferFunction::Srgb => sse_srgb_from_linear,
-        TransferFunction::Rec709 => sse_rec709_from_linear,
-    }
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
 unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
     transfer_function: TransferFunction,
@@ -85,7 +74,7 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub(crate) unsafe fn sse_linear_to_gamma<
+pub unsafe fn sse_linear_to_gamma<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
 >(

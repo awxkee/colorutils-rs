@@ -15,6 +15,12 @@ mod avx_gamma_curves;
 mod avx_math;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx_support;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+mod avx_color;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+mod avx_xyza_laba_to_image;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+mod avx_xyz_lab_to_image;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub use avx2_to_xyz_lab::*;
@@ -24,3 +30,7 @@ pub use avx2_utils::*;
 pub use avx_math::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub use avx_support::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub use avx_xyza_laba_to_image::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub use avx_xyz_lab_to_image::*;

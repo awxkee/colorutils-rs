@@ -8,8 +8,12 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_xyza_laba_to_image::neon_xyza_to_image;
+use crate::neon::neon_xyza_to_image;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::sse_xyza_to_image;
 use crate::{Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::avx_xyza_to_image;
 
 fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
@@ -27,6 +31,25 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         panic!("Alpha may be set only on images with alpha");
     }
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_sse = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let mut _has_avx2 = false;
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    {
+        #[cfg(target_feature = "sse4.1")]
+        if is_x86_feature_detected!("sse4.1") {
+            _has_sse = true;
+        }
+
+        #[cfg(target_feature = "avx2")]
+        if is_x86_feature_detected!("avx2") {
+            _has_avx2 = true;
+        }
+    }
+
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
@@ -35,6 +58,34 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            if _has_avx2 {
+                cx = avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    width,
+                    &matrix,
+                    transfer_function,
+                )
+            }
+            if _has_sse {
+                cx = sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    width,
+                    &matrix,
+                    transfer_function,
+                )
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),

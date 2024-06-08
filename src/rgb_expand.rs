@@ -1,3 +1,7 @@
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::avx::*;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::sse::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -7,10 +11,6 @@ use std::arch::aarch64::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::*;
 
 /// Expands RGB to RGBA.
 pub fn rgb_to_rgba(
@@ -56,17 +56,18 @@ pub fn rgb_to_rgba(
                 while cx + 32 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(cx * 3usize);
                     let xyz0 = _mm256_loadu_si256(xyz_chan_ptr as *const __m256i);
-                    let xyz1 = _mm256_loadu_si256(xyz_chan_ptr.add(8) as *const __m256i);
-                    let xyz2 = _mm256_loadu_si256(xyz_chan_ptr.add(16) as *const __m256i);
+                    let xyz1 = _mm256_loadu_si256(xyz_chan_ptr.add(32) as *const __m256i);
+                    let xyz2 = _mm256_loadu_si256(xyz_chan_ptr.add(64) as *const __m256i);
                     let (x_p, y_p, z_p) = avx2_deinterleave_rgb(xyz0, xyz1, xyz2);
 
                     let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
 
-                    let (xyza0, xyza1, xyza2, xyza3) = avx2_interleave_rgba(x_p, y_p, z_p, v_alpha);
+                    let (xyza0, xyza1, xyza2, xyza3) =
+                        avx2_interleave_rgba_epi8(x_p, y_p, z_p, v_alpha);
                     _mm256_storeu_si256(xyza_chan_ptr as *mut __m256i, xyza0);
-                    _mm256_storeu_si256(xyza_chan_ptr.add(16) as *mut __m256i, xyza1);
-                    _mm256_storeu_si256(xyza_chan_ptr.add(32) as *mut __m256i, xyza2);
-                    _mm256_storeu_si256(xyza_chan_ptr.add(48) as *mut __m256i, xyza3);
+                    _mm256_storeu_si256(xyza_chan_ptr.add(32) as *mut __m256i, xyza1);
+                    _mm256_storeu_si256(xyza_chan_ptr.add(64) as *mut __m256i, xyza2);
+                    _mm256_storeu_si256(xyza_chan_ptr.add(96) as *mut __m256i, xyza3);
                     cx += 32;
                 }
             }

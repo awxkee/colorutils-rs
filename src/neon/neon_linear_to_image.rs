@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
-use crate::neon_gamma_curves::*;
+use crate::neon::*;
 #[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(all(
@@ -89,7 +89,7 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     target_feature = "neon"
 ))]
 #[inline(always)]
-pub(crate) unsafe fn neon_linear_to_gamma<
+pub unsafe fn neon_linear_to_gamma<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
 >(

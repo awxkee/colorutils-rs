@@ -10,33 +10,18 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
-#[allow(unused_imports)]
-use crate::neon_gamma_curves::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_to_xyz_lab::get_neon_linear_transfer;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon_to_xyz_lab::neon_triple_to_luv;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon_to_xyz_lab::{neon_triple_to_lab, neon_triple_to_xyz};
+use crate::neon::*;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 #[inline(always)]
-pub(crate) unsafe fn neon_channels_to_xyza_or_laba<
-    const CHANNELS_CONFIGURATION: u8,
-    const TARGET: u8,
->(
+pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,

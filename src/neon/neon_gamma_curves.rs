@@ -4,12 +4,8 @@ use crate::gamma_curves::TransferFunction;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_math::*;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use std::arch::aarch64::*;
+use crate::neon::neon_math::vpowq_n_f32;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -95,4 +91,17 @@ pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
     );
     low = vmulq_n_f32(low, 1f32 / 4.5f32);
     return vbslq_f32(mask, high, low);
+}
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+pub unsafe fn get_neon_linear_transfer(
+    transfer_function: TransferFunction,
+) -> unsafe fn(float32x4_t) -> float32x4_t {
+    match transfer_function {
+        TransferFunction::Srgb => neon_srgb_to_linear,
+        TransferFunction::Rec709 => neon_rec709_to_linear,
+    }
 }

@@ -6,31 +6,14 @@ use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 #[allow(unused_imports)]
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
+use crate::neon::neon_math::*;
 #[allow(unused_imports)]
-use crate::neon_gamma_curves::*;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon_math::{prefer_vfmaq_f32, vcbrtq_f32, vcolorq_matrix_f32};
+use crate::neon::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-pub unsafe fn get_neon_linear_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(float32x4_t) -> float32x4_t {
-    match transfer_function {
-        TransferFunction::Srgb => neon_srgb_to_linear,
-        TransferFunction::Rec709 => neon_rec709_to_linear,
-    }
-}
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -134,7 +117,7 @@ pub(crate) unsafe fn neon_triple_to_lab(
     target_feature = "neon"
 ))]
 #[inline(always)]
-pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
+pub unsafe fn neon_channels_to_xyz_or_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,

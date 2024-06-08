@@ -3,6 +3,7 @@ use crate::lab::Lab;
 use crate::luv::Luv;
 use crate::{Hsl, LCh};
 
+#[derive(Debug)]
 pub struct Rgb<T> {
     pub r: T,
     pub g: T,

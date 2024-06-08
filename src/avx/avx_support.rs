@@ -294,10 +294,11 @@ pub unsafe fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i
     _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgb3);
 }
 
+
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn avx2_interleave_rgba(
+pub unsafe fn avx2_interleave_rgba_epi8(
     r: __m256i,
     g: __m256i,
     b: __m256i,
@@ -323,13 +324,88 @@ pub unsafe fn avx2_interleave_rgba(
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
+pub unsafe fn avx2_deinterleave_rgba_epi32(
+    p0: __m256i,
+    p1: __m256i,
+    p2: __m256i,
+    p3: __m256i,
+) -> (__m256i, __m256i, __m256i, __m256i) {
+    let p01l = _mm256_unpacklo_epi32(p0, p1);
+    let p01h = _mm256_unpackhi_epi32(p0, p1);
+    let p23l = _mm256_unpacklo_epi32(p2, p3);
+    let p23h = _mm256_unpackhi_epi32(p2, p3);
+
+    let pll = _mm256_permute2x128_si256::<32>(p01l, p23l);
+    let plh = _mm256_permute2x128_si256::<49>(p01l, p23l);
+    let phl = _mm256_permute2x128_si256::<32>(p01h, p23h);
+    let phh = _mm256_permute2x128_si256::<49>(p01h, p23h);
+
+    let b0 = _mm256_unpacklo_epi32(pll, plh);
+    let g0 = _mm256_unpackhi_epi32(pll, plh);
+    let r0 = _mm256_unpacklo_epi32(phl, phh);
+    let a0 = _mm256_unpackhi_epi32(phl, phh);
+    (b0, g0, r0, a0)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_interleave_rgba_epi32(
+    a: __m256i,
+    b: __m256i,
+    c: __m256i,
+    d: __m256i,
+) -> (__m256i, __m256i, __m256i, __m256i) {
+    let bg0 = _mm256_unpacklo_epi32(a, b);
+    let bg1 = _mm256_unpackhi_epi32(a, b);
+    let ra0 = _mm256_unpacklo_epi32(c, d);
+    let ra1 = _mm256_unpackhi_epi32(c, d);
+
+    let bgra0_ = _mm256_unpacklo_epi64(bg0, ra0);
+    let bgra1_ = _mm256_unpackhi_epi64(bg0, ra0);
+    let bgra2_ = _mm256_unpacklo_epi64(bg1, ra1);
+    let bgra3_ = _mm256_unpackhi_epi64(bg1, ra1);
+
+    let bgra0 = _mm256_permute2x128_si256::<32>(bgra0_, bgra1_);
+    let bgra2 = _mm256_permute2x128_si256::<49>(bgra0_, bgra1_);
+    let bgra1 = _mm256_permute2x128_si256::<32>(bgra2_, bgra3_);
+    let bgra3 = _mm256_permute2x128_si256::<49>(bgra2_, bgra3_);
+    (bgra0, bgra1, bgra2, bgra3)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
 pub unsafe fn avx2_interleave_rgba_ps(
     r: __m256,
     g: __m256,
     b: __m256,
     a: __m256,
 ) -> (__m256, __m256, __m256, __m256) {
-    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba(
+    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba_epi32(
+        _mm256_castps_si256(r),
+        _mm256_castps_si256(g),
+        _mm256_castps_si256(b),
+        _mm256_castps_si256(a),
+    );
+    (
+        _mm256_castsi256_ps(rgba0),
+        _mm256_castsi256_ps(rgba1),
+        _mm256_castsi256_ps(rgba2),
+        _mm256_castsi256_ps(rgba3),
+    )
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_deinterleave_rgba_ps(
+    r: __m256,
+    g: __m256,
+    b: __m256,
+    a: __m256,
+) -> (__m256, __m256, __m256, __m256) {
+    let (rgba0, rgba1, rgba2, rgba3) = avx2_deinterleave_rgba_epi32(
         _mm256_castps_si256(r),
         _mm256_castps_si256(g),
         _mm256_castps_si256(b),
@@ -347,7 +423,7 @@ pub unsafe fn avx2_interleave_rgba_ps(
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i, a: __m256i) {
-    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba(r, g, b, a);
+    let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba_epi8(r, g, b, a);
 
     _mm256_storeu_si256(ptr as *mut __m256i, rgba0);
     _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgba1);
@@ -369,16 +445,6 @@ pub unsafe fn avx2_pairwise_add(v: __m256i) -> __m256i {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn sse_pairwise_add(v: __m128i) -> __m128i {
-    let sums = _mm_maddubs_epi16(v, _mm_set1_epi8(1));
-    let shifted = _mm_srli_epi16::<1>(sums);
-    let packed = _mm_packus_epi16(shifted, shifted);
-    packed
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_div_by255(v: __m256i) -> __m256i {
     let rounding = _mm256_set1_epi16(1 << 7);
     let x = _mm256_adds_epi16(v, rounding);
@@ -386,3 +452,22 @@ pub unsafe fn avx2_div_by255(v: __m256i) -> __m256i {
     let r = _mm256_mulhi_epu16(x, multiplier);
     return _mm256_srli_epi16::<7>(r);
 }
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_pack_u16(s_1: __m256i, s_2: __m256i) -> __m256i {
+    let packed = _mm256_packus_epi16(s_1, s_2);
+    const MASK: i32 = shuffle(3, 1, 2, 0);
+    return _mm256_permute4x64_epi64::<MASK>(packed);
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn avx2_pack_s32(s_1: __m256i, s_2: __m256i) -> __m256i {
+    let packed = _mm256_packs_epi32(s_1, s_2);
+    const MASK: i32 = shuffle(3, 1, 2, 0);
+    return _mm256_permute4x64_epi64::<MASK>(packed);
+}
+

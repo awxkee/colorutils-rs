@@ -1,12 +1,8 @@
-#[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 #[allow(unused_imports)]
 use crate::neon_gamma_curves::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[allow(unused_imports)]
 use crate::sse::*;
 #[allow(unused_imports)]
@@ -16,7 +12,6 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub(crate) unsafe fn sse_triple_to_xyz(
     r: __m128i,

@@ -1,7 +1,14 @@
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn _mm256_cube_ps(x: __m256) -> __m256 {
+    _mm256_mul_ps(_mm256_mul_ps(x, x), x)
+}
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(not(target_feature = "fma"))]
@@ -39,7 +46,11 @@ unsafe fn _mm256_taylorpoly_ps(
     let d = _mm256_prefer_fma_ps(poly3, poly7, x);
     let x2 = _mm256_mul_ps(x, x);
     let x4 = _mm256_mul_ps(x2, x2);
-    let res = _mm256_prefer_fma_ps(_mm256_prefer_fma_ps(a, b, x2), _mm256_prefer_fma_ps(c, d, x2), x4);
+    let res = _mm256_prefer_fma_ps(
+        _mm256_prefer_fma_ps(a, b, x2),
+        _mm256_prefer_fma_ps(c, d, x2),
+        x4,
+    );
     return res;
 }
 
@@ -52,7 +63,10 @@ pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
 
     // Extract exponent
     let m = _mm256_sub_epi32(_mm256_srli_epi32::<23>(_mm256_castps_si256(v)), const_ln127);
-    let val = _mm256_castsi256_ps(_mm256_sub_epi32(_mm256_castps_si256(v), _mm256_slli_epi32::<23>(m)));
+    let val = _mm256_castsi256_ps(_mm256_sub_epi32(
+        _mm256_castps_si256(v),
+        _mm256_slli_epi32::<23>(m),
+    ));
 
     let mut poly = _mm256_taylorpoly_ps(
         val,
@@ -87,7 +101,11 @@ pub unsafe fn _mm256_selecti_ps(mask: __m256i, true_vals: __m256, false_vals: __
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn _mm256_select_si256(mask: __m256i, true_vals: __m256i, false_vals: __m256i) -> __m256i {
+pub unsafe fn _mm256_select_si256(
+    mask: __m256i,
+    true_vals: __m256i,
+    false_vals: __m256i,
+) -> __m256i {
     _mm256_or_si256(
         _mm256_and_si256(mask, true_vals),
         _mm256_andnot_si256(mask, false_vals),
@@ -174,21 +192,30 @@ pub unsafe fn _mm256_pow_n_ps(x: __m256, n: f32) -> __m256 {
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_signbit_ps(f: __m256) -> __m256i {
-    return _mm256_and_si256(_mm256_castps_si256(f), _mm256_castps_si256(_mm256_set1_ps(-0.0f32)));
+    return _mm256_and_si256(
+        _mm256_castps_si256(f),
+        _mm256_castps_si256(_mm256_set1_ps(-0.0f32)),
+    );
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_mulsign_ps(x: __m256, y: __m256) -> __m256 {
-    return _mm256_castsi256_ps(_mm256_xor_si256(_mm256_castps_si256(x), _mm256_signbit_ps(y)));
+    return _mm256_castsi256_ps(_mm256_xor_si256(
+        _mm256_castps_si256(x),
+        _mm256_signbit_ps(y),
+    ));
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_pow2i_ps(q: __m256i) -> __m256 {
-    return _mm256_castsi256_ps(_mm256_slli_epi32::<23>(_mm256_add_epi32(q, _mm256_set1_epi32(0x7f))));
+    return _mm256_castsi256_ps(_mm256_slli_epi32::<23>(_mm256_add_epi32(
+        q,
+        _mm256_set1_epi32(0x7f),
+    )));
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -206,14 +233,22 @@ pub unsafe fn _mm256_vldexp2_ps(d: __m256, e: __m256i) -> __m256 {
 #[allow(dead_code)]
 pub unsafe fn _mm256_vilogbk_ps(d: __m256) -> __m256i {
     let o = _mm256_cmp_ps::<_CMP_LT_OS>(d, _mm256_set1_ps(5.421010862427522E-20f32));
-    let d = _mm256_select_ps(o, _mm256_mul_ps(_mm256_set1_ps(1.8446744073709552E19f32), d), d);
+    let d = _mm256_select_ps(
+        o,
+        _mm256_mul_ps(_mm256_set1_ps(1.8446744073709552E19f32), d),
+        d,
+    );
     let q = _mm256_and_si256(
         _mm256_srli_epi32::<23>(_mm256_castps_si256(d)),
         _mm256_set1_epi32(0xff),
     );
     let q = _mm256_sub_epi32(
         q,
-        _mm256_select_si256(_mm256_castps_si256(o), _mm256_set1_epi32(64 + 0x7f), _mm256_set1_epi32(0x7f)),
+        _mm256_select_si256(
+            _mm256_castps_si256(o),
+            _mm256_set1_epi32(64 + 0x7f),
+            _mm256_set1_epi32(0x7f),
+        ),
     );
     return q;
 }
@@ -262,7 +297,10 @@ pub unsafe fn _mm256_cbrt_ps_ulp35(d: __m256) -> __m256 {
 
     let t = _mm256_add_ps(_mm256_cvtepi32_ps(e), _mm256_set1_ps(6144f32));
     let qu = _mm256_cvttps_epi32(_mm256_mul_ps(t, _mm256_set1_ps(1.0f32 / 3.0f32)));
-    let re = _mm256_cvttps_epi32(_mm256_sub_ps(t, _mm256_mul_ps(_mm256_cvtepi32_ps(qu), _mm256_set1_ps(3f32))));
+    let re = _mm256_cvttps_epi32(_mm256_sub_ps(
+        t,
+        _mm256_mul_ps(_mm256_cvtepi32_ps(qu), _mm256_set1_ps(3f32)),
+    ));
 
     q = _mm256_selecti_ps(
         _mm256_cmpeq_epi32(re, _mm256_set1_epi32(1)),

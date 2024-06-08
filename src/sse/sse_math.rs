@@ -4,6 +4,12 @@ use std::arch::x86_64::*;
 use std::arch::x86::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+pub unsafe fn _mm_cube_ps(x: __m128) -> __m128 {
+    _mm_mul_ps(_mm_mul_ps(x, x), x)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(not(target_feature = "fma"))]
 #[inline]
 #[allow(dead_code)]

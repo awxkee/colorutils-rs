@@ -96,3 +96,14 @@ pub unsafe fn get_sse_linear_transfer(
         TransferFunction::Rec709 => sse_rec709_to_linear,
     }
 }
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+pub unsafe fn get_sse_gamma_transfer(
+    transfer_function: TransferFunction,
+) -> unsafe fn(__m128) -> __m128 {
+    match transfer_function {
+        TransferFunction::Srgb => sse_srgb_from_linear,
+        TransferFunction::Rec709 => sse_rec709_from_linear,
+    }
+}

@@ -6,12 +6,7 @@ use crate::image::ImageConfiguration;
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_to_linear::get_neon_linear_transfer;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon_to_linear_u8::neon_image_linear_to_u8;
+use crate::neon::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::get_sse_linear_transfer;
 use crate::Rgb;

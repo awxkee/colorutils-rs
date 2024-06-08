@@ -5,7 +5,7 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
-use crate::neon_to_xyza_laba::neon_channels_to_xyza_or_laba;
+use crate::neon::neon_channels_to_xyza_or_laba;
 use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]

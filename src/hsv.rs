@@ -1,5 +1,6 @@
 use crate::rgb::Rgb;
 
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Hsv {
     pub h: f32,
     pub s: f32,

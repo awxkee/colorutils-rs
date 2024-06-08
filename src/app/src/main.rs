@@ -1,3 +1,4 @@
+use std::arch::aarch64::{vdupq_n_f32, vdupq_n_u32, vgetq_lane_f32, vgetq_lane_u32};
 use colorutils_rs::*;
 use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};
@@ -27,13 +28,37 @@ fn main() {
     //     _mm_storeu_ps(dst.as_mut_ptr() as *mut f32, ln);
     //     println!("{:?}", dst);
     // }
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        let m = vdupq_n_f32(27f32);
-        let cbrt = vcbrtq_f32_ulp2(m);
-        let l = vgetq_lane_f32::<0>(cbrt);
-        println!("Cbrt {}", l);
-    }
+    // #[cfg(target_arch = "aarch64")]
+    // unsafe {
+    //     let m = vdupq_n_f32(27f32);
+    //     let cbrt = vcbrtq_f32_ulp2(m);
+    //     let l = vgetq_lane_f32::<0>(cbrt);
+    //     println!("Cbrt {}", l);
+    // }
+
+    let rgb = Rgb::<u8>::new(140, 164, 177);
+    let hsl = rgb.to_hsl();
+    println!("RGB {:?}", rgb);
+    println!("HSL {:?}", hsl);
+    println!("Back RGB {:?}", hsl.to_rgb8());
+
+    // unsafe  {
+    //     let (h, s, l) = neon_rgb_to_hsl(vdupq_n_u32(255), vdupq_n_u32(156), vdupq_n_u32(255), vdupq_n_f32(1f32));
+    //     println!("NEON HSL {}, {}, {}", vgetq_lane_f32::<0>(h), vgetq_lane_f32::<0>(s), vgetq_lane_f32::<0>(l));
+    //     let (r1, g1, b1) = neon_hsl_to_rgb(h, s, l, vdupq_n_f32(1f32));
+    //
+    //     println!("NEON HSL -> RHB {}, {}, {}", vgetq_lane_u32::<0>(r1), vgetq_lane_u32::<0>(g1), vgetq_lane_u32::<0>(b1));
+    // }
+    //
+    // unsafe  {
+    //     let (h, s, v) = neon_rgb_to_hsv(vdupq_n_u32(255), vdupq_n_u32(156), vdupq_n_u32(255), vdupq_n_f32(1f32));
+    //     let hsv = rgb.to_hsv();
+    //     println!("HSV {:?}", hsv);
+    //     println!("NEON HSV {}, {}, {}", vgetq_lane_f32::<0>(h), vgetq_lane_f32::<0>(s), vgetq_lane_f32::<0>(v));
+    //     let (r1, g1, b1) = neon_hsv_to_rgb(h, s,v, vdupq_n_f32(1f32));
+    //     println!("NEON RGB {}, {}, {}", vgetq_lane_u32::<0>(r1), vgetq_lane_u32::<0>(g1), vgetq_lane_u32::<0>(b1));
+
+    // }
 
     let img = ImageReader::open("./assets/asset_middle.jpg")
         .unwrap()
@@ -65,17 +90,17 @@ fn main() {
     dst_slice.resize(width as usize * 4 * height as usize, 0u8);
 
     {
-        let mut lab_store: Vec<f32> = vec![];
-        let store_stride = width as usize * 4usize * std::mem::size_of::<f32>();
-        lab_store.resize(width as usize * 4usize * height as usize, 0f32);
+        let mut lab_store: Vec<u16> = vec![];
+        let store_stride = width as usize * 4usize * std::mem::size_of::<u16>();
+        lab_store.resize(width as usize * 4usize * height as usize, 0u16);
         let start_time = Instant::now();
-        rgba_to_lab_with_alpha(
+        rgba_to_hsl(
             src_bytes,
             4u32 * width,
             &mut lab_store,
             store_stride as u32,
             width,
-            height,
+            height,100f32
         );
         // let mut destination: Vec<f32> = vec![];
         // destination.resize(width as usize * height as usize * 4, 0f32);
@@ -99,13 +124,13 @@ fn main() {
         //     src_shift += src_stride as usize;
         // }
 
-        lab_with_alpha_to_rgba(
+        hsl_to_rgba(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             4u32 * width,
             width,
-            height,
+            height,100f32,
         );
 
         let elapsed_time = start_time.elapsed();

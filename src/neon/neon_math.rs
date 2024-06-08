@@ -7,6 +7,17 @@ use std::arch::aarch64::*;
 ))]
 #[inline(always)]
 #[allow(dead_code)]
+pub(crate) unsafe fn vfmodq_f32(a: float32x4_t, b: float32x4_t) -> float32x4_t {
+    let scale = vrndq_f32(vmulq_f32(a, vrecpeq_f32(b)));
+    prefer_vfmaq_f32(a, vnegq_f32(scale), b)
+}
+
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
+#[inline(always)]
+#[allow(dead_code)]
 pub(crate) unsafe fn prefer_vfmaq_f32(
     a: float32x4_t,
     b: float32x4_t,
@@ -396,8 +407,14 @@ pub unsafe fn vcbrtq_f32_ulp2(x: float32x4_t) -> float32x4_t {
     let lo_mask = vcltq_u32(hx, vdupq_n_u32(0x00800000));
     let hi_ui_f = vreinterpretq_u32_f32(vmulq_f32(x, x1p24));
     let mut lo_hx = vandq_u32(hi_ui_f, vdupq_n_u32(0x7fffffff));
-    lo_hx = vaddq_u32(vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(lo_hx), 1f32/3f32)), vdupq_n_u32(642849266));
-    let hi_hx = vaddq_u32(vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(hx), 1f32/3f32)), vdupq_n_u32(709958130));
+    lo_hx = vaddq_u32(
+        vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(lo_hx), 1f32 / 3f32)),
+        vdupq_n_u32(642849266),
+    );
+    let hi_hx = vaddq_u32(
+        vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(hx), 1f32 / 3f32)),
+        vdupq_n_u32(709958130),
+    );
     let hx = vbslq_u32(lo_mask, lo_hx, hi_hx);
 
     ui = vbslq_u32(lo_mask, hi_ui_f, ui);
@@ -409,10 +426,16 @@ pub unsafe fn vcbrtq_f32_ulp2(x: float32x4_t) -> float32x4_t {
 
     let sum_x = vaddq_f32(x, x);
 
-    t = vmulq_f32(vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)), t);
+    t = vmulq_f32(
+        vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)),
+        t,
+    );
 
     r = vmulq_f32(vmulq_f32(t, t), t);
-    t = vmulq_f32(vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)), t);
+    t = vmulq_f32(
+        vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)),
+        t,
+    );
     t = vbslq_f32(nan_mask, vdupq_n_f32(f32::NAN), t);
     t = vbslq_f32(is_zero_mask, vdupq_n_f32(0f32), t);
     t

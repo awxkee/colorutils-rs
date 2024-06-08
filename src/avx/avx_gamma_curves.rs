@@ -85,3 +85,14 @@ pub unsafe fn avx2_rec709_to_linear(linear: __m256) -> __m256 {
     low = _mm256_mul_ps(low, _mm256_set1_ps(1f32 / 4.5f32));
     return _mm256_select_ps(mask, high, low);
 }
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+pub unsafe fn get_avx_gamma_transfer(
+    transfer_function: TransferFunction,
+) -> unsafe fn(__m256) -> __m256 {
+    match transfer_function {
+        TransferFunction::Srgb => avx2_srgb_to_linear,
+        TransferFunction::Rec709 => avx2_rec709_from_linear,
+    }
+}
