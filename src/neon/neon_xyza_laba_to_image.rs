@@ -207,7 +207,14 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let dst_ptr = dst.add(dst_offset + cx * channels);
 
-        let store_rows = uint8x16x4_t(r_row, g_row, b_row, a_row);
+        let store_rows = match image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                uint8x16x4_t(r_row, g_row, b_row, a_row)
+            }
+            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                uint8x16x4_t(b_row, g_row, r_row, a_row)
+            }
+        };
         vst4q_u8(dst_ptr, store_rows);
 
         cx += 16;

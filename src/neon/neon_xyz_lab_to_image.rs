@@ -7,6 +7,7 @@ use crate::image_to_xyz_lab::XyzTarget;
     target_feature = "neon"
 ))]
 use crate::luv::*;
+use crate::neon::neon_math::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -19,7 +20,6 @@ use crate::TransferFunction;
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
-use crate::neon::neon_math::*;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -315,10 +315,24 @@ pub unsafe fn neon_xyz_to_channels<
             let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
             let a_row23 = vcombine_u16(vqmovn_u32(a_row2_), vqmovn_u32(a_row3_));
             let a_row = vcombine_u8(vqmovn_u16(a_row01), vqmovn_u16(a_row23));
-            let store_rows = uint8x16x4_t(r_row, g_row, b_row, a_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x4_t(r_row, g_row, b_row, a_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x4_t(b_row, g_row, r_row, a_row)
+                }
+            };
             vst4q_u8(dst_ptr, store_rows);
         } else {
-            let store_rows = uint8x16x3_t(r_row, g_row, b_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x3_t(r_row, g_row, b_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x3_t(b_row, g_row, r_row)
+                }
+            };
             vst3q_u8(dst_ptr, store_rows);
         }
 

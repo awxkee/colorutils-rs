@@ -147,13 +147,27 @@ pub unsafe fn sse_hsv_u16_to_image<
         let ptr = dst_ptr.add(cx * channels);
         if USE_ALPHA {
             let a_chan = _mm_packus_epi16(a_chan_lo, a_chan_hi);
-            let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba(r_chan, g_chan, b_chan, a_chan);
+            let (rgba0, rgba1, rgba2, rgba3) = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    sse_interleave_rgba(r_chan, g_chan, b_chan, a_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    sse_interleave_rgba(b_chan, g_chan, r_chan, a_chan)
+                }
+            };
             _mm_storeu_si128(ptr as *mut __m128i, rgba0);
             _mm_storeu_si128(ptr.add(16) as *mut __m128i, rgba1);
             _mm_storeu_si128(ptr.add(32) as *mut __m128i, rgba2);
             _mm_storeu_si128(ptr.add(48) as *mut __m128i, rgba3);
         } else {
-            let (rgba0, rgba1, rgba2) = sse_interleave_rgb(r_chan, g_chan, b_chan);
+            let (rgba0, rgba1, rgba2) = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    sse_interleave_rgb(r_chan, g_chan, b_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    sse_interleave_rgb(b_chan, g_chan, r_chan)
+                }
+            };
             _mm_storeu_si128(ptr as *mut __m128i, rgba0);
             _mm_storeu_si128(ptr.add(16) as *mut __m128i, rgba1);
             _mm_storeu_si128(ptr.add(32) as *mut __m128i, rgba2);

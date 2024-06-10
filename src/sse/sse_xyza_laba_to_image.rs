@@ -189,7 +189,14 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
         let dst_ptr = dst.add(dst_offset + cx * channels);
 
-        let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba(r_row, g_row, b_row, a_row);
+        let (rgba0, rgba1, rgba2, rgba3) = match image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                sse_interleave_rgba(r_row, g_row, b_row, a_row)
+            }
+            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                sse_interleave_rgba(b_row, g_row, r_row, a_row)
+            }
+        };
 
         _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
         _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
