@@ -104,18 +104,18 @@ fn main() {
     let height = dimensions.1;
     let components = 3;
 
-    // let mut dst_rgba = vec![];
-    // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
-    // rgb_to_rgba(
-    //     &src_bytes,
-    //     3u32 * width,
-    //     &mut dst_rgba,
-    //     4u32 * width,
-    //     width,
-    //     height,
-    //     255,
-    // );
-    // src_bytes = &dst_rgba;
+    let mut dst_rgba = vec![];
+    dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
+    rgb_to_rgba(
+        &src_bytes,
+        3u32 * width,
+        &mut dst_rgba,
+        4u32 * width,
+        width,
+        height,
+        255,
+    );
+    src_bytes = &dst_rgba;
 
     let mut dst_slice: Vec<u8> = Vec::new();
     dst_slice.resize(width as usize * components * height as usize, 0u8);

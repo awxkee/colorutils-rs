@@ -183,11 +183,31 @@ pub unsafe fn neon_hsv_u16_to_image<
 
         if USE_ALPHA {
             let a_chan = vqmovn_u16(a_chan);
-            let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, a_chan);
-            vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+            match image_configuration {
+                ImageConfiguration::Rgb => {}
+                ImageConfiguration::Rgba => {
+                    let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, a_chan);
+                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
+                ImageConfiguration::Bgra => {
+                    let pixel_set = uint8x8x4_t(b_chan, g_chan, r_chan, a_chan);
+                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
+                ImageConfiguration::Bgr => {}
+            }
         } else {
-            let pixel_set = uint8x8x3_t(r_chan, g_chan, b_chan);
-            vst3_u8(dst_ptr.add(cx * channels), pixel_set);
+            match image_configuration {
+                ImageConfiguration::Rgb => {
+                    let pixel_set = uint8x8x3_t(r_chan, g_chan, b_chan);
+                    vst3_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
+                ImageConfiguration::Rgba => {}
+                ImageConfiguration::Bgra => {}
+                ImageConfiguration::Bgr => {
+                    let pixel_set = uint8x8x3_t(b_chan, g_chan, r_chan);
+                    vst3_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
+            }
         }
 
         cx += 8;
