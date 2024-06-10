@@ -233,11 +233,25 @@ pub unsafe fn sse_hsv_u16_to_image<
         let ptr = dst_ptr.add(cx * channels);
         if USE_ALPHA {
             let a_chan = _mm_packus_epi16(a_chan_lo, _mm_setzero_si128());
-            let (rgba0, rgba1, _, _) = sse_interleave_rgba(r_chan, g_chan, b_chan, a_chan);
+            let (rgba0, rgba1, _, _) = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    sse_interleave_rgba(r_chan, g_chan, b_chan, a_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    sse_interleave_rgba(b_chan, g_chan, r_chan, a_chan)
+                }
+            };
             _mm_storeu_si128(ptr as *mut __m128i, rgba0);
             _mm_storeu_si128(ptr.add(16) as *mut __m128i, rgba1);
         } else {
-            let (rgba0, rgba1, _) = sse_interleave_rgb(r_chan, g_chan, b_chan);
+            let (rgba0, rgba1, _) = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    sse_interleave_rgb(r_chan, g_chan, b_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    sse_interleave_rgb(b_chan, g_chan, r_chan)
+                }
+            };
             _mm_storeu_si128(ptr as *mut __m128i, rgba0);
             std::ptr::copy_nonoverlapping(&rgba1 as *const _ as *const u8, ptr.add(16), 8);
         }

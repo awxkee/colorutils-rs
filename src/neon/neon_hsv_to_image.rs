@@ -125,10 +125,24 @@ pub unsafe fn neon_hsv_u16_to_image<
 
         if USE_ALPHA {
             let a_chan = vcombine_u8(vqmovn_u16(a_chan_lo), vqmovn_u16(a_chan_hi));
-            let pixel_set = uint8x16x4_t(r_chan, g_chan, b_chan, a_chan);
+            let pixel_set = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x4_t(r_chan, g_chan, b_chan, a_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x4_t(b_chan, g_chan, r_chan, a_chan)
+                }
+            };
             vst4q_u8(dst_ptr.add(cx * channels), pixel_set);
         } else {
-            let pixel_set = uint8x16x3_t(r_chan, g_chan, b_chan);
+            let pixel_set = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x3_t(r_chan, g_chan, b_chan)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x3_t(b_chan, g_chan, r_chan)
+                }
+            };
             vst3q_u8(dst_ptr.add(cx * channels), pixel_set);
         }
 
