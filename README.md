@@ -14,7 +14,7 @@ Allows conversion between
 There are some prebuilt functions for ex.
 
 ```rust
-srgb_to_lab(src_bytes, width * components, & mut xyz, width * 3 * std::mem::size_of::<f32>() as u32, width, height);
+srgb_to_lab(src_bytes, width * components, &mut lab_store, width * 3 * std::mem::size_of::<f32>() as u32, width, height);
 ```
 
 Prebuilt solutions ~3-5 times faster than naive implementation. If your case fits that you prebuilt function.
