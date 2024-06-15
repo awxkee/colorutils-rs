@@ -7,7 +7,10 @@ use crate::image_to_hsv_support::HsvTarget;
     target_feature = "neon"
 ))]
 use crate::neon::neon_channels_to_hsv_u16;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
 use crate::sse::sse_channels_to_hsv_u16;
 use crate::Rgb;
 
