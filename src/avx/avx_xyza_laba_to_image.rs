@@ -5,10 +5,7 @@ use std::arch::x86_64::*;
 
 use crate::avx::avx_color::{avx_lab_to_xyz, avx_luv_to_xyz};
 use crate::avx::avx_gamma_curves::get_avx_gamma_transfer;
-use crate::avx::{
-    _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_s32,
-    avx2_pack_u16,
-};
+use crate::avx::{_mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16};
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::TransferFunction;
@@ -127,7 +124,7 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
+        let src_ptr_1 = offset_src_ptr.add(8 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
             src_ptr_1,
@@ -143,7 +140,7 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let src_ptr_2 = offset_src_ptr.add(4 * 2 * CHANNELS);
+        let src_ptr_2 = offset_src_ptr.add(8 * 2 * CHANNELS);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
             src_ptr_2,
@@ -159,7 +156,7 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let src_ptr_3 = offset_src_ptr.add(4 * 3 * CHANNELS);
+        let src_ptr_3 = offset_src_ptr.add(8 * 3 * CHANNELS);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
             src_ptr_3,
@@ -192,7 +189,14 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
         let dst_ptr = dst.add(dst_offset + cx * channels);
 
-        let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba_epi8(r_row, g_row, b_row, a_row);
+        let (rgba0, rgba1, rgba2, rgba3) = match image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                avx2_interleave_rgba_epi8(r_row, g_row, b_row, a_row)
+            }
+            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                avx2_interleave_rgba_epi8(b_row, g_row, r_row, a_row)
+            }
+        };
 
         _mm256_storeu_si256(dst_ptr as *mut __m256i, rgba0);
         _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, rgba1);

@@ -8,7 +8,6 @@ use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_srgb_from_linear(linear: __m256) -> __m256 {
     let low_cut_off = _mm256_set1_ps(0.0030412825601275209f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(linear, low_cut_off);
@@ -29,7 +28,6 @@ pub unsafe fn avx2_srgb_from_linear(linear: __m256) -> __m256 {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_srgb_to_linear(gamma: __m256) -> __m256 {
     let low_cut_off = _mm256_set1_ps(12.92f32 * 0.0030412825601275209f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(gamma, low_cut_off);
@@ -48,7 +46,6 @@ pub unsafe fn avx2_srgb_to_linear(gamma: __m256) -> __m256 {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_rec709_from_linear(linear: __m256) -> __m256 {
     let low_cut_off = _mm256_set1_ps(0.018053968510807f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(linear, low_cut_off);
@@ -69,7 +66,6 @@ pub unsafe fn avx2_rec709_from_linear(linear: __m256) -> __m256 {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_rec709_to_linear(linear: __m256) -> __m256 {
     let low_cut_off = _mm256_set1_ps(4.5f32 * 0.018053968510807f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(linear, low_cut_off);
@@ -92,7 +88,7 @@ pub unsafe fn get_avx_gamma_transfer(
     transfer_function: TransferFunction,
 ) -> unsafe fn(__m256) -> __m256 {
     match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_to_linear,
+        TransferFunction::Srgb => avx2_srgb_from_linear,
         TransferFunction::Rec709 => avx2_rec709_from_linear,
     }
 }

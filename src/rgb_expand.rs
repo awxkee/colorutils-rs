@@ -79,7 +79,7 @@ pub fn rgb_to_rgba(
                     let xyz0 = _mm256_loadu_si256(xyz_chan_ptr as *const __m256i);
                     let xyz1 = _mm256_loadu_si256(xyz_chan_ptr.add(32) as *const __m256i);
                     let xyz2 = _mm256_loadu_si256(xyz_chan_ptr.add(64) as *const __m256i);
-                    let (x_p, y_p, z_p) = avx2_deinterleave_rgb(xyz0, xyz1, xyz2);
+                    let (x_p, y_p, z_p) = avx2_deinterleave_rgb_epi8(xyz0, xyz1, xyz2);
 
                     let xyza_chan_ptr = dst_ptr.add(cx * 4usize);
 

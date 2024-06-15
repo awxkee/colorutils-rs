@@ -138,7 +138,7 @@ pub unsafe fn avx_xyz_to_channels<
                 c9,
             );
 
-        let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
+        let src_ptr_1 = offset_src_ptr.add(8 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_) =
             avx_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
@@ -155,7 +155,7 @@ pub unsafe fn avx_xyz_to_channels<
                 c9,
             );
 
-        let src_ptr_2 = offset_src_ptr.add(4 * 2 * CHANNELS);
+        let src_ptr_2 = offset_src_ptr.add(8 * 2 * CHANNELS);
 
         let (r_row2_, g_row2_, b_row2_) =
             avx_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
@@ -172,7 +172,7 @@ pub unsafe fn avx_xyz_to_channels<
                 c9,
             );
 
-        let src_ptr_3 = offset_src_ptr.add(4 * 3 * CHANNELS);
+        let src_ptr_3 = offset_src_ptr.add(8 * 3 * CHANNELS);
 
         let (r_row3_, g_row3_, b_row3_) =
             avx_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(

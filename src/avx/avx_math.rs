@@ -5,7 +5,6 @@ use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_cube_ps(x: __m256) -> __m256 {
     _mm256_mul_ps(_mm256_mul_ps(x, x), x)
 }
@@ -13,7 +12,6 @@ pub unsafe fn _mm256_cube_ps(x: __m256) -> __m256 {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(not(target_feature = "fma"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
     return _mm256_add_ps(_mm256_mul_ps(b, c), a);
 }
@@ -21,14 +19,12 @@ pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(target_feature = "fma")]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
     return _mm256_fmadd_ps(b, c, a);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 unsafe fn _mm256_taylorpoly_ps(
     x: __m256,
     poly0: __m256,
@@ -56,7 +52,6 @@ unsafe fn _mm256_taylorpoly_ps(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
     let const_ln127 = _mm256_set1_epi32(127); // 127
     let const_ln2 = _mm256_set1_ps(std::f32::consts::LN_2); // ln(2)

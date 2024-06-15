@@ -163,7 +163,7 @@ pub(crate) unsafe fn avx2_channels_to_xyz_or_lab<
         let row3 = _mm256_loadu_si256(src_ptr.add(64) as *const __m256i);
         match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let (c1, c2, c3) = avx2_deinterleave_rgb(row1, row2, row3);
+                let (c1, c2, c3) = avx2_deinterleave_rgb_epi8(row1, row2, row3);
                 if image_configuration == ImageConfiguration::Rgb {
                     r_chan = c1;
                     g_chan = c2;
@@ -177,7 +177,7 @@ pub(crate) unsafe fn avx2_channels_to_xyz_or_lab<
             }
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
                 let row4 = _mm256_loadu_si256(src_ptr.add(64 + 32) as *const __m256i);
-                let (c1, c2, c3, c4) = avx2_deinterleave_rgba(row1, row2, row3, row4);
+                let (c1, c2, c3, c4) = avx2_deinterleave_rgba_epi8(row1, row2, row3, row4);
                 if image_configuration == ImageConfiguration::Rgba {
                     r_chan = c1;
                     g_chan = c2;
