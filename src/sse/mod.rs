@@ -5,54 +5,48 @@
  * // license that can be found in the LICENSE file.
  */
 
-mod sse_color;
+mod color;
 
-mod sse_from_xyz_lab;
+mod from_xyz_lab;
 
-mod sse_gamma_curves;
+mod gamma_curves;
 
-mod sse_hsv_to_image;
+mod hsv_to_image;
 
-mod sse_image_to_hsv;
+mod image_to_hsv;
 
-mod sse_image_to_linear_u8;
+mod image_to_linear_u8;
 
-mod sse_linear_to_image;
+mod linear_to_image;
 
-mod sse_math;
+mod math;
 
-mod sse_support;
+mod support;
 
-mod sse_to_linear;
+mod to_linear;
 
-mod sse_to_xyz_lab;
+mod to_xyz_lab;
 
-mod sse_to_xyza_laba;
+mod to_xyza_laba;
 
-mod sse_xyz_lab_to_image;
+mod xyz_lab_to_image;
 
-mod sse_xyza_laba_to_image;
+mod from_sigmoidal;
+mod sigmoidal;
+mod to_sigmoidal;
+mod xyza_laba_to_image;
 
-pub use sse_gamma_curves::*;
-
-pub use sse_hsv_to_image::*;
-
-pub use sse_image_to_hsv::*;
-
-pub use sse_image_to_linear_u8::*;
-
-pub use sse_linear_to_image::*;
-
-pub use sse_math::*;
-
-pub use sse_support::*;
-
-pub use sse_to_linear::*;
-
-pub use sse_to_xyz_lab::*;
-
-pub use sse_to_xyza_laba::*;
-
-pub use sse_xyz_lab_to_image::*;
-
-pub use sse_xyza_laba_to_image::*;
+pub use from_sigmoidal::sse_from_sigmoidal_row;
+pub use gamma_curves::*;
+pub use hsv_to_image::*;
+pub use image_to_hsv::*;
+pub use image_to_linear_u8::*;
+pub use linear_to_image::*;
+pub use math::*;
+pub use support::*;
+pub use to_linear::*;
+pub use to_sigmoidal::sse_image_to_sigmoidal_row;
+pub use to_xyz_lab::*;
+pub use to_xyza_laba::*;
+pub use xyz_lab_to_image::*;
+pub use xyza_laba_to_image::*;

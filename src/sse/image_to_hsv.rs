@@ -1,6 +1,6 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-use crate::sse::sse_color::{sse_rgb_to_hsl, sse_rgb_to_hsv};
+use crate::sse::color::{sse_rgb_to_hsl, sse_rgb_to_hsv};
 use crate::sse::{
     sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_rgb_epi16,
     sse_interleave_rgba_epi16,

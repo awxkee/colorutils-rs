@@ -1,6 +1,6 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
-use crate::sse::sse_color::{sse_lab_to_xyz, sse_luv_to_xyz};
+use crate::sse::color::{sse_lab_to_xyz, sse_luv_to_xyz};
 use crate::sse::{
     _mm_color_matrix_ps, get_sse_gamma_transfer, sse_deinterleave_rgb_ps, sse_interleave_rgb,
     sse_interleave_rgba,

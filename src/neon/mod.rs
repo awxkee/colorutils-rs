@@ -1,3 +1,4 @@
+mod from_sigmoidal;
 mod neon_colors;
 mod neon_gamma_curves;
 mod neon_hsv_to_image;
@@ -12,8 +13,8 @@ mod neon_xyz_lab_to_image;
 mod neon_xyza_laba_to_image;
 mod sigmoidal;
 mod to_sigmoidal;
-mod from_sigmoidal;
 
+pub use from_sigmoidal::neon_from_sigmoidal_row;
 pub use neon_colors::*;
 pub use neon_gamma_curves::*;
 pub use neon_hsv_to_image::*;
@@ -26,4 +27,3 @@ pub use neon_to_xyza_laba::*;
 pub use neon_xyz_lab_to_image::*;
 pub use neon_xyza_laba_to_image::*;
 pub use to_sigmoidal::neon_image_to_sigmoidal;
-pub use from_sigmoidal::neon_from_sigmoidal_row;

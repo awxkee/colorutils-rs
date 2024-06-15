@@ -1,10 +1,9 @@
 use crate::Rgb;
 
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
-/// Represents color as sigmoid function
-/// y = 1 / (1 + exp(-x))
+/// Represents color as sigmoid function: `y = 1 / (1 + exp(-x))`
 /// and it's inverse
-/// x = ln(y / (1 - y))
+/// `x = ln(y / (1 - y))`
 pub struct Sigmoidal {
     pub sr: f32,
     pub sg: f32,

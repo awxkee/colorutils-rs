@@ -6,6 +6,7 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_from_sigmoidal_row;
+use crate::sse::sse_from_sigmoidal_row;
 use crate::{Rgb, Sigmoidal};
 
 #[inline]
@@ -29,11 +30,32 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    let mut _has_sse = false;
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
+    }
+
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            _cx = sse_from_sigmoidal_row::<CHANNELS_CONFIGURATION>(_cx, src_ptr, dst_ptr, width);
+        }
 
         #[cfg(all(
             any(target_arch = "aarch64", target_arch = "arm"),
