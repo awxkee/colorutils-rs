@@ -92,19 +92,25 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
         for x in _cx..width as usize {
             let px = x * channels;
+            let src_slice = unsafe { src_ptr.add(px) };
             let r = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+                src_slice
+                    .add(image_configuration.get_r_channel_offset())
+                    .read_unaligned()
             };
             let g = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+                src_slice
+                    .add(image_configuration.get_g_channel_offset())
+                    .read_unaligned()
             };
             let b = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+                src_slice
+                    .add(image_configuration.get_b_channel_offset())
+                    .read_unaligned()
             };
 
             let rgb = Rgb::<f32>::new(r, g, b);
@@ -117,7 +123,9 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
             if USE_ALPHA && image_configuration.has_alpha() {
                 let a = unsafe {
-                    *src_slice.get_unchecked(px + image_configuration.get_a_channel_offset())
+                    src_slice
+                        .add(image_configuration.get_a_channel_offset())
+                        .read_unaligned()
                 };
                 let a_lin = (a * 255f32) as u8;
                 unsafe {

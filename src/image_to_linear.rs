@@ -93,10 +93,10 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
         for x in _cx..width as usize {
             let px = x * channels;
+            let dst = unsafe { dst_ptr.add(px) };
             let r = unsafe {
                 *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
             };
@@ -111,9 +111,9 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             let rgb_f32 = rgb.to_rgb_f32();
 
             unsafe {
-                *dst_slice.get_unchecked_mut(px) = transfer(rgb_f32.r);
-                *dst_slice.get_unchecked_mut(px + 1) = transfer(rgb_f32.g);
-                *dst_slice.get_unchecked_mut(px + 2) = transfer(rgb_f32.b);
+                dst.write_unaligned(transfer(rgb_f32.r));
+                dst.add(1).write_unaligned(transfer(rgb_f32.g));
+                dst.add(2).write_unaligned(transfer(rgb_f32.b));
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
@@ -122,7 +122,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
                 };
                 let a_lin = a as f32 * (1f32 / 255f32);
                 unsafe {
-                    *dst_slice.get_unchecked_mut(px + 3) = a_lin;
+                    dst.add(3).write_unaligned(a_lin);
                 }
             }
         }
