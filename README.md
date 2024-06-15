@@ -8,6 +8,7 @@ Allows conversion between
 - LAB
 - LUV
 - XYZ
+- Sigmoidal
 
 ### Performance
 
