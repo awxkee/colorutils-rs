@@ -195,8 +195,6 @@ pub fn rgba_to_lab_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
-/// * `a_plane` - A mutable slice to receive XYZ data
-/// * `a_stride` - Bytes per row for dst data
 pub fn bgra_to_lab_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -226,8 +224,6 @@ pub fn bgra_to_lab_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
-/// * `a_plane` - A mutable slice to receive XYZ data
-/// * `a_stride` - Bytes per row for dst data
 pub fn rgba_to_luv_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -257,8 +253,6 @@ pub fn rgba_to_luv_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
-/// * `a_plane` - A mutable slice to receive XYZ data
-/// * `a_stride` - Bytes per row for dst data
 pub fn bgra_to_luv_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -268,6 +262,67 @@ pub fn bgra_to_luv_with_alpha(
     height: u32,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { LUV as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+
+/// This function converts RGBA to CIE XYZ against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGBA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive XYZ(a) data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn rgba_to_xyz_with_alpha(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XYZ as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts BGRA to CIE XYZ against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGRA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive XYZ data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `a_plane` - A mutable slice to receive XYZ data
+/// * `a_stride` - Bytes per row for dst data
+pub fn bgra_to_xyz_with_alpha(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XYZ as u8 }>(
         src,
         src_stride,
         dst,

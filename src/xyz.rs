@@ -12,25 +12,21 @@ pub struct Xyz {
 
 impl Xyz {
     #[inline]
-    #[allow(dead_code)]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn saturate_x(x: f32) -> f32 {
         x.max(0f32).min(95.047f32)
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn saturate_y(y: f32) -> f32 {
         y.max(0f32).min(100f32)
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn saturate_z(z: f32) -> f32 {
         z.max(0f32).min(108.883f32)
     }

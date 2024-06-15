@@ -183,8 +183,6 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 /// # Arguments
 /// * `src` - A slice contains LAB data
 /// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
 /// * `dst` - A mutable slice to receive RGBA data
 /// * `dst_stride` - Bytes per row for dst data
 /// * `width` - Image width
@@ -214,8 +212,6 @@ pub fn lab_with_alpha_to_rgba(
 /// # Arguments
 /// * `src` - A slice contains LAB data
 /// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
 /// * `dst` - A mutable slice to receive BGRA data
 /// * `dst_stride` - Bytes per row for dst data
 /// * `width` - Image width
@@ -243,10 +239,8 @@ pub fn lab_with_alpha_to_bgra(
 /// This function converts LUV with separate alpha channel to RGBA. This is much more effective than naive direct transformation
 ///
 /// # Arguments
-/// * `src` - A slice contains LAB data
+/// * `src` - A slice contains LUV data
 /// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
 /// * `dst` - A mutable slice to receive RGBA data
 /// * `dst_stride` - Bytes per row for dst data
 /// * `width` - Image width
@@ -274,7 +268,7 @@ pub fn luv_with_alpha_to_rgba(
 /// This function converts LUV with separate alpha channel to BGRA. This is much more effective than naive direct transformation
 ///
 /// # Arguments
-/// * `src` - A slice contains LAB data
+/// * `src` - A slice contains LUV data
 /// * `src_stride` - Bytes per row for src data.
 /// * `a_plane` - A slice contains Alpha data
 /// * `a_stride` - Bytes per row for alpha plane data
@@ -291,6 +285,64 @@ pub fn luv_with_alpha_to_bgra(
     height: u32,
 ) {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { LAB as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts XYZ with separate alpha channel to RGBA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains XYZa data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive RGBA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn xyz_with_alpha_to_rgba(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XYZ as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts XYZ with separate alpha channel to BGRA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains XYZ data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive BGRA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn xyz_with_alpha_to_bgra(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XYZ as u8 }>(
         src,
         src_stride,
         dst,
