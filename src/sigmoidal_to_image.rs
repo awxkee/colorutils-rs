@@ -6,6 +6,10 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_from_sigmoidal_row;
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
 use crate::sse::sse_from_sigmoidal_row;
 use crate::{Rgb, Sigmoidal};
 
