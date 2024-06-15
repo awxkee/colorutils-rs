@@ -98,14 +98,14 @@ fn hsv_u16_to_channels<
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const u16 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
         for x in _cx..width as usize {
             let px = x * channels;
-            let h = unsafe { *src_slice.get_unchecked(px) };
-            let s = unsafe { *src_slice.get_unchecked(px + 1) };
-            let v = unsafe { *src_slice.get_unchecked(px + 2) };
+            let src = unsafe { src_ptr.add(px) };
+            let h = unsafe { src.read_unaligned() };
+            let s = unsafe { src.add(1).read_unaligned() };
+            let v = unsafe { src.add(2).read_unaligned() };
 
             let s_f = s as f32 * scale;
             let v_f = v as f32 * scale;
@@ -133,7 +133,7 @@ fn hsv_u16_to_channels<
             }
 
             if image_configuration.has_alpha() {
-                let a = unsafe { *src_slice.get_unchecked(hx + 3) };
+                let a = unsafe { src.add(3).read_unaligned() };
                 unsafe {
                     *dst_slice.get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
                         a as u8;

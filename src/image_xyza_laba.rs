@@ -98,7 +98,6 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * 4) };
 
         for x in cx..width as usize {
             let px = x * channels;
@@ -114,29 +113,30 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 
             let rgb = Rgb::<u8>::new(r, g, b);
             let px = x * CHANNELS;
+            let dst_store = unsafe { dst_ptr.add(px) };
             match target {
                 LAB => {
                     let lab = rgb.to_lab();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(px) = lab.l;
-                        *dst_slice.get_unchecked_mut(px + 1) = lab.a;
-                        *dst_slice.get_unchecked_mut(px + 2) = lab.b;
+                        dst_store.write_unaligned(lab.l);
+                        dst_store.add(1).write_unaligned(lab.a);
+                        dst_store.add(2).write_unaligned(lab.b);
                     }
                 }
                 XYZ => {
                     let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
                     unsafe {
-                        *dst_slice.get_unchecked_mut(px) = xyz.x;
-                        *dst_slice.get_unchecked_mut(px + 1) = xyz.y;
-                        *dst_slice.get_unchecked_mut(px + 2) = xyz.z;
+                        dst_store.write_unaligned(xyz.x);
+                        dst_store.add(1).write_unaligned(xyz.y);
+                        dst_store.add(2).write_unaligned(xyz.z);
                     }
                 }
                 XyzTarget::LUV => {
                     let luv = rgb.to_luv();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(px) = luv.l;
-                        *dst_slice.get_unchecked_mut(px + 1) = luv.u;
-                        *dst_slice.get_unchecked_mut(px + 2) = luv.v;
+                        dst_store.write_unaligned(luv.l);
+                        dst_store.add(1).write_unaligned(luv.u);
+                        dst_store.add(2).write_unaligned(luv.v);
                     }
                 }
             }
@@ -146,7 +146,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             };
             let a_lin = a as f32 * (1f32 / 255f32);
             unsafe {
-                *dst_slice.get_unchecked_mut(x * CHANNELS + 3) = a_lin;
+                dst_store.add(3).write_unaligned(a_lin);
             }
         }
 
@@ -272,7 +272,6 @@ pub fn bgra_to_luv_with_alpha(
         TransferFunction::Srgb,
     );
 }
-
 
 /// This function converts RGBA to CIE XYZ against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
 ///

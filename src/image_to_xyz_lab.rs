@@ -206,7 +206,6 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * 3) };
 
         for x in cx..width as usize {
             let px = x * channels;
@@ -225,25 +224,28 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 LAB => {
                     let lab = rgb.to_lab();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(x * 3) = lab.l;
-                        *dst_slice.get_unchecked_mut(x * 3 + 1) = lab.a;
-                        *dst_slice.get_unchecked_mut(x * 3 + 2) = lab.b;
+                        let ptr = dst_ptr.add(x * 3);
+                        ptr.write_unaligned(lab.l);
+                        ptr.add(1).write_unaligned(lab.a);
+                        ptr.add(2).write_unaligned(lab.b);
                     }
                 }
                 XYZ => {
                     let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
                     unsafe {
-                        *dst_slice.get_unchecked_mut(x * 3) = xyz.x;
-                        *dst_slice.get_unchecked_mut(x * 3 + 1) = xyz.y;
-                        *dst_slice.get_unchecked_mut(x * 3 + 2) = xyz.z;
+                        let ptr = dst_ptr.add(x * 3);
+                        ptr.write_unaligned(xyz.x);
+                        ptr.add(1).write_unaligned(xyz.y);
+                        ptr.add(2).write_unaligned(xyz.z);
                     }
                 }
                 XyzTarget::LUV => {
                     let luv = rgb.to_luv();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(x * 3) = luv.l;
-                        *dst_slice.get_unchecked_mut(x * 3 + 1) = luv.u;
-                        *dst_slice.get_unchecked_mut(x * 3 + 2) = luv.v;
+                        let ptr = dst_ptr.add(x * 3);
+                        ptr.write_unaligned(luv.l);
+                        ptr.add(1).write_unaligned(luv.u);
+                        ptr.add(2).write_unaligned(luv.v);
                     }
                 }
             }
@@ -255,9 +257,8 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 let a_lin = a as f32 * (1f32 / 255f32);
                 let a_ptr =
                     unsafe { (a_channel.as_mut_ptr() as *mut u8).add(a_offset) as *mut f32 };
-                let a_slice = unsafe { slice::from_raw_parts_mut(a_ptr, width as usize) };
                 unsafe {
-                    *a_slice.get_unchecked_mut(x) = a_lin;
+                    a_ptr.add(x).write_unaligned(a_lin);
                 }
             }
         }

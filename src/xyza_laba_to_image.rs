@@ -132,14 +132,13 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
         for x in cx..width as usize {
             let px = x * 4;
-            let l_x = unsafe { *src_slice.get_unchecked(px) };
-            let l_y = unsafe { *src_slice.get_unchecked(px + 1) };
-            let l_z = unsafe { *src_slice.get_unchecked(px + 2) };
+            let l_x = unsafe { src_ptr.add(px).read_unaligned() };
+            let l_y = unsafe { src_ptr.add(px + 1).read_unaligned() };
+            let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
             let rgb;
             match source {
                 LAB => {
@@ -156,7 +155,7 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                 }
             }
 
-            let l_a = unsafe { *src_slice.get_unchecked(px + 3) };
+            let l_a = unsafe { src_ptr.add(px + 3).read_unaligned() };
             let a_value = (l_a * 255f32).max(0f32);
             unsafe {
                 *dst_slice
@@ -168,7 +167,8 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                 *dst_slice
                     .get_unchecked_mut(x * channels + image_configuration.get_b_channel_offset()) =
                     rgb.b;
-                dst_slice[x * channels + image_configuration.get_a_channel_offset()] =
+                *dst_slice
+                    .get_unchecked_mut(x * channels + image_configuration.get_a_channel_offset()) =
                     a_value as u8;
             }
         }

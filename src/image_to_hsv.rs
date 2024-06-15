@@ -97,7 +97,6 @@ fn channels_to_hsv_u16<
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
 
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
 
         for x in cx..width as usize {
             let px = x * channels;
@@ -113,21 +112,22 @@ fn channels_to_hsv_u16<
 
             let rgb = Rgb::<u8>::new(r, g, b);
             let hx = x * channels;
+            let dst = unsafe { dst_ptr.add(hx) };
             match target {
                 HsvTarget::HSV => {
                     let hsv = rgb.to_hsv();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(hx) = hsv.h as u16;
-                        *dst_slice.get_unchecked_mut(hx + 1) = (hsv.s * scale).round() as u16;
-                        *dst_slice.get_unchecked_mut(hx + 2) = (hsv.v * scale).round() as u16;
+                        dst.write_unaligned(hsv.h as u16);
+                        dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
+                        dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
                     }
                 }
                 HsvTarget::HSL => {
                     let hsl = rgb.to_hsl();
                     unsafe {
-                        *dst_slice.get_unchecked_mut(hx) = hsl.h as u16;
-                        *dst_slice.get_unchecked_mut(hx + 1) = (hsl.s * scale).round() as u16;
-                        *dst_slice.get_unchecked_mut(hx + 2) = (hsl.l * scale).round() as u16;
+                        dst.write_unaligned(hsl.h as u16);
+                        dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
+                        dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
                     }
                 }
             }
@@ -137,7 +137,7 @@ fn channels_to_hsv_u16<
                     *src_slice.get_unchecked(hx + image_configuration.get_a_channel_offset())
                 };
                 unsafe {
-                    *dst_slice.get_unchecked_mut(hx + 3) = a as u16;
+                    dst.add(3).write_unaligned(a as u16);
                 }
             }
         }
