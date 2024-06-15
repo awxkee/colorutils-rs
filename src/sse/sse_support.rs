@@ -1,8 +1,12 @@
-use crate::avx::shuffle;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
+pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
+    // Checked: we want to reinterpret the bits
+    ((z << 6) | (y << 4) | (x << 2) | w) as i32
+}
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]

@@ -1,6 +1,12 @@
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
 use crate::avx::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
 use crate::sse::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
@@ -25,7 +31,10 @@ pub fn rgb_to_rgba(
     let mut dst_offset = 0usize;
     let mut src_offset = 0usize;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _use_sse = false;
 
     #[cfg(all(
