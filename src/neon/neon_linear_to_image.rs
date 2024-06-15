@@ -89,10 +89,7 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     target_feature = "neon"
 ))]
 #[inline(always)]
-pub unsafe fn neon_linear_to_gamma<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
->(
+pub unsafe fn neon_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,

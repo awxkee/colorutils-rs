@@ -1,4 +1,14 @@
 #[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+use crate::avx::*;
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
+use crate::sse::*;
+#[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
@@ -9,10 +19,6 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 #[allow(unused_imports)]
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::*;
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(
@@ -29,21 +35,32 @@ pub fn append_alpha(
     let mut src_offset = 0usize;
     let mut a_offset = 0usize;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _use_sse = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
     let mut _use_avx = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    {
-        #[cfg(target_feature = "sse4.1")]
-        if is_x86_feature_detected!("sse4.1") {
-            _use_sse = true;
-        }
-        if is_x86_feature_detected!("avx2") {
-            _use_avx = true;
-        }
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _use_avx = true;
+    }
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _use_sse = true;
     }
 
     for _ in 0..height {
@@ -56,7 +73,10 @@ pub fn append_alpha(
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
         let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * 4) };
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
         unsafe {
             if _use_avx {
                 while _cx + 8 < width as usize {
@@ -79,6 +99,13 @@ pub fn append_alpha(
                     _cx += 8;
                 }
             }
+        }
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
             if _use_sse {
                 while _cx + 4 < width as usize {
                     let xyz_chan_ptr = src_ptr.add(_cx * 3usize);

@@ -74,10 +74,7 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub unsafe fn sse_linear_to_gamma<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
->(
+pub unsafe fn sse_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,

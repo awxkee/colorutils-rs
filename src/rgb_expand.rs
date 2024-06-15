@@ -28,26 +28,36 @@ pub fn rgb_to_rgba(
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     let mut _use_sse = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
     let mut _use_avx = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    {
-        #[cfg(target_feature = "sse4.1")]
-        if is_x86_feature_detected!("sse4.1") {
-            _use_sse = true;
-        }
-        #[cfg(target_feature = "avx2")]
-        if is_x86_feature_detected!("avx2") {
-            _use_avx = true;
-        }
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _use_avx = true;
+    }
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _use_sse = true;
     }
 
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
         unsafe {
             let src_ptr = src.as_ptr().add(src_offset);
             let dst_ptr = dst.as_mut_ptr().add(dst_offset);
@@ -71,6 +81,15 @@ pub fn rgb_to_rgba(
                     cx += 32;
                 }
             }
+        }
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            let src_ptr = src.as_ptr().add(src_offset);
+            let dst_ptr = dst.as_mut_ptr().add(dst_offset);
             if _use_sse {
                 let v_alpha = _mm_set1_epi8(default_alpha as i8);
                 while cx + 16 < width as usize {

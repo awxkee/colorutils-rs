@@ -5,10 +5,10 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -26,7 +26,6 @@ pub unsafe fn demote_i16_to_u8(s_1: __m256i, s_2: __m256i) -> __m256i {
     const MASK: i32 = shuffle(3, 1, 2, 0);
     return _mm256_permute4x64_epi64::<MASK>(packed);
 }
-
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -294,7 +293,6 @@ pub unsafe fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i
     _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgb3);
 }
 
-
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
@@ -470,4 +468,3 @@ pub unsafe fn avx2_pack_s32(s_1: __m256i, s_2: __m256i) -> __m256i {
     const MASK: i32 = shuffle(3, 1, 2, 0);
     return _mm256_permute4x64_epi64::<MASK>(packed);
 }
-

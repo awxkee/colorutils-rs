@@ -1,3 +1,8 @@
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+use crate::avx::avx2_channels_to_xyz_or_lab;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
@@ -6,12 +11,13 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     target_feature = "neon"
 ))]
 use crate::neon::neon_channels_to_xyz_or_lab;
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
+use crate::sse::sse_channels_to_xyz_or_lab;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::avx2_channels_to_xyz_or_lab;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_channels_to_xyz_or_lab;
 
 pub(crate) enum XyzTarget {
     LAB = 0,
@@ -59,28 +65,41 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _has_sse = false;
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
     let mut _has_avx2 = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    {
-        #[cfg(target_feature = "avx2")]
-        if is_x86_feature_detected!("avx2") {
-            _has_avx2 = true;
-        }
-        #[cfg(target_feature = "sse4.1")]
-        if is_x86_feature_detected!("sse4.1") {
-            _has_sse = true;
-        }
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
+    }
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
     }
 
     for _ in 0..height as usize {
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
         unsafe {
             if _has_avx2 {
                 if USE_ALPHA {
@@ -110,7 +129,15 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         transfer_function,
                     );
                 }
-            } else if _has_sse {
+            }
+        }
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            if _has_sse {
                 if USE_ALPHA {
                     cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
                         cx,

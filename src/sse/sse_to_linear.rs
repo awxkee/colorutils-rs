@@ -7,10 +7,10 @@ use crate::image_to_xyz_lab::XyzTarget;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[allow(unused_imports)]
 use crate::sse::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
@@ -32,10 +32,7 @@ unsafe fn sse_triple_to_linear(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub unsafe fn sse_channels_to_linear<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
->(
+pub unsafe fn sse_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -97,9 +94,8 @@ pub unsafe fn sse_channels_to_linear<
         let g_low_low = _mm_cvtepu16_epi32(g_low);
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
-        let (x_low_low, y_low_low, z_low_low) = sse_triple_to_linear(
-            r_low_low, g_low_low, b_low_low,&transfer,
-        );
+        let (x_low_low, y_low_low, z_low_low) =
+            sse_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -108,7 +104,8 @@ pub unsafe fn sse_channels_to_linear<
         if USE_ALPHA {
             let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
 
-            let (v0, v1, v2, v3) = sse_interleave_ps_rgba(x_low_low, y_low_low, z_low_low, a_low_low);
+            let (v0, v1, v2, v3) =
+                sse_interleave_ps_rgba(x_low_low, y_low_low, z_low_low, a_low_low);
             _mm_storeu_ps(dst_ptr.add(cx * 4), v0);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4), v1);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 8), v2);
@@ -124,9 +121,8 @@ pub unsafe fn sse_channels_to_linear<
         let g_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_low));
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
-        let (x_low_high, y_low_high, z_low_high) = sse_triple_to_linear(
-            r_low_high, g_low_high, b_low_high, &transfer,
-        );
+        let (x_low_high, y_low_high, z_low_high) =
+            sse_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
 
         if USE_ALPHA {
             let a_low_high = _mm_mul_ps(
@@ -134,7 +130,8 @@ pub unsafe fn sse_channels_to_linear<
                 u8_scale,
             );
 
-            let (v0, v1, v2, v3) = sse_interleave_ps_rgba(x_low_high, y_low_high, z_low_high, a_low_high);
+            let (v0, v1, v2, v3) =
+                sse_interleave_ps_rgba(x_low_high, y_low_high, z_low_high, a_low_high);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 16), v0);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 16 + 4), v1);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 16 + 8), v2);
@@ -154,17 +151,16 @@ pub unsafe fn sse_channels_to_linear<
         let g_high_low = _mm_cvtepu16_epi32(g_high);
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
-        let (x_high_low, y_high_low, z_high_low) = sse_triple_to_linear(
-            r_high_low, g_high_low, b_high_low, &transfer,
-        );
+        let (x_high_low, y_high_low, z_high_low) =
+            sse_triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
 
         let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
 
         if USE_ALPHA {
-
             let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
 
-            let (v0, v1, v2, v3) = sse_interleave_ps_rgba(x_high_low, y_high_low, z_high_low, a_high_low);
+            let (v0, v1, v2, v3) =
+                sse_interleave_ps_rgba(x_high_low, y_high_low, z_high_low, a_high_low);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 2), v0);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 2 + 4), v1);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 2 + 8), v2);
@@ -180,12 +176,8 @@ pub unsafe fn sse_channels_to_linear<
         let g_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_high));
         let b_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_high));
 
-        let (x_high_high, y_high_high, z_high_high) = sse_triple_to_linear(
-            r_high_high,
-            g_high_high,
-            b_high_high,
-            &transfer,
-        );
+        let (x_high_high, y_high_high, z_high_high) =
+            sse_triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
 
         if USE_ALPHA {
             let a_high_high = _mm_mul_ps(
@@ -193,7 +185,8 @@ pub unsafe fn sse_channels_to_linear<
                 u8_scale,
             );
 
-            let (v0, v1, v2, v3) = sse_interleave_ps_rgba(x_high_high, y_high_high, z_high_high, a_high_high);
+            let (v0, v1, v2, v3) =
+                sse_interleave_ps_rgba(x_high_high, y_high_high, z_high_high, a_high_high);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 3), v0);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 3 + 4), v1);
             _mm_storeu_ps(dst_ptr.add(cx * 4 + 4 * 4 * 3 + 8), v2);

@@ -317,7 +317,7 @@ pub unsafe fn sse_deinterleave_rgba_epi16(
     let b = _mm_unpackhi_epi16(u0, u1);
     let c = _mm_unpacklo_epi16(u2, u3);
     let d = _mm_unpackhi_epi16(u2, u3);
-    (a, b, c ,d)
+    (a, b, c, d)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]

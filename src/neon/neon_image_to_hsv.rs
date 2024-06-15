@@ -253,9 +253,18 @@ pub unsafe fn neon_channels_to_hsv_u16<
             HsvTarget::HSL => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
         };
 
-        let x_low = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(x_low_low)), vmovn_u32(vcvtaq_u32_f32(x_low_high)));
-        let y_low = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(y_low_low)), vmovn_u32(vcvtaq_u32_f32(y_low_high)));
-        let z_low = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(z_low_low)), vmovn_u32(vcvtaq_u32_f32(z_low_high)));
+        let x_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(x_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(x_low_high)),
+        );
+        let y_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(y_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(y_low_high)),
+        );
+        let z_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(z_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(z_low_high)),
+        );
 
         if USE_ALPHA {
             let xyz_low_low = uint16x8x4_t(x_low, y_low, z_low, a_low);
@@ -289,9 +298,18 @@ pub unsafe fn neon_channels_to_hsv_u16<
             HsvTarget::HSL => neon_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
         };
 
-        let x_high = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(x_high_low)), vmovn_u32(vcvtaq_u32_f32(x_high_high)));
-        let y_high = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(y_high_low)), vmovn_u32(vcvtaq_u32_f32(y_high_high)));
-        let z_high = vcombine_u16(vmovn_u32(vcvtaq_u32_f32(z_high_low)), vmovn_u32(vcvtaq_u32_f32(z_high_high)));
+        let x_high = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(x_high_low)),
+            vmovn_u32(vcvtaq_u32_f32(x_high_high)),
+        );
+        let y_high = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(y_high_low)),
+            vmovn_u32(vcvtaq_u32_f32(y_high_high)),
+        );
+        let z_high = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(z_high_low)),
+            vmovn_u32(vcvtaq_u32_f32(z_high_high)),
+        );
 
         if USE_ALPHA {
             let xyz_low_low = uint16x8x4_t(x_high, y_high, z_high, a_high);

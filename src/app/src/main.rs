@@ -1,4 +1,3 @@
-use std::arch::aarch64::{vdupq_n_f32, vdupq_n_u32, vgetq_lane_f32, vgetq_lane_u32};
 use colorutils_rs::*;
 use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView};

@@ -1,5 +1,5 @@
-use half::f16;
 use crate::rgb::Rgb;
+use half::f16;
 
 pub struct Rgba<T> {
     pub r: T,
@@ -55,7 +55,11 @@ impl Rgba<u8> {
 
     #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
-        Rgb { r: self.r, g: self.g, b: self.b }
+        Rgb {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+        }
     }
 }
 

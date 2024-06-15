@@ -7,9 +7,12 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_linear_to_gamma;
-use crate::Rgb;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
 use crate::sse::sse_linear_to_gamma;
+use crate::Rgb;
 
 #[inline(always)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -35,7 +38,10 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _has_sse = false;
 
     #[cfg(all(
@@ -49,7 +55,10 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
         unsafe {
             if _has_sse {
                 _cx = sse_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>(

@@ -7,7 +7,10 @@ use crate::image_to_hsv_support::HsvTarget;
     target_feature = "neon"
 ))]
 use crate::neon::neon_hsv_u16_to_image;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
 use crate::sse::sse_hsv_u16_to_image;
 use crate::{Hsl, Hsv};
 
@@ -33,7 +36,10 @@ fn hsv_u16_to_channels<
         }
     }
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _has_sse = false;
 
     #[cfg(all(
@@ -55,7 +61,10 @@ fn hsv_u16_to_channels<
         #[allow(unused_mut)]
         let mut _cx = 0usize;
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
         unsafe {
             if _has_sse {
                 _cx = sse_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(

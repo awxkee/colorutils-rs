@@ -1,6 +1,6 @@
-use crate::{SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
 use crate::gamma_curves::TransferFunction;
 use crate::rgb::Rgb;
+use crate::{SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
 
 /// A CIE 1931 XYZ color.
 #[derive(Copy, Clone, Debug, Default)]

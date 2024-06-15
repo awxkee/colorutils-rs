@@ -1,11 +1,9 @@
-
 /// sRGB to XYZ, D65 White point
 pub const SRGB_TO_XYZ_D65: [[f32; 3]; 3] = [
     [0.4124564f32, 0.3575761f32, 0.1804375f32],
     [0.2126729f32, 0.7151522f32, 0.0721750f32],
     [0.0193339f32, 0.1191920f32, 0.9503041f32],
 ];
-
 
 /// XYZ to sRGB, D65 White point
 pub const XYZ_TO_SRGB_D65: [[f32; 3]; 3] = [

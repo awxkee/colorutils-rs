@@ -15,13 +15,16 @@ pub unsafe fn neon_hsl_to_rgb(
         vsubq_f32(ones, vabsq_f32(vsubq_f32(vmulq_n_f32(l, 2f32), ones))),
         s,
     );
-    let x = vmulq_f32(vsubq_f32(
-        ones,
-        vabsq_f32(vsubq_f32(
-            vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(2f32)),
+    let x = vmulq_f32(
+        vsubq_f32(
             ones,
-        )),
-    ), c);
+            vabsq_f32(vsubq_f32(
+                vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(2f32)),
+                ones,
+            )),
+        ),
+        c,
+    );
 
     let zeros = vdupq_n_f32(0f32);
     let m = vsubq_f32(l, vmulq_n_f32(c, 0.5f32));

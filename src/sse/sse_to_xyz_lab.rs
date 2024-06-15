@@ -1,10 +1,10 @@
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
+#[allow(unused_imports)]
+use crate::image_to_xyz_lab::XyzTarget;
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 #[allow(unused_imports)]
 use crate::sse::*;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]

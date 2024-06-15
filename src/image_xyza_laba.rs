@@ -6,10 +6,13 @@ use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
     target_feature = "neon"
 ))]
 use crate::neon::neon_channels_to_xyza_or_laba;
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
+use crate::sse::sse_channels_to_xyza_laba;
 use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
 use std::slice;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_channels_to_xyza_laba;
 
 #[inline(always)]
 fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -31,12 +34,17 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     let mut _has_sse = false;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
     {
-        #[cfg(target_feature = "sse4.1")]
         if is_x86_feature_detected!("sse4.1") {
             _has_sse = true;
         }
@@ -50,7 +58,10 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
         unsafe {
             if _has_sse {
                 cx = sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>(

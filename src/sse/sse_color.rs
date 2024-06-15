@@ -185,34 +185,22 @@ pub unsafe fn sse_hsv_to_rgb(
     let zeros = _mm_setzero_ps();
     let m = _mm_sub_ps(v, c);
     let (mut r, mut g, mut b) = (zeros, zeros, zeros);
-    let between_zero_and_one_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, zeros),
-        _mm_cmplt_ps(h_prime, ones),
-    );
+    let between_zero_and_one_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, zeros), _mm_cmplt_ps(h_prime, ones));
     let twos = _mm_set1_ps(2f32);
-    let between_one_and_two_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, ones),
-        _mm_cmplt_ps(h_prime, twos),
-    );
+    let between_one_and_two_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, ones), _mm_cmplt_ps(h_prime, twos));
     let threes = _mm_set1_ps(3f32);
-    let between_two_and_three_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, twos),
-        _mm_cmplt_ps(h_prime, threes),
-    );
+    let between_two_and_three_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, twos), _mm_cmplt_ps(h_prime, threes));
     let fours = _mm_set1_ps(4f32);
-    let between_three_and_four_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, threes),
-        _mm_cmplt_ps(h_prime, fours),
-    );
+    let between_three_and_four_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, threes), _mm_cmplt_ps(h_prime, fours));
     let fives = _mm_set1_ps(5f32);
-    let between_four_and_five_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, fours),
-        _mm_cmplt_ps(h_prime, fives),
-    );
-    let between_five_and_six_mask = _mm_and_ps(
-        _mm_cmpge_ps(h_prime, fives),
-        _mm_cmplt_ps(h_prime, six),
-    );
+    let between_four_and_five_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, fours), _mm_cmplt_ps(h_prime, fives));
+    let between_five_and_six_mask =
+        _mm_and_ps(_mm_cmpge_ps(h_prime, fives), _mm_cmplt_ps(h_prime, six));
     // if h_prime >= 0f32 && h_prime < 1f32 {
     r = _mm_select_ps(between_zero_and_one_mask, c, r);
     g = _mm_select_ps(between_zero_and_one_mask, x, g);

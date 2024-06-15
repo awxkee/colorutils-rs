@@ -146,7 +146,8 @@ pub mod sse_image_to_linear_unsigned {
             let dst = dst_ptr.add(cx * channels);
 
             if USE_ALPHA {
-                let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba(r_u_norm, g_u_norm, b_u_norm, a_chan);
+                let (rgba0, rgba1, rgba2, rgba3) =
+                    sse_interleave_rgba(r_u_norm, g_u_norm, b_u_norm, a_chan);
                 _mm_storeu_si128(dst as *mut __m128i, rgba0);
                 _mm_storeu_si128(dst.add(16) as *mut __m128i, rgba1);
                 _mm_storeu_si128(dst.add(32) as *mut __m128i, rgba2);

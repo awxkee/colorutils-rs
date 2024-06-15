@@ -1,11 +1,11 @@
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
+use crate::neon::neon_math::vpowq_n_f32;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use std::arch::aarch64::*;
-use crate::neon::neon_math::vpowq_n_f32;
 
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
