@@ -157,7 +157,7 @@ pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
 #[allow(dead_code)]
 /// High precision exp. ULP = 1.0
 pub unsafe fn vexpq_f32_ulp1(d: float32x4_t) -> float32x4_t {
-    let q = vrintq_s32(vmulq_f32(d, vdupq_n_f32(std::f32::consts::LOG2_E)));
+    let q = vrintq_s32(vmulq_n_f32(d, std::f32::consts::LOG2_E));
 
     let mut s = vmlafq_f32(vcvtq_f32_s32(q), vdupq_n_f32(-std::f32::consts::LN_2), d);
     s = vmlafq_f32(

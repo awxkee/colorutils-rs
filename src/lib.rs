@@ -13,6 +13,7 @@ mod image_to_hsv;
 mod image_to_hsv_support;
 mod image_to_linear;
 mod image_to_linear_u8;
+mod image_to_sigmoidal;
 mod image_to_xyz_lab;
 mod image_xyza_laba;
 mod lab;
@@ -27,6 +28,8 @@ mod neon;
 mod rgb;
 mod rgb_expand;
 mod rgba;
+mod sigmoidal;
+mod sigmoidal_to_image;
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "sse4.1"
@@ -91,4 +94,11 @@ pub use xyza_laba_to_image::luv_with_alpha_to_rgba;
 pub use image_to_linear_u8::*;
 pub use linear_to_image_u8::*;
 
+pub use image_to_sigmoidal::bgra_to_sigmoidal;
+pub use image_to_sigmoidal::rgb_to_sigmoidal;
+pub use image_to_sigmoidal::rgba_to_sigmoidal;
 pub use rgb_expand::*;
+pub use sigmoidal::Sigmoidal;
+pub use sigmoidal_to_image::sigmoidal_to_bgra;
+pub use sigmoidal_to_image::sigmoidal_to_rgb;
+pub use sigmoidal_to_image::sigmoidal_to_rgba;

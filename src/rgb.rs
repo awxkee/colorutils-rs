@@ -1,7 +1,7 @@
 use crate::hsv::Hsv;
 use crate::lab::Lab;
 use crate::luv::Luv;
-use crate::{Hsl, LCh};
+use crate::{Hsl, LCh, Sigmoidal};
 
 #[derive(Debug)]
 pub struct Rgb<T> {
@@ -38,7 +38,7 @@ impl Rgb<u8> {
         LCh::from_rgb(self)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn to_rgb_f32(&self) -> Rgb<f32> {
         const SCALE: f32 = 1f32 / 255f32;
         Rgb::<f32>::new(
@@ -46,6 +46,29 @@ impl Rgb<u8> {
             self.g as f32 * SCALE,
             self.b as f32 * SCALE,
         )
+    }
+
+    #[inline(always)]
+    pub fn to_sigmoidal(&self) -> Sigmoidal {
+        Sigmoidal::from_rgb(self)
+    }
+}
+
+impl From<Rgb<f32>> for Rgb<u8> {
+    #[inline(always)]
+    fn from(value: Rgb<f32>) -> Self {
+        Rgb::<u8>::new(
+            (value.r * 255f32).max(0f32).round() as u8,
+            (value.g * 255f32).max(0f32).round() as u8,
+            (value.b * 255f32).max(0f32).round() as u8,
+        )
+    }
+}
+
+impl From<Sigmoidal> for Rgb<u8> {
+    #[inline(always)]
+    fn from(value: Sigmoidal) -> Self {
+        value.to_rgb()
     }
 }
 

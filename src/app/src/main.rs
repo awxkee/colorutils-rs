@@ -90,7 +90,7 @@ fn main() {
     //     );
     // }
 
-    let img = ImageReader::open("./assets/asset_middle.jpg")
+    let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -102,37 +102,36 @@ fn main() {
     let width = dimensions.0;
     let height = dimensions.1;
     let components = 3;
-
-    let mut dst_rgba = vec![];
-    dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
-    rgb_to_rgba(
-        &src_bytes,
-        3u32 * width,
-        &mut dst_rgba,
-        4u32 * width,
-        width,
-        height,
-        255,
-    );
-    src_bytes = &dst_rgba;
+    //
+    // let mut dst_rgba = vec![];
+    // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
+    // rgb_to_rgba(
+    //     &src_bytes,
+    //     3u32 * width,
+    //     &mut dst_rgba,
+    //     4u32 * width,
+    //     width,
+    //     height,
+    //     255,
+    // );
+    // src_bytes = &dst_rgba;
 
     let mut dst_slice: Vec<u8> = Vec::new();
     dst_slice.resize(width as usize * components * height as usize, 0u8);
 
     {
-        let mut lab_store: Vec<u16> = vec![];
-        let store_stride = width as usize * components * std::mem::size_of::<u16>();
-        lab_store.resize(width as usize * components * height as usize, 0u16);
+        let mut lab_store: Vec<f32> = vec![];
+        let store_stride = width as usize * components * std::mem::size_of::<f32>();
+        lab_store.resize(width as usize * components * height as usize, 0f32);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_hsv(
+        rgb_to_sigmoidal(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            100f32,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -160,14 +159,13 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        hsv_to_rgb(
+        sigmoidal_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            100f32,
         );
 
         let elapsed_time = start_time.elapsed();
