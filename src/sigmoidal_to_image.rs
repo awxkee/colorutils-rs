@@ -1,6 +1,10 @@
 use std::slice;
 
 use crate::image::ImageConfiguration;
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm"),
+    target_feature = "neon"
+))]
 use crate::neon::neon_from_sigmoidal_row;
 use crate::{Rgb, Sigmoidal};
 
