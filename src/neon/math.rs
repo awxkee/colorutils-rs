@@ -85,6 +85,7 @@ pub unsafe fn vrintq_s32(d: float32x4_t) -> int32x4_t {
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub unsafe fn vfloorq_f32(x: float32x4_t) -> float32x4_t {
     let const_1 = vdupq_n_f32(1f32);
 
@@ -96,11 +97,13 @@ pub unsafe fn vfloorq_f32(x: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
-    vexpq_f32_impl::<false>(x)
+    vexpq_f32_ulp1_5::<false>(x)
 }
 
 #[inline(always)]
-unsafe fn vexpq_f32_impl<const PROCESS_NAN: bool>(x: float32x4_t) -> float32x4_t {
+#[allow(dead_code)]
+/// Low precision exp(x), ULP ~5
+unsafe fn vexpq_f32_impl_ulp5<const PROCESS_NAN: bool>(x: float32x4_t) -> float32x4_t {
     let l2e = vdupq_n_f32(std::f32::consts::LOG2_E); /* log2(e) */
     let c0 = vdupq_n_f32(0.3371894346f32);
     let c1 = vdupq_n_f32(0.657636276f32);
@@ -130,7 +133,7 @@ unsafe fn vexpq_f32_impl<const PROCESS_NAN: bool>(x: float32x4_t) -> float32x4_t
 
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn vexpq_f32_ulp3(x: float32x4_t) -> float32x4_t {
+pub unsafe fn vexpq_f32_ulp1_5<const HANDLE_NAN: bool>(x: float32x4_t) -> float32x4_t {
     let c1 = vreinterpretq_f32_u32(vdupq_n_u32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
     let c2 = vreinterpretq_f32_u32(vdupq_n_u32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
     let c3 = vreinterpretq_f32_u32(vdupq_n_u32(0x3e2aaf33)); // x^3: 0x1.555e66p-3f
@@ -141,11 +144,6 @@ pub unsafe fn vexpq_f32_ulp3(x: float32x4_t) -> float32x4_t {
     let inv_ln2 = vreinterpretq_f32_u32(vdupq_n_u32(0x3fb8aa3b)); // 1 / ln(2) = 0x1.715476p+0f
     let neg_ln2_hi = vreinterpretq_f32_u32(vdupq_n_u32(0xbf317200)); // -ln(2) from bits  -1 to -19: -0x1.62e400p-1f
     let neg_ln2_lo = vreinterpretq_f32_u32(vdupq_n_u32(0xb5bfbe8e)); // -ln(2) from bits -20 to -42: -0x1.7f7d1cp-20f
-
-    let inf = vdupq_n_f32(f32::INFINITY);
-    let max_input = vdupq_n_f32(88.37f32); // Approximately ln(2^127.5)
-    let zero = vdupq_n_f32(0f32);
-    let min_input = vdupq_n_f32(-86.64f32); // Approximately ln(2^-125)
 
     // Range reduction:
     //   e^x = 2^n * e^r
@@ -183,8 +181,14 @@ pub unsafe fn vexpq_f32_ulp3(x: float32x4_t) -> float32x4_t {
     let mut poly = prefer_vfmaq_f32(scale, p12345, scale);
 
     // Handle underflow and overflow.
-    poly = vbslq_f32(vcltq_f32(x, min_input), zero, poly);
-    poly = vbslq_f32(vcgtq_f32(x, max_input), inf, poly);
+    if HANDLE_NAN {
+        let inf = vdupq_n_f32(f32::INFINITY);
+        let max_input = vdupq_n_f32(88.37f32); // Approximately ln(2^127.5)
+        let min_input = vdupq_n_f32(-86.64f32); // Approximately ln(2^-125)
+        let zero = vdupq_n_f32(0f32);
+        poly = vbslq_f32(vcltq_f32(x, min_input), zero, poly);
+        poly = vbslq_f32(vcgtq_f32(x, max_input), inf, poly);
+    }
 
     return poly;
 }
