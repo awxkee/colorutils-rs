@@ -67,12 +67,11 @@ unsafe fn avx_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     g_f32 = _mm256_mul_ps(g_f32, v_scale_color);
     b_f32 = _mm256_mul_ps(b_f32, v_scale_color);
     let a_f32 = _mm256_mul_ps(a_f32, v_scale_color);
-    const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
     (
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(r_f32)),
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(g_f32)),
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(b_f32)),
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(a_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(r_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(g_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(b_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(a_f32)),
     )
 }
 

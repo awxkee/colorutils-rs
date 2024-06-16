@@ -105,7 +105,68 @@ pub unsafe fn _mm256_select_si256(
 
 #[inline(always)]
 pub unsafe fn _mm256_exp_ps(x: __m256) -> __m256 {
-    _mm256_exp_ps_impl::<false>(x)
+    _mm256_exp_ps_ulp_1_5::<false>(x)
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_exp_ps_ulp_1_5<const HANDLE_NAN: bool>(x: __m256) -> __m256 {
+    let c1 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
+    let c2 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
+    let c3 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3e2aaf33)); // x^3: 0x1.555e66p-3f
+    let c4 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3d2b9f17)); // x^4: 0x1.573e2ep-5f
+    let c5 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3c072010)); // x^5: 0x1.0e4020p-7f
+
+    let shift = _mm256_castsi256_ps(_mm256_set1_epi32(0x4b00007f)); // 2^23 + 127 = 0x1.0000fep23f
+    let inv_ln2 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3fb8aa3b)); // 1 / ln(2) = 0x1.715476p+0f
+    let neg_ln2_hi = _mm256_castsi256_ps(_mm256_set1_epi32(-1087278592i32)); // -ln(2) from bits  -1 to -19: -0x1.62e400p-1f
+    let neg_ln2_lo = _mm256_castsi256_ps(_mm256_set1_epi32(-1245725042i32)); // -ln(2) from bits -20 to -42: -0x1.7f7d1cp-20f
+
+    // Range reduction:
+    //   e^x = 2^n * e^r
+    // where:
+    //   n = floor(x / ln(2))
+    //   r = x - n * ln(2)
+    //
+    // By adding x / ln(2) with 2^23 + 127 (shift):
+    //   * As FP32 fraction part only has 23-bits, the addition of 2^23 + 127 forces decimal part
+    //     of x / ln(2) out of the result. The integer part of x / ln(2) (i.e. n) + 127 will occupy
+    //     the whole fraction part of z in FP32 format.
+    //     Subtracting 2^23 + 127 (shift) from z will result in the integer part of x / ln(2)
+    //     (i.e. n) because the decimal part has been pushed out and lost.
+    //   * The addition of 127 makes the FP32 fraction part of z ready to be used as the exponent
+    //     in FP32 format. Left shifting z by 23 bits will result in 2^n.
+    let z = _mm256_prefer_fma_ps(shift, x, inv_ln2);
+    let n = _mm256_sub_ps(z, shift);
+    let scale = _mm256_castsi256_ps(_mm256_slli_epi32::<23>(_mm256_castps_si256(z))); // 2^n
+
+    // The calculation of n * ln(2) is done using 2 steps to achieve accuracy beyond FP32.
+    // This outperforms longer Taylor series (3-4 tabs) both in terms of accuracy and performance.
+    let r_hi = _mm256_prefer_fma_ps(x, n, neg_ln2_hi);
+    let r = _mm256_prefer_fma_ps(r_hi, n, neg_ln2_lo);
+
+    // Compute the truncated Taylor series of e^r.
+    //   poly = scale * (1 + c1 * r + c2 * r^2 + c3 * r^3 + c4 * r^4 + c5 * r^5)
+    let r2 = _mm256_mul_ps(r, r);
+
+    let p1 = _mm256_mul_ps(c1, r);
+    let p23 = _mm256_prefer_fma_ps(c2, c3, r);
+    let p45 = _mm256_prefer_fma_ps(c4, c5, r);
+    let p2345 = _mm256_prefer_fma_ps(p23, p45, r2);
+    let p12345 = _mm256_prefer_fma_ps(p1, p2345, r2);
+
+    let mut poly = _mm256_prefer_fma_ps(scale, p12345, scale);
+
+    if HANDLE_NAN {
+        let inf = _mm256_set1_ps(f32::INFINITY);
+        let max_input = _mm256_set1_ps(88.37f32); // Approximately ln(2^127.5)
+        let zero = _mm256_set1_ps(0f32);
+        let min_input = _mm256_set1_ps(-86.64f32); // Approximately ln(2^-125)
+        // Handle underflow and overflow.
+        poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_LT_OS>(x, min_input), zero, poly);
+        poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
+    }
+
+    return poly;
 }
 
 #[inline(always)]
@@ -245,7 +306,7 @@ pub(crate) unsafe fn _mm256_neg_epi32(x: __m256i) -> __m256i {
 
 #[inline(always)]
 /// This is Cube Root using Pow functions,
-/// it also precise however due to of inexact nature of power 1/3 result slightly differ
+/// it is also precise however due to of inexact nature of power 1/3 result slightly differ
 /// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
 pub unsafe fn _mm256_cbrt_ps(d: __m256) -> __m256 {
     _mm256_pow_n_ps(d, 1f32 / 3f32)

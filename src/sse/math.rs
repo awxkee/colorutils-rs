@@ -284,7 +284,6 @@ pub unsafe fn _mm_cbrt_ps(d: __m128) -> __m128 {
     _mm_pow_n_ps(d, 1f32 / 3f32)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 /// Precise version of Cube Root, ULP 3.5

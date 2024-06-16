@@ -68,11 +68,10 @@ unsafe fn avx_xyz_lab_vld<
     r_f32 = _mm256_mul_ps(r_f32, v_scale_color);
     g_f32 = _mm256_mul_ps(g_f32, v_scale_color);
     b_f32 = _mm256_mul_ps(b_f32, v_scale_color);
-    const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
     (
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(r_f32)),
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(g_f32)),
-        _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(b_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(r_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(g_f32)),
+        _mm256_cvtps_epi32(_mm256_round_ps::<0>(b_f32)),
     )
 }
 
@@ -204,28 +203,27 @@ pub unsafe fn avx_xyz_to_channels<
         let dst_ptr = dst.add(dst_offset + cx * channels);
 
         if USE_ALPHA {
-            const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
             let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
             let a_low_0_f = _mm256_loadu_ps(offset_a_src_ptr);
-            let a_row0_ = _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(_mm256_mul_ps(
+            let a_row0_ = _mm256_cvtps_epi32(_mm256_round_ps::<0>(_mm256_mul_ps(
                 a_low_0_f,
                 color_rescale,
             )));
 
             let a_low_1_f = _mm256_loadu_ps(offset_a_src_ptr.add(8));
-            let a_row1_ = _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(_mm256_mul_ps(
+            let a_row1_ = _mm256_cvtps_epi32(_mm256_round_ps::<0>(_mm256_mul_ps(
                 a_low_1_f,
                 color_rescale,
             )));
 
             let a_low_2_f = _mm256_loadu_ps(offset_a_src_ptr.add(16));
-            let a_row2_ = _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(_mm256_mul_ps(
+            let a_row2_ = _mm256_cvtps_epi32(_mm256_round_ps::<0>(_mm256_mul_ps(
                 a_low_2_f,
                 color_rescale,
             )));
 
             let a_low_3_f = _mm256_loadu_ps(offset_a_src_ptr.add(24));
-            let a_row3_ = _mm256_cvtps_epi32(_mm256_round_ps::<ROUNDING_FLAGS>(_mm256_mul_ps(
+            let a_row3_ = _mm256_cvtps_epi32(_mm256_round_ps::<0>(_mm256_mul_ps(
                 a_low_3_f,
                 color_rescale,
             )));
