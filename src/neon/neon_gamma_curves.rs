@@ -1,17 +1,7 @@
-#[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 use crate::neon::neon_math::vpowq_n_f32;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use std::arch::aarch64::*;
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[allow(dead_code)]
 #[inline(always)]
 pub unsafe fn neon_srgb_from_linear(linear: float32x4_t) -> float32x4_t {
     let low_cut_off = vdupq_n_f32(0.0030412825601275209f32);
@@ -28,11 +18,6 @@ pub unsafe fn neon_srgb_from_linear(linear: float32x4_t) -> float32x4_t {
     return vbslq_f32(mask, high, low);
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[allow(dead_code)]
 #[inline(always)]
 pub unsafe fn neon_srgb_to_linear(gamma: float32x4_t) -> float32x4_t {
     let low_cut_off = vdupq_n_f32(12.92f32 * 0.0030412825601275209f32);
@@ -50,11 +35,6 @@ pub unsafe fn neon_srgb_to_linear(gamma: float32x4_t) -> float32x4_t {
     return vbslq_f32(mask, high, low);
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[allow(dead_code)]
 #[inline(always)]
 pub unsafe fn neon_rec709_from_linear(linear: float32x4_t) -> float32x4_t {
     let low_cut_off = vdupq_n_f32(0.018053968510807f32);
@@ -71,11 +51,6 @@ pub unsafe fn neon_rec709_from_linear(linear: float32x4_t) -> float32x4_t {
     return vbslq_f32(mask, high, low);
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[allow(dead_code)]
 #[inline(always)]
 pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
     let low_cut_off = vdupq_n_f32(4.5f32 * 0.018053968510807f32);
@@ -93,15 +68,46 @@ pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
     return vbslq_f32(mask, high, low);
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[inline(always)]
+pub unsafe fn neon_gamma2p2_to_linear(gamma: float32x4_t) -> float32x4_t {
+    vpowq_n_f32(gamma, 2.2f32)
+}
+
+#[inline(always)]
+pub unsafe fn neon_gamma2p8_to_linear(gamma: float32x4_t) -> float32x4_t {
+    vpowq_n_f32(gamma, 2.8f32)
+}
+
+#[inline(always)]
+pub unsafe fn neon_gamma2p2_from_linear(linear: float32x4_t) -> float32x4_t {
+    vpowq_n_f32(linear, 1f32 / 2.2f32)
+}
+
+#[inline(always)]
+pub unsafe fn neon_gamma2p8_from_linear(linear: float32x4_t) -> float32x4_t {
+    vpowq_n_f32(linear, 1f32 / 2.8f32)
+}
+
+#[inline(always)]
 pub unsafe fn get_neon_linear_transfer(
     transfer_function: TransferFunction,
 ) -> unsafe fn(float32x4_t) -> float32x4_t {
     match transfer_function {
         TransferFunction::Srgb => neon_srgb_to_linear,
         TransferFunction::Rec709 => neon_rec709_to_linear,
+        TransferFunction::Gamma2p2 => neon_gamma2p2_to_linear,
+        TransferFunction::Gamma2p8 => neon_gamma2p8_to_linear,
+    }
+}
+
+#[inline(always)]
+pub unsafe fn get_neon_gamma_transfer(
+    transfer_function: TransferFunction,
+) -> unsafe fn(float32x4_t) -> float32x4_t {
+    match transfer_function {
+        TransferFunction::Srgb => neon_srgb_from_linear,
+        TransferFunction::Rec709 => neon_rec709_from_linear,
+        TransferFunction::Gamma2p2 => neon_gamma2p2_from_linear,
+        TransferFunction::Gamma2p8 => neon_gamma2p8_from_linear,
     }
 }
