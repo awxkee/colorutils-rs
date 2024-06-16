@@ -1,3 +1,4 @@
+use crate::avx::avx_image_to_sigmoidal_row;
 use std::slice;
 
 use crate::image::ImageConfiguration;
@@ -47,6 +48,20 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _has_sse = true;
     }
 
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    let mut _has_avx2 = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _has_avx2 = true;
+    }
+
     const COLOR_SCALE: f32 = 1f32 / 255f32;
 
     for _ in 0..height as usize {
@@ -57,6 +72,16 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
         let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
+        unsafe {
+            cx = avx_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+                cx, src_ptr, width, dst_ptr,
+            );
+        }
 
         #[cfg(all(
             any(target_arch = "x86_64", target_arch = "x86"),

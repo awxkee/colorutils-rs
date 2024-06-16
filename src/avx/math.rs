@@ -302,9 +302,7 @@ pub unsafe fn _mm256_cbrt_ps_ulp35(d: __m256) -> __m256 {
     return y;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_color_matrix_ps(
     r: __m256,
     g: __m256,
@@ -323,4 +321,10 @@ pub unsafe fn _mm256_color_matrix_ps(
     let new_g = _mm256_prefer_fma_ps(_mm256_prefer_fma_ps(_mm256_mul_ps(g, c5), b, c6), r, c4);
     let new_b = _mm256_prefer_fma_ps(_mm256_prefer_fma_ps(_mm256_mul_ps(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
+}
+
+#[inline(always)]
+pub(crate) unsafe fn _mm256_neg_ps(x: __m256) -> __m256 {
+    let high = _mm256_set1_ps(0f32);
+    return _mm256_sub_ps(high, x);
 }

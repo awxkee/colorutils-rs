@@ -92,11 +92,11 @@ pub unsafe fn _mm_select_si128(mask: __m128i, true_vals: __m128i, false_vals: __
 
 #[inline(always)]
 pub unsafe fn _mm_exp_ps(x: __m128) -> __m128 {
-    _mm_exp_ps_impl::<false>(x)
+    _mm_exp_ps_ulp_5_impl::<false>(x)
 }
 
 #[inline(always)]
-unsafe fn _mm_exp_ps_impl<const PROCESS_NAN: bool>(x: __m128) -> __m128 {
+unsafe fn _mm_exp_ps_ulp_5_impl<const PROCESS_NAN: bool>(x: __m128) -> __m128 {
     let l2e = _mm_set1_ps(std::f32::consts::LOG2_E); /* log2(e) */
     let c0 = _mm_set1_ps(0.3371894346f32);
     let c1 = _mm_set1_ps(0.657636276f32);
@@ -209,9 +209,7 @@ pub(crate) unsafe fn _mm_neg_epi32(x: __m128i) -> __m128i {
     return _mm_sub_epi32(high, x);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub(crate) unsafe fn _mm_neg_ps(x: __m128) -> __m128 {
     let high = _mm_set1_ps(0f32);
     return _mm_sub_ps(high, x);

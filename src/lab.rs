@@ -53,9 +53,12 @@ impl Lab {
         let y = (self.l + 16.0) / 116.0;
         let x = self.a * (1f32 / 500f32) + y;
         let z = y - self.b * (1f32 / 200f32);
-        let x3 = x.powf(3.0);
-        let y3 = y.powf(3.0);
-        let z3 = z.powf(3.0);
+        let dx = x * x;
+        let x3 = dx * x;
+        let dy = y * y;
+        let y3 = dy * y;
+        let dz = z * z;
+        let z3 = dz * z;
         let x = 95.047
             * if x3 > 0.008856 {
                 x3
