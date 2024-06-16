@@ -7,6 +7,8 @@ use std::arch::x86_64::*;
 
 #[inline(always)]
 pub unsafe fn sse_srgb_from_linear(linear: __m128) -> __m128 {
+    let linear = _mm_max_ps(linear, _mm_setzero_ps());
+    let linear = _mm_min_ps(linear, _mm_set1_ps(1f32));
     let low_cut_off = _mm_set1_ps(0.0030412825601275209f32);
     let mask = _mm_cmpge_ps(linear, low_cut_off);
 
@@ -26,6 +28,8 @@ pub unsafe fn sse_srgb_from_linear(linear: __m128) -> __m128 {
 
 #[inline(always)]
 pub unsafe fn sse_srgb_to_linear(gamma: __m128) -> __m128 {
+    let gamma = _mm_max_ps(gamma, _mm_setzero_ps());
+    let gamma = _mm_min_ps(gamma, _mm_set1_ps(1f32));
     let low_cut_off = _mm_set1_ps(12.92f32 * 0.0030412825601275209f32);
     let mask = _mm_cmpge_ps(gamma, low_cut_off);
 
@@ -43,6 +47,8 @@ pub unsafe fn sse_srgb_to_linear(gamma: __m128) -> __m128 {
 
 #[inline(always)]
 pub unsafe fn sse_rec709_from_linear(linear: __m128) -> __m128 {
+    let linear = _mm_max_ps(linear, _mm_setzero_ps());
+    let linear = _mm_min_ps(linear, _mm_set1_ps(1f32));
     let low_cut_off = _mm_set1_ps(0.018053968510807f32);
     let mask = _mm_cmpge_ps(linear, low_cut_off);
 
@@ -61,14 +67,16 @@ pub unsafe fn sse_rec709_from_linear(linear: __m128) -> __m128 {
 }
 
 #[inline(always)]
-pub unsafe fn sse_rec709_to_linear(linear: __m128) -> __m128 {
+pub unsafe fn sse_rec709_to_linear(gamma: __m128) -> __m128 {
+    let gamma = _mm_max_ps(gamma, _mm_setzero_ps());
+    let gamma = _mm_min_ps(gamma, _mm_set1_ps(1f32));
     let low_cut_off = _mm_set1_ps(4.5f32 * 0.018053968510807f32);
-    let mask = _mm_cmpge_ps(linear, low_cut_off);
+    let mask = _mm_cmpge_ps(gamma, low_cut_off);
 
-    let mut low = linear;
+    let mut low = gamma;
     let high = _mm_pow_n_ps(
         _mm_mul_ps(
-            _mm_add_ps(linear, _mm_set1_ps(0.09929682680944f32)),
+            _mm_add_ps(gamma, _mm_set1_ps(0.09929682680944f32)),
             _mm_set1_ps(1f32 / 1.09929682680944f32),
         ),
         1.0f32 / 0.45f32,
@@ -78,23 +86,30 @@ pub unsafe fn sse_rec709_to_linear(linear: __m128) -> __m128 {
 }
 
 #[inline(always)]
+pub unsafe fn sse_pure_gamma(gamma: __m128, value: f32) -> __m128 {
+    let gamma = _mm_max_ps(gamma, _mm_setzero_ps());
+    let gamma = _mm_min_ps(gamma, _mm_set1_ps(1f32));
+    _mm_pow_n_ps(gamma, value)
+}
+
+#[inline(always)]
 pub unsafe fn sse_gamma2p2_to_linear(gamma: __m128) -> __m128 {
-    _mm_pow_n_ps(gamma, 2.2f32)
+    sse_pure_gamma(gamma, 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn sse_gamma2p8_to_linear(gamma: __m128) -> __m128 {
-    _mm_pow_n_ps(gamma, 2.8f32)
+    sse_pure_gamma(gamma, 2.8f32)
 }
 
 #[inline(always)]
 pub unsafe fn sse_gamma2p2_from_linear(linear: __m128) -> __m128 {
-    _mm_pow_n_ps(linear, 1f32 / 2.2f32)
+    sse_pure_gamma(linear, 1f32 / 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn sse_gamma2p8_from_linear(linear: __m128) -> __m128 {
-    _mm_pow_n_ps(linear, 1f32 / 2.8f32)
+    sse_pure_gamma(linear, 1f32 / 2.8f32)
 }
 
 #[inline(always)]

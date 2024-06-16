@@ -105,61 +105,26 @@ pub unsafe fn _mm256_select_si256(
 
 #[inline(always)]
 pub unsafe fn _mm256_exp_ps(x: __m256) -> __m256 {
-    let c1 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
-    let c2 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
-    let c3 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3e2aaf33)); // x^3: 0x1.555e66p-3f
-    let c4 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3d2b9f17)); // x^4: 0x1.573e2ep-5f
-    let c5 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3c072010)); // x^5: 0x1.0e4020p-7f
+    let l2e = _mm256_set1_ps(std::f32::consts::LOG2_E); /* log2(e) */
+    let c0 = _mm256_set1_ps(0.3371894346f32);
+    let c1 = _mm256_set1_ps(0.657636276f32);
+    let c2 = _mm256_set1_ps(1.00172476f32);
 
-    let shift = _mm256_castsi256_ps(_mm256_set1_epi32(0x4b00007f)); // 2^23 + 127 = 0x1.0000fep23f
-    let inv_ln2 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3fb8aa3b)); // 1 / ln(2) = 0x1.715476p+0f
-    let neg_ln2_hi = _mm256_castsi256_ps(_mm256_set1_epi32(-1087278592i32)); // -ln(2) from bits  -1 to -19: -0x1.62e400p-1f
-    let neg_ln2_lo = _mm256_castsi256_ps(_mm256_set1_epi32(-1245725042i32)); // -ln(2) from bits -20 to -42: -0x1.7f7d1cp-20f
-
+    /* exp(x) = 2^i * 2^f; i = floor (log2(e) * x), 0 <= f <= 1 */
+    let t = _mm256_mul_ps(x, l2e); /* t = log2(e) * x */
+    let e = _mm256_floor_ps(t); /* floor(t) */
+    let i = _mm256_cvtps_epi32(e); /* (int)floor(t) */
+    let f = _mm256_sub_ps(t, e); /* f = t - floor(t) */
+    let mut p = c0; /* c0 */
+    p = _mm256_prefer_fma_ps(c1, p, f); /* c0 * f + c1 */
+    p = _mm256_prefer_fma_ps(c2, p ,f); /* p = (c0 * f + c1) * f + c2 ~= 2^f */
+    let j = _mm256_slli_epi32::<23>(i); /* i << 23 */
+    let r = _mm256_castsi256_ps(_mm256_add_epi32(j, _mm256_castps_si256(p))); /* r = p * 2^i*/
     let inf = _mm256_set1_ps(f32::INFINITY);
-    let max_input = _mm256_set1_ps(88.37f32); // Approximately ln(2^127.5)
-    let zero = _mm256_set1_ps(0f32);
-    let min_input = _mm256_set1_ps(-86.64f32); // Approximately ln(2^-125)
-
-    // Range reduction:
-    //   e^x = 2^n * e^r
-    // where:
-    //   n = floor(x / ln(2))
-    //   r = x - n * ln(2)
-    //
-    // By adding x / ln(2) with 2^23 + 127 (shift):
-    //   * As FP32 fraction part only has 23-bits, the addition of 2^23 + 127 forces decimal part
-    //     of x / ln(2) out of the result. The integer part of x / ln(2) (i.e. n) + 127 will occupy
-    //     the whole fraction part of z in FP32 format.
-    //     Subtracting 2^23 + 127 (shift) from z will result in the integer part of x / ln(2)
-    //     (i.e. n) because the decimal part has been pushed out and lost.
-    //   * The addition of 127 makes the FP32 fraction part of z ready to be used as the exponent
-    //     in FP32 format. Left shifting z by 23 bits will result in 2^n.
-    let z = _mm256_prefer_fma_ps(shift, x, inv_ln2);
-    let n = _mm256_sub_ps(z, shift);
-    let scale = _mm256_castsi256_ps(_mm256_slli_epi32::<23>(_mm256_castps_si256(z))); // 2^n
-
-    // The calculation of n * ln(2) is done using 2 steps to achieve accuracy beyond FP32.
-    // This outperforms longer Taylor series (3-4 tabs) both in terms of accuracy and performance.
-    let r_hi = _mm256_prefer_fma_ps(x, n, neg_ln2_hi);
-    let r = _mm256_prefer_fma_ps(r_hi, n, neg_ln2_lo);
-
-    // Compute the truncated Taylor series of e^r.
-    //   poly = scale * (1 + c1 * r + c2 * r^2 + c3 * r^3 + c4 * r^4 + c5 * r^5)
-    let r2 = _mm256_mul_ps(r, r);
-
-    let p1 = _mm256_mul_ps(c1, r);
-    let p23 = _mm256_prefer_fma_ps(c2, c3, r);
-    let p45 = _mm256_prefer_fma_ps(c4, c5, r);
-    let p2345 = _mm256_prefer_fma_ps(p23, p45, r2);
-    let p12345 = _mm256_prefer_fma_ps(p1, p2345, r2);
-
-    let mut poly = _mm256_prefer_fma_ps(scale, p12345, scale);
-
-    // Handle underflow and overflow.
-    poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_LT_OS>(x, min_input), zero, poly);
-    poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
-
+    let max_input = _mm256_set1_ps(88.72283f32); // Approximately ln(2^127.5)
+    let min_input = _mm256_set1_ps(-87.33654f32); // Approximately ln(2^-125)
+    let poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_LT_OS>(x, min_input), _mm256_setzero_ps(), r);
+    let poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
     return poly;
 }
 

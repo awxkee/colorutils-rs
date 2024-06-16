@@ -8,6 +8,8 @@ use std::arch::x86_64::*;
 
 #[inline(always)]
 pub unsafe fn avx2_srgb_from_linear(linear: __m256) -> __m256 {
+    let linear = _mm256_max_ps(linear, _mm256_setzero_ps());
+    let linear = _mm256_min_ps(linear, _mm256_set1_ps(1f32));
     let low_cut_off = _mm256_set1_ps(0.0030412825601275209f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(linear, low_cut_off);
 
@@ -27,6 +29,8 @@ pub unsafe fn avx2_srgb_from_linear(linear: __m256) -> __m256 {
 
 #[inline(always)]
 pub unsafe fn avx2_srgb_to_linear(gamma: __m256) -> __m256 {
+    let gamma = _mm256_max_ps(gamma, _mm256_setzero_ps());
+    let gamma = _mm256_min_ps(gamma, _mm256_set1_ps(1f32));
     let low_cut_off = _mm256_set1_ps(12.92f32 * 0.0030412825601275209f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(gamma, low_cut_off);
 
@@ -44,6 +48,8 @@ pub unsafe fn avx2_srgb_to_linear(gamma: __m256) -> __m256 {
 
 #[inline(always)]
 pub unsafe fn avx2_rec709_from_linear(linear: __m256) -> __m256 {
+    let linear = _mm256_max_ps(linear, _mm256_setzero_ps());
+    let linear = _mm256_min_ps(linear, _mm256_set1_ps(1f32));
     let low_cut_off = _mm256_set1_ps(0.018053968510807f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(linear, low_cut_off);
 
@@ -63,6 +69,8 @@ pub unsafe fn avx2_rec709_from_linear(linear: __m256) -> __m256 {
 
 #[inline(always)]
 pub unsafe fn avx2_rec709_to_linear(gamma: __m256) -> __m256 {
+    let gamma = _mm256_max_ps(gamma, _mm256_setzero_ps());
+    let gamma = _mm256_min_ps(gamma, _mm256_set1_ps(1f32));
     let low_cut_off = _mm256_set1_ps(4.5f32 * 0.018053968510807f32);
     let mask = _mm256_cmp_ps::<_CMP_GE_OS>(gamma, low_cut_off);
 
@@ -79,23 +87,30 @@ pub unsafe fn avx2_rec709_to_linear(gamma: __m256) -> __m256 {
 }
 
 #[inline(always)]
+pub unsafe fn avx2_pure_gamma(x: __m256, value: f32) -> __m256 {
+    let x = _mm256_max_ps(x, _mm256_setzero_ps());
+    let x = _mm256_min_ps(x, _mm256_set1_ps(1f32));
+    _mm256_pow_n_ps(x, value)
+}
+
+#[inline(always)]
 pub unsafe fn avx2_gamma2p2_to_linear(gamma: __m256) -> __m256 {
-    _mm256_pow_n_ps(gamma, 2.2f32)
+    avx2_pure_gamma(gamma, 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_gamma2p8_to_linear(gamma: __m256) -> __m256 {
-    _mm256_pow_n_ps(gamma, 2.8f32)
+    avx2_pure_gamma(gamma, 2.8f32)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_gamma2p2_from_linear(linear: __m256) -> __m256 {
-    _mm256_pow_n_ps(linear, 1f32 / 2.2f32)
+    avx2_pure_gamma(linear, 1f32 / 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_gamma2p8_from_linear(linear: __m256) -> __m256 {
-    _mm256_pow_n_ps(linear, 1f32 / 2.8f32)
+    avx2_pure_gamma(linear, 1f32 / 2.8f32)
 }
 
 #[inline(always)]

@@ -51,11 +51,6 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
         }
     }
 
-    let zeros = _mm_setzero_ps();
-    r_f32 = _mm_max_ps(_mm_min_ps(r_f32, d_alpha), zeros);
-    g_f32 = _mm_max_ps(_mm_min_ps(g_f32, d_alpha), zeros);
-    b_f32 = _mm_max_ps(_mm_min_ps(b_f32, d_alpha), zeros);
-
     r_f32 = transfer(r_f32);
     g_f32 = transfer(g_f32);
     b_f32 = transfer(b_f32);
