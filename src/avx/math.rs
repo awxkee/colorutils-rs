@@ -161,7 +161,7 @@ pub unsafe fn _mm256_exp_ps_ulp_1_5<const HANDLE_NAN: bool>(x: __m256) -> __m256
         let max_input = _mm256_set1_ps(88.37f32); // Approximately ln(2^127.5)
         let zero = _mm256_set1_ps(0f32);
         let min_input = _mm256_set1_ps(-86.64f32); // Approximately ln(2^-125)
-        // Handle underflow and overflow.
+                                                   // Handle underflow and overflow.
         poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_LT_OS>(x, min_input), zero, poly);
         poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
     }

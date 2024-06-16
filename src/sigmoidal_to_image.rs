@@ -1,5 +1,7 @@
-use std::slice;
-
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
 use crate::avx::avx_from_sigmoidal_row;
 use crate::image::ImageConfiguration;
 #[cfg(all(
@@ -13,6 +15,7 @@ use crate::neon::neon_from_sigmoidal_row;
 ))]
 use crate::sse::sse_from_sigmoidal_row;
 use crate::{Rgb, Sigmoidal};
+use std::slice;
 
 #[inline]
 fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(

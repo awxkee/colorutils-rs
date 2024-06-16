@@ -1,4 +1,3 @@
-
 use std::time::Instant;
 
 use image::io::Reader as ImageReader;

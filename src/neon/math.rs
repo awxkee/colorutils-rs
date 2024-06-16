@@ -401,27 +401,15 @@ pub(crate) unsafe fn vmlafq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) 
     prefer_vfmaq_f32(c, b, a)
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
-/// This is Cube Root using Pow functions,
-/// it also precise however due to of inexact nature of power 1/3 result slightly differ
-/// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
 pub unsafe fn vcbrtq_f32(d: float32x4_t) -> float32x4_t {
-    vpowq_n_f32(d, 1f32 / 3f32)
+    vcbrtq_f32_ulp2::<false>(d)
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-#[allow(dead_code)]
 /// Precise version of Cube Root with ULP 2
-pub unsafe fn vcbrtq_f32_ulp2(x: float32x4_t) -> float32x4_t {
+pub unsafe fn vcbrtq_f32_ulp2<const HANDLE_NAN: bool>(x: float32x4_t) -> float32x4_t {
     let x1p24 = vreinterpretq_f32_u32(vdupq_n_u32(0x4b800000)); // 0x1p24f === 2 ^ 24
 
     let mut ui = vreinterpretq_u32_f32(x);
@@ -462,15 +450,13 @@ pub unsafe fn vcbrtq_f32_ulp2(x: float32x4_t) -> float32x4_t {
         vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)),
         t,
     );
-    t = vbslq_f32(nan_mask, vdupq_n_f32(f32::NAN), t);
-    t = vbslq_f32(is_zero_mask, vdupq_n_f32(0f32), t);
+    if HANDLE_NAN {
+        t = vbslq_f32(nan_mask, vdupq_n_f32(f32::NAN), t);
+        t = vbslq_f32(is_zero_mask, vdupq_n_f32(0f32), t);
+    }
     t
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 /// Precise version of Cube Root with ULP 3.5

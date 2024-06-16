@@ -1,9 +1,8 @@
-
+use crate::avx::{_mm256_exp_ps, _mm256_log_ps, _mm256_neg_ps, _mm256_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use crate::avx::{_mm256_exp_ps, _mm256_log_ps, _mm256_neg_ps, _mm256_select_ps};
 
 #[inline(always)]
 pub(crate) unsafe fn avx_color_to_sigmoidal(x: __m256) -> __m256 {
