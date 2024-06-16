@@ -1,11 +1,6 @@
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub mod sse_image_to_linear_unsigned {
-    #[allow(unused_imports)]
-    use crate::gamma_curves::TransferFunction;
-    #[allow(unused_imports)]
     use crate::image::ImageConfiguration;
-    #[allow(unused_imports)]
-    use crate::image_to_xyz_lab::XyzTarget;
     use crate::sse::*;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;

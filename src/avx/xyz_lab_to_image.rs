@@ -1,5 +1,5 @@
-use crate::avx::avx_color::{avx_lab_to_xyz, avx_luv_to_xyz};
-use crate::avx::avx_gamma_curves::get_avx_gamma_transfer;
+use crate::avx::color::{avx_lab_to_xyz, avx_luv_to_xyz};
+use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::{
     _mm256_color_matrix_ps, avx2_deinterleave_rgb_ps, avx2_interleave_rgb,
     avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16,

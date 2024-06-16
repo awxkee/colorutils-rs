@@ -150,16 +150,12 @@ pub unsafe fn _mm_exp_ps(x: __m128) -> __m128 {
     return poly;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm_pow_ps(x: __m128, n: __m128) -> __m128 {
     _mm_exp_ps(_mm_mul_ps(n, _mm_log_ps(x)))
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm_pow_n_ps(x: __m128, n: f32) -> __m128 {
     _mm_exp_ps(_mm_mul_ps(_mm_set1_ps(n), _mm_log_ps(x)))
 }

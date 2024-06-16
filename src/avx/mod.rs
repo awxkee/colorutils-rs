@@ -5,30 +5,22 @@
  * // license that can be found in the LICENSE file.
  */
 
-mod avx2_to_xyz_lab;
+mod to_xyz_lab;
+mod utils;
+mod color;
+mod gamma_curves;
+mod math;
+mod support;
+mod xyz_lab_to_image;
+mod linear_to_image;
+mod xyza_laba_to_image;
+mod to_linear;
 
-mod avx2_utils;
-
-mod avx_color;
-
-mod avx_gamma_curves;
-
-mod avx_math;
-
-mod avx_support;
-
-mod avx_xyz_lab_to_image;
-
-mod avx_xyza_laba_to_image;
-
-pub use avx2_to_xyz_lab::*;
-
-pub use avx2_utils::*;
-
-pub use avx_math::*;
-
-pub use avx_support::*;
-
-pub use avx_xyz_lab_to_image::*;
-
-pub use avx_xyza_laba_to_image::*;
+pub use linear_to_image::avx_linear_to_gamma;
+pub use math::*;
+pub use support::*;
+pub use to_xyz_lab::*;
+pub use utils::*;
+pub use xyz_lab_to_image::*;
+pub use xyza_laba_to_image::*;
+pub use to_linear::avx_channels_to_linear;

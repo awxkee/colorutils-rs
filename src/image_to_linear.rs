@@ -1,5 +1,8 @@
-use std::slice;
-
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+use crate::avx::avx_channels_to_linear;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 #[cfg(all(
@@ -13,6 +16,7 @@ use crate::neon::neon_channels_to_linear;
 ))]
 use crate::sse::*;
 use crate::Rgb;
+use std::slice;
 
 #[inline(always)]
 fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -52,8 +56,40 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _has_sse = true;
     }
 
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    let mut _has_avx2 = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _has_avx2 = true;
+    }
+
     for _ in 0..height as usize {
         let mut _cx = 0usize;
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
+        unsafe {
+            if _has_avx2 {
+                _cx = avx_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+                    _cx,
+                    src.as_ptr(),
+                    src_offset,
+                    width,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    transfer_function,
+                )
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "x86_64", target_arch = "x86"),

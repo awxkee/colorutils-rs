@@ -3,8 +3,8 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+use crate::avx::gamma_curves::get_avx2_linear_transfer;
 use crate::avx::*;
-use crate::avx::avx_gamma_curves::get_avx2_linear_transfer;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[allow(unused_imports)]

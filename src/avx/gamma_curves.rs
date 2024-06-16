@@ -1,4 +1,4 @@
-use crate::avx::avx_math::*;
+use crate::avx::math::*;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[cfg(target_arch = "x86")]

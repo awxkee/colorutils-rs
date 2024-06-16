@@ -1,15 +1,11 @@
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
 use crate::sse::*;
-#[allow(unused_imports)]
 use crate::TransferFunction;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
@@ -55,6 +51,11 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
         }
     }
 
+    let zeros = _mm_setzero_ps();
+    r_f32 = _mm_max_ps(_mm_min_ps(r_f32, d_alpha), zeros);
+    g_f32 = _mm_max_ps(_mm_min_ps(g_f32, d_alpha), zeros);
+    b_f32 = _mm_max_ps(_mm_min_ps(b_f32, d_alpha), zeros);
+
     r_f32 = transfer(r_f32);
     g_f32 = transfer(g_f32);
     b_f32 = transfer(b_f32);
@@ -64,15 +65,16 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
     if USE_ALPHA {
         a_f32 = _mm_mul_ps(a_f32, v_scale_alpha);
     }
+    const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
+
     (
-        _mm_cvtps_epi32(r_f32),
-        _mm_cvtps_epi32(g_f32),
-        _mm_cvtps_epi32(b_f32),
-        _mm_cvtps_epi32(a_f32),
+        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(r_f32)),
+        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(g_f32)),
+        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(b_f32)),
+        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(a_f32)),
     )
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn sse_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,

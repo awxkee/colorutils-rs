@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use image::{EncodableLayout, GenericImageView};
 use image::io::Reader as ImageReader;
+use image::{EncodableLayout, GenericImageView};
 
 use colorutils_rs::*;
 
@@ -23,7 +23,7 @@ fn main() {
     println!("HSL {:?}", hsl);
     println!("Back RGB {:?}", hsl.to_rgb8());
 
-    let img = ImageReader::open("./assets/beach_horizon.jpg")
+    let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -100,7 +100,7 @@ fn main() {
             src_stride,
             width,
             height,
-            TransferFunction::Gamma2p8
+            TransferFunction::Gamma2p8,
         );
 
         let elapsed_time = start_time.elapsed();

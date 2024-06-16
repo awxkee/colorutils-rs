@@ -1,5 +1,8 @@
-use std::slice;
-
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+use crate::avx::avx_linear_to_gamma;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 #[cfg(all(
@@ -13,6 +16,7 @@ use crate::neon::neon_linear_to_gamma;
 ))]
 use crate::sse::sse_linear_to_gamma;
 use crate::Rgb;
+use std::slice;
 
 #[inline(always)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -52,8 +56,40 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         _has_sse = true;
     }
 
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    let mut _has_avx2 = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _has_avx2 = true;
+    }
+
     for _ in 0..height as usize {
         let mut _cx = 0usize;
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
+        unsafe {
+            if _has_avx2 {
+                _cx = avx_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+                    _cx,
+                    src.as_ptr(),
+                    src_offset as u32,
+                    dst.as_mut_ptr(),
+                    dst_offset as u32,
+                    width,
+                    transfer_function,
+                )
+            }
+        }
 
         #[cfg(all(
             any(target_arch = "x86_64", target_arch = "x86"),
@@ -113,7 +149,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                     .read_unaligned()
             };
 
-            let rgb = Rgb::<f32>::new(r, g, b);
+            let rgb = Rgb::<f32>::new(
+                r.min(1f32).max(0f32),
+                g.min(1f32).max(0f32),
+                b.min(1f32).max(0f32),
+            );
 
             unsafe {
                 *dst_slice.get_unchecked_mut(px) = (transfer(rgb.r) * 255f32) as u8;

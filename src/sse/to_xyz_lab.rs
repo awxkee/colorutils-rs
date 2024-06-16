@@ -1,9 +1,7 @@
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
-#[allow(unused_imports)]
 use crate::sse::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -40,7 +38,6 @@ pub(crate) unsafe fn sse_triple_to_xyz(
     (x, y, z)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub(crate) unsafe fn sse_triple_to_luv(
     x: __m128,
@@ -71,7 +68,6 @@ pub(crate) unsafe fn sse_triple_to_luv(
     (l, u, v)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub(crate) unsafe fn sse_triple_to_lab(
     x: __m128,
@@ -99,7 +95,6 @@ pub(crate) unsafe fn sse_triple_to_lab(
     (l, a, b)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn sse_channels_to_xyz_or_lab<
     const CHANNELS_CONFIGURATION: u8,
