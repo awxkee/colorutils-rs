@@ -9,25 +9,19 @@ pub unsafe fn _mm_cube_ps(x: __m128) -> __m128 {
     _mm_mul_ps(_mm_mul_ps(x, x), x)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(not(target_feature = "fma"))]
 #[inline]
-#[allow(dead_code)]
 pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     return _mm_add_ps(_mm_mul_ps(b, c), a);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[cfg(target_feature = "fma")]
 #[inline]
-#[allow(dead_code)]
 pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     return _mm_fmadd_ps(b, c, a);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline]
-#[allow(dead_code)]
 unsafe fn _mm_taylorpoly_ps(
     x: __m128,
     poly0: __m128,
@@ -49,9 +43,7 @@ unsafe fn _mm_taylorpoly_ps(
     return res;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm_log_ps(v: __m128) -> __m128 {
     let const_ln127 = _mm_set1_epi32(127); // 127
     let const_ln2 = _mm_set1_ps(std::f32::consts::LN_2); // ln(2)
@@ -76,9 +68,7 @@ pub unsafe fn _mm_log_ps(v: __m128) -> __m128 {
     poly
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm_select_ps(mask: __m128, true_vals: __m128, false_vals: __m128) -> __m128 {
     _mm_blendv_ps(false_vals, true_vals, mask)
 }
@@ -100,9 +90,7 @@ pub unsafe fn _mm_select_si128(mask: __m128i, true_vals: __m128i, false_vals: __
     )
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm_exp_ps(x: __m128) -> __m128 {
     let c1 = _mm_castsi128_ps(_mm_set1_epi32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
     let c2 = _mm_castsi128_ps(_mm_set1_epi32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
@@ -259,9 +247,7 @@ pub(crate) unsafe fn _mm_neg_ps(x: __m128) -> __m128 {
     return _mm_sub_ps(high, x);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 /// This is Cube Root using Pow functions,
 /// it is also precise however due to of inexact nature of power 1/3 result slightly differ
 /// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5

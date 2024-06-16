@@ -1,5 +1,10 @@
-use crate::avx::avx_gamma_curves::{avx2_rec709_to_linear, avx2_srgb_to_linear};
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
 use crate::avx::*;
+use crate::avx::avx_gamma_curves::get_avx2_linear_transfer;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 #[allow(unused_imports)]
@@ -7,26 +12,8 @@ use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
-pub unsafe fn get_avx2_linear_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m256) -> __m256 {
-    match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_to_linear,
-        TransferFunction::Rec709 => avx2_rec709_to_linear,
-    }
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
 unsafe fn avx2_triple_to_xyz(
     r: __m256i,
     g: __m256i,
@@ -56,7 +43,6 @@ unsafe fn avx2_triple_to_xyz(
     (x, y, z)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub(crate) unsafe fn avx2_triple_to_luv(
     x: __m256,
@@ -87,9 +73,7 @@ pub(crate) unsafe fn avx2_triple_to_luv(
     (l, u, v)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 unsafe fn avx2_triple_to_lab(x: __m256, y: __m256, z: __m256) -> (__m256, __m256, __m256) {
     let x = _mm256_mul_ps(x, _mm256_set1_ps(100f32 / 95.047f32));
     let y = _mm256_mul_ps(y, _mm256_set1_ps(100f32 / 100f32));
@@ -112,10 +96,8 @@ unsafe fn avx2_triple_to_lab(x: __m256, y: __m256, z: __m256) -> (__m256, __m256
     (l, a, b)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
-pub(crate) unsafe fn avx2_channels_to_xyz_or_lab<
+pub unsafe fn avx2_image_to_xyz_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,

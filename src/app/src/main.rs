@@ -65,7 +65,7 @@ fn main() {
             store_stride as u32,
             width,
             height,
-            TransferFunction::Srgb,
+            TransferFunction::Gamma2p8,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -100,7 +100,7 @@ fn main() {
             src_stride,
             width,
             height,
-            TransferFunction::Srgb
+            TransferFunction::Gamma2p8
         );
 
         let elapsed_time = start_time.elapsed();

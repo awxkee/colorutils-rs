@@ -2,7 +2,7 @@
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "avx2"
 ))]
-use crate::avx::avx2_channels_to_xyz_or_lab;
+use crate::avx::avx2_image_to_xyz_lab;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
@@ -103,7 +103,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         unsafe {
             if _has_avx2 {
                 if USE_ALPHA {
-                    cx = avx2_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
                         cx,
                         src.as_ptr(),
                         src_offset,
@@ -116,7 +116,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         transfer_function,
                     );
                 } else {
-                    cx = avx2_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                    cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
                         cx,
                         src.as_ptr(),
                         src_offset,

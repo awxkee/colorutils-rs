@@ -23,7 +23,6 @@ pub unsafe fn _mm256_prefer_fma_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
     return _mm256_fmadd_ps(b, c, a);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 unsafe fn _mm256_taylorpoly_ps(
     x: __m256,
@@ -50,7 +49,6 @@ unsafe fn _mm256_taylorpoly_ps(
     return res;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
     let const_ln127 = _mm256_set1_epi32(127); // 127
@@ -79,9 +77,7 @@ pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
     poly
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_select_ps(mask: __m256, true_vals: __m256, false_vals: __m256) -> __m256 {
     _mm256_blendv_ps(false_vals, true_vals, mask)
 }
@@ -107,9 +103,7 @@ pub unsafe fn _mm256_select_si256(
     )
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_exp_ps(x: __m256) -> __m256 {
     let c1 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
     let c2 = _mm256_castsi256_ps(_mm256_set1_epi32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
@@ -271,9 +265,7 @@ pub(crate) unsafe fn _mm256_neg_epi32(x: __m256i) -> __m256i {
     return _mm256_sub_epi32(high, x);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 /// This is Cube Root using Pow functions,
 /// it also precise however due to of inexact nature of power 1/3 result slightly differ
 /// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
