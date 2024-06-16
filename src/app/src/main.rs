@@ -23,7 +23,7 @@ fn main() {
     println!("HSL {:?}", hsl);
     println!("Back RGB {:?}", hsl.to_rgb8());
 
-    let img = ImageReader::open("./assets/asset.jpg")
+    let img = ImageReader::open("./assets/beach_horizon.jpg")
         .unwrap()
         .decode()
         .unwrap();

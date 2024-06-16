@@ -84,13 +84,53 @@ pub unsafe fn vrintq_s32(d: float32x4_t) -> int32x4_t {
     ));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[inline(always)]
+pub unsafe fn vfloorq_f32(x: float32x4_t) -> float32x4_t {
+    let const_1 = vdupq_n_f32(1f32);
+
+    let z = vcvtq_s32_f32(x);
+    let r = vcvtq_f32_s32(z);
+
+    return vbslq_f32(vcgtq_f32(r, x), vsubq_f32(r, const_1), r);
+}
+
+#[inline(always)]
+pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
+    vexpq_f32_impl::<false>(x)
+}
+
+#[inline(always)]
+unsafe fn vexpq_f32_impl<const PROCESS_NAN: bool>(x: float32x4_t) -> float32x4_t {
+    let l2e = vdupq_n_f32(std::f32::consts::LOG2_E); /* log2(e) */
+    let c0 = vdupq_n_f32(0.3371894346f32);
+    let c1 = vdupq_n_f32(0.657636276f32);
+    let c2 = vdupq_n_f32(1.00172476f32);
+
+    /* exp(x) = 2^i * 2^f; i = floor (log2(e) * x), 0 <= f <= 1 */
+    let t = vmulq_f32(x, l2e); /* t = log2(e) * x */
+    let e = vfloorq_f32(t); /* floor(t) */
+    let i = vcvtq_s32_f32(e); /* (int)floor(t) */
+    let f = vsubq_f32(t, e); /* f = t - floor(t) */
+    let mut p = c0; /* c0 */
+    p = prefer_vfmaq_f32(c1, p, f); /* c0 * f + c1 */
+    p = prefer_vfmaq_f32(c2, p, f); /* p = (c0 * f + c1) * f + c2 ~= 2^f */
+    let j = vshlq_n_s32::<23>(i); /* i << 23 */
+    let r = vreinterpretq_f32_s32(vaddq_s32(j, vreinterpretq_s32_f32(p))); /* r = p * 2^i*/
+    if PROCESS_NAN {
+        let inf = vdupq_n_f32(f32::INFINITY);
+        let max_input = vdupq_n_f32(88.72283f32); // Approximately ln(2^127.5)
+        let min_input = vdupq_n_f32(-87.33654f32); // Approximately ln(2^-125)
+        let poly = vbslq_f32(vcltq_f32(x, min_input), vdupq_n_f32(0f32), r);
+        let poly = vbslq_f32(vcgtq_f32(x, max_input), inf, poly);
+        return poly;
+    } else {
+        return r;
+    }
+}
+
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
+pub unsafe fn vexpq_f32_ulp3(x: float32x4_t) -> float32x4_t {
     let c1 = vreinterpretq_f32_u32(vdupq_n_u32(0x3f7ffff6)); // x^1: 0x1.ffffecp-1f
     let c2 = vreinterpretq_f32_u32(vdupq_n_u32(0x3efffedb)); // x^2: 0x1.fffdb6p-2f
     let c3 = vreinterpretq_f32_u32(vdupq_n_u32(0x3e2aaf33)); // x^3: 0x1.555e66p-3f
@@ -149,10 +189,6 @@ pub unsafe fn vexpq_f32(x: float32x4_t) -> float32x4_t {
     return poly;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 /// High precision exp. ULP = 1.0
@@ -189,12 +225,7 @@ pub unsafe fn vexpq_f32_ulp1(d: float32x4_t) -> float32x4_t {
     u
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
     let const_ln127 = vdupq_n_s32(127); // 127
     let const_ln2 = vdupq_n_f32(std::f32::consts::LN_2); // ln(2)
@@ -484,12 +515,7 @@ pub unsafe fn vcbrtq_f32_ulp35(d: float32x4_t) -> float32x4_t {
     return y;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn vcolorq_matrix_f32(
     r: float32x4_t,
     g: float32x4_t,

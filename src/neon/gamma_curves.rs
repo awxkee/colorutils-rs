@@ -4,6 +4,8 @@ use std::arch::aarch64::*;
 
 #[inline(always)]
 pub unsafe fn neon_srgb_from_linear(linear: float32x4_t) -> float32x4_t {
+    let linear = vmaxq_f32(linear, vdupq_n_f32(0f32));
+    let linear = vminq_f32(linear, vdupq_n_f32(1f32));
     let low_cut_off = vdupq_n_f32(0.0030412825601275209f32);
     let mask = vcgeq_f32(linear, low_cut_off);
 
@@ -20,6 +22,8 @@ pub unsafe fn neon_srgb_from_linear(linear: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn neon_srgb_to_linear(gamma: float32x4_t) -> float32x4_t {
+    let gamma = vmaxq_f32(gamma, vdupq_n_f32(0f32));
+    let gamma = vminq_f32(gamma, vdupq_n_f32(1f32));
     let low_cut_off = vdupq_n_f32(12.92f32 * 0.0030412825601275209f32);
     let mask = vcgeq_f32(gamma, low_cut_off);
 
@@ -37,6 +41,8 @@ pub unsafe fn neon_srgb_to_linear(gamma: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn neon_rec709_from_linear(linear: float32x4_t) -> float32x4_t {
+    let linear = vmaxq_f32(linear, vdupq_n_f32(0f32));
+    let linear = vminq_f32(linear, vdupq_n_f32(1f32));
     let low_cut_off = vdupq_n_f32(0.018053968510807f32);
     let mask = vcgeq_f32(linear, low_cut_off);
 
@@ -52,14 +58,16 @@ pub unsafe fn neon_rec709_from_linear(linear: float32x4_t) -> float32x4_t {
 }
 
 #[inline(always)]
-pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
+pub unsafe fn neon_rec709_to_linear(gamma: float32x4_t) -> float32x4_t {
+    let gamma = vmaxq_f32(gamma, vdupq_n_f32(0f32));
+    let gamma = vminq_f32(gamma, vdupq_n_f32(1f32));
     let low_cut_off = vdupq_n_f32(4.5f32 * 0.018053968510807f32);
-    let mask = vcgeq_f32(linear, low_cut_off);
+    let mask = vcgeq_f32(gamma, low_cut_off);
 
-    let mut low = linear;
+    let mut low = gamma;
     let high = vpowq_n_f32(
         vmulq_n_f32(
-            vaddq_f32(linear, vdupq_n_f32(0.09929682680944f32)),
+            vaddq_f32(gamma, vdupq_n_f32(0.09929682680944f32)),
             1f32 / 1.09929682680944f32,
         ),
         1.0f32 / 0.45f32,
@@ -70,6 +78,8 @@ pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn neon_pure_gamma_function(gamma: float32x4_t, gamma_constant: f32) -> float32x4_t {
+    let gamma = vmaxq_f32(gamma, vdupq_n_f32(0f32));
+    let gamma = vminq_f32(gamma, vdupq_n_f32(1f32));
     vpowq_n_f32(gamma, gamma_constant)
 }
 

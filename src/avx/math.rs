@@ -105,6 +105,11 @@ pub unsafe fn _mm256_select_si256(
 
 #[inline(always)]
 pub unsafe fn _mm256_exp_ps(x: __m256) -> __m256 {
+    _mm256_exp_ps_impl::<false>(x)
+}
+
+#[inline(always)]
+unsafe fn _mm256_exp_ps_impl<const PROCESS_NAN: bool>(x: __m256) -> __m256 {
     let l2e = _mm256_set1_ps(std::f32::consts::LOG2_E); /* log2(e) */
     let c0 = _mm256_set1_ps(0.3371894346f32);
     let c1 = _mm256_set1_ps(0.657636276f32);
@@ -117,15 +122,23 @@ pub unsafe fn _mm256_exp_ps(x: __m256) -> __m256 {
     let f = _mm256_sub_ps(t, e); /* f = t - floor(t) */
     let mut p = c0; /* c0 */
     p = _mm256_prefer_fma_ps(c1, p, f); /* c0 * f + c1 */
-    p = _mm256_prefer_fma_ps(c2, p ,f); /* p = (c0 * f + c1) * f + c2 ~= 2^f */
+    p = _mm256_prefer_fma_ps(c2, p, f); /* p = (c0 * f + c1) * f + c2 ~= 2^f */
     let j = _mm256_slli_epi32::<23>(i); /* i << 23 */
     let r = _mm256_castsi256_ps(_mm256_add_epi32(j, _mm256_castps_si256(p))); /* r = p * 2^i*/
-    let inf = _mm256_set1_ps(f32::INFINITY);
-    let max_input = _mm256_set1_ps(88.72283f32); // Approximately ln(2^127.5)
-    let min_input = _mm256_set1_ps(-87.33654f32); // Approximately ln(2^-125)
-    let poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_LT_OS>(x, min_input), _mm256_setzero_ps(), r);
-    let poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
-    return poly;
+    if PROCESS_NAN {
+        let inf = _mm256_set1_ps(f32::INFINITY);
+        let max_input = _mm256_set1_ps(88.72283f32); // Approximately ln(2^127.5)
+        let min_input = _mm256_set1_ps(-87.33654f32); // Approximately ln(2^-125)
+        let poly = _mm256_select_ps(
+            _mm256_cmp_ps::<_CMP_LT_OS>(x, min_input),
+            _mm256_setzero_ps(),
+            r,
+        );
+        let poly = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, max_input), inf, poly);
+        return poly;
+    } else {
+        return r;
+    }
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]

@@ -92,6 +92,11 @@ pub unsafe fn _mm_select_si128(mask: __m128i, true_vals: __m128i, false_vals: __
 
 #[inline(always)]
 pub unsafe fn _mm_exp_ps(x: __m128) -> __m128 {
+    _mm_exp_ps_impl::<false>(x)
+}
+
+#[inline(always)]
+unsafe fn _mm_exp_ps_impl<const PROCESS_NAN: bool>(x: __m128) -> __m128 {
     let l2e = _mm_set1_ps(std::f32::consts::LOG2_E); /* log2(e) */
     let c0 = _mm_set1_ps(0.3371894346f32);
     let c1 = _mm_set1_ps(0.657636276f32);
@@ -107,12 +112,16 @@ pub unsafe fn _mm_exp_ps(x: __m128) -> __m128 {
     p = _mm_prefer_fma_ps(c2, p ,f); /* p = (c0 * f + c1) * f + c2 ~= 2^f */
     let j = _mm_slli_epi32::<23>(i); /* i << 23 */
     let r = _mm_castsi128_ps(_mm_add_epi32(j, _mm_castps_si128(p))); /* r = p * 2^i*/
-    let inf = _mm_set1_ps(f32::INFINITY);
-    let max_input = _mm_set1_ps(88.72283f32); // Approximately ln(2^127.5)
-    let min_input = _mm_set1_ps(-87.33654f32); // Approximately ln(2^-125)
-    let poly = _mm_select_ps(_mm_cmplt_ps(x, min_input), _mm_setzero_ps(), r);
-    let poly = _mm_select_ps(_mm_cmpgt_ps(x, max_input), inf, poly);
-    return poly;
+    if PROCESS_NAN {
+        let inf = _mm_set1_ps(f32::INFINITY);
+        let max_input = _mm_set1_ps(88.72283f32); // Approximately ln(2^127.5)
+        let min_input = _mm_set1_ps(-87.33654f32); // Approximately ln(2^-125)
+        let poly = _mm_select_ps(_mm_cmplt_ps(x, min_input), _mm_setzero_ps(), r);
+        let poly = _mm_select_ps(_mm_cmpgt_ps(x, max_input), inf, poly);
+        return poly;
+    } else {
+        return r;
+    }
 }
 
 #[inline(always)]
