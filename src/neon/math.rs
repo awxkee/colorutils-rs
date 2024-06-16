@@ -1,10 +1,6 @@
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use std::arch::aarch64::*;
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn vfmodq_f32(a: float32x4_t, b: float32x4_t) -> float32x4_t {
@@ -17,10 +13,6 @@ pub(crate) unsafe fn vfmodq_f32(a: float32x4_t, b: float32x4_t) -> float32x4_t {
     remainder
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn prefer_vfmaq_f32(
@@ -38,10 +30,6 @@ pub(crate) unsafe fn prefer_vfmaq_f32(
     }
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 unsafe fn vtaylor_polyq_f32(
@@ -65,10 +53,6 @@ unsafe fn vtaylor_polyq_f32(
     return res;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vrintq_s32(d: float32x4_t) -> int32x4_t {
@@ -260,20 +244,12 @@ pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
     return poly;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn visnanq_f32(x: float32x4_t) -> uint32x4_t {
     return vmvnq_u32(vceqq_f32(x, x));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vispinfq_f32(d: float32x4_t) -> uint32x4_t {
@@ -328,10 +304,6 @@ pub unsafe fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
     return vpowq_f32(t, vdupq_n_f32(power));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vilogbk_vi2_vf(d: float32x4_t) -> int32x4_t {
@@ -345,20 +317,12 @@ pub unsafe fn vilogbk_vi2_vf(d: float32x4_t) -> int32x4_t {
     return q;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vpow2i(q: int32x4_t) -> float32x4_t {
     return vreinterpretq_f32_s32(vshlq_n_s32::<23>(vaddq_s32(q, vdupq_n_s32(0x7f))));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vldexp2q_f32(d: float32x4_t, e: int32x4_t) -> float32x4_t {
@@ -368,10 +332,6 @@ pub unsafe fn vldexp2q_f32(d: float32x4_t, e: int32x4_t) -> float32x4_t {
     );
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vsignbit_vm_vf(f: float32x4_t) -> uint32x4_t {
@@ -381,20 +341,12 @@ pub unsafe fn vsignbit_vm_vf(f: float32x4_t) -> uint32x4_t {
     );
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn vmulsignq_f32(x: float32x4_t, y: float32x4_t) -> float32x4_t {
     return vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(x), vsignbit_vm_vf(y)));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn vmlafq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) -> float32x4_t {
@@ -402,7 +354,6 @@ pub(crate) unsafe fn vmlafq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) 
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn vcbrtq_f32(d: float32x4_t) -> float32x4_t {
     vcbrtq_f32_ulp2::<false>(d)
 }

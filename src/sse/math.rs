@@ -3,7 +3,6 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn _mm_cube_ps(x: __m128) -> __m128 {
     _mm_mul_ps(_mm_mul_ps(x, x), x)
@@ -73,14 +72,12 @@ pub unsafe fn _mm_select_ps(mask: __m128, true_vals: __m128, false_vals: __m128)
     _mm_blendv_ps(false_vals, true_vals, mask)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_selecti_ps(mask: __m128i, true_vals: __m128, false_vals: __m128) -> __m128 {
     _mm_blendv_ps(false_vals, true_vals, _mm_castsi128_ps(mask))
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_select_si128(mask: __m128i, true_vals: __m128i, false_vals: __m128i) -> __m128i {
@@ -195,28 +192,24 @@ pub unsafe fn _mm_pow_n_ps(x: __m128, n: f32) -> __m128 {
     _mm_exp_ps(_mm_mul_ps(_mm_set1_ps(n), _mm_log_ps(x)))
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_signbit_ps(f: __m128) -> __m128i {
     return _mm_and_si128(_mm_castps_si128(f), _mm_castps_si128(_mm_set1_ps(-0.0f32)));
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_mulsign_ps(x: __m128, y: __m128) -> __m128 {
     return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(x), _mm_signbit_ps(y)));
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_pow2i_ps(q: __m128i) -> __m128 {
     return _mm_castsi128_ps(_mm_slli_epi32::<23>(_mm_add_epi32(q, _mm_set1_epi32(0x7f))));
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_vldexp2_ps(d: __m128, e: __m128i) -> __m128 {
@@ -226,7 +219,6 @@ pub unsafe fn _mm_vldexp2_ps(d: __m128, e: __m128i) -> __m128 {
     );
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_vilogbk_ps(d: __m128) -> __m128i {
@@ -247,14 +239,12 @@ pub unsafe fn _mm_vilogbk_ps(d: __m128) -> __m128i {
     return q;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn _mm_fmaf_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     _mm_prefer_fma_ps(c, b, a)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn _mm_abs_ps(x: __m128) -> __m128 {
@@ -262,7 +252,6 @@ pub(crate) unsafe fn _mm_abs_ps(x: __m128) -> __m128 {
     return _mm_andnot_ps(sign_mask, x);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn _mm_neg_epi32(x: __m128i) -> __m128i {
@@ -281,7 +270,7 @@ pub(crate) unsafe fn _mm_neg_ps(x: __m128) -> __m128 {
 /// it is also precise however due to of inexact nature of power 1/3 result slightly differ
 /// from real cbrt with about ULP 3-4, but this is almost 2 times faster than cbrt with real ULP 3.5
 pub unsafe fn _mm_cbrt_ps(d: __m128) -> __m128 {
-    _mm_pow_n_ps(d, 1f32 / 3f32)
+    _mm_cbrt_ulp2_ps::<false>(d)
 }
 
 #[inline(always)]
@@ -334,7 +323,69 @@ pub unsafe fn _mm_cbrt_ps_ulp35(d: __m128) -> __m128 {
     return y;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[inline(always)]
+pub unsafe fn _mm_cmpge_epi32(a: __m128i, b: __m128i) -> __m128i {
+    let gt = _mm_cmpgt_epi32(a, b);
+    let eq = _mm_cmpeq_epi32(a, b);
+    return _mm_or_si128(gt, eq);
+}
+
+#[inline(always)]
+pub unsafe fn _mm_cmplt_epi32(a: __m128i, b: __m128i) -> __m128i {
+    return _mm_cmpgt_epi32(b, a);
+}
+
+#[inline(always)]
+/// Precise version of Cube Root with ULP 2
+pub unsafe fn _mm_cbrt_ulp2_ps<const HANDLE_NAN: bool>(x: __m128) -> __m128 {
+    let x1p24 = _mm_castsi128_ps(_mm_set1_epi32(0x4b800000)); // 0x1p24f === 2 ^ 24
+
+    let mut ui = _mm_cvtps_epi32(x);
+    let hx = _mm_and_si128(ui, _mm_set1_epi32(0x7fffffff));
+
+    let nan_mask = _mm_cmpge_epi32(hx, _mm_set1_epi32(0x7f800000));
+    let is_zero_mask = _mm_cmpeq_epi32(hx, _mm_setzero_si128());
+
+    let lo_mask = _mm_cmplt_epi32(hx, _mm_set1_epi32(0x00800000));
+    let hi_ui_f = _mm_castps_si128(_mm_mul_ps(x, x1p24));
+    let mut lo_hx = _mm_and_si128(hi_ui_f, _mm_set1_epi32(0x7fffffff));
+    let recpeq_3 = _mm_set1_ps(1f32 / 3f32);
+    lo_hx = _mm_add_epi32(
+        _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(lo_hx), recpeq_3)),
+        _mm_set1_epi32(642849266),
+    );
+    let hi_hx = _mm_add_epi32(
+        _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(hx),recpeq_3)),
+        _mm_set1_epi32(709958130),
+    );
+    let hx = _mm_select_si128(lo_mask, lo_hx, hi_hx);
+
+    ui = _mm_select_si128(lo_mask, hi_ui_f, ui);
+    ui = _mm_and_si128(ui, _mm_set1_epi32(-2147483648i32));
+    ui = _mm_or_si128(ui, hx);
+
+    let mut t = _mm_castsi128_ps(ui);
+    let mut r = _mm_mul_ps(_mm_mul_ps(t, t), t);
+
+    let sum_x = _mm_add_ps(x, x);
+
+    t = _mm_mul_ps(
+        _mm_div_ps(_mm_add_ps(sum_x, r), _mm_add_ps(_mm_add_ps(r, r), x)),
+        t,
+    );
+
+    r = _mm_mul_ps(_mm_mul_ps(t, t), t);
+    t = _mm_mul_ps(
+        _mm_div_ps(_mm_add_ps(sum_x, r), _mm_add_ps(_mm_add_ps(r, r), x)),
+        t,
+    );
+    if HANDLE_NAN {
+        t = _mm_selecti_ps(nan_mask, _mm_set1_ps(f32::NAN), t);
+        t = _mm_selecti_ps(is_zero_mask, _mm_setzero_ps(), t);
+    }
+    t
+}
+
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm_color_matrix_ps(
@@ -357,7 +408,6 @@ pub unsafe fn _mm_color_matrix_ps(
     (new_r, new_g, new_b)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn _mm_fmod_ps(a: __m128, b: __m128) -> __m128 {
