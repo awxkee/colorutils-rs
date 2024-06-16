@@ -19,8 +19,6 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 #[allow(unused_imports)]
 use std::arch::x86_64::*;
-#[allow(unused_imports)]
-use std::slice;
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(
@@ -69,11 +67,8 @@ pub fn append_alpha(
         let mut _cx = 0usize;
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * 3usize) };
         let a_ptr = unsafe { (a_plane.as_ptr() as *const u8).add(a_offset) as *const f32 };
-        let a_slice = unsafe { slice::from_raw_parts(a_ptr, width as usize) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * 4) };
 
         #[cfg(all(
             any(target_arch = "x86_64", target_arch = "x86"),
@@ -147,10 +142,12 @@ pub fn append_alpha(
             unsafe {
                 let px = x * 4;
                 let s_x = x * 3;
-                *dst_slice.get_unchecked_mut(px) = *src_slice.get_unchecked(s_x);
-                *dst_slice.get_unchecked_mut(px + 1) = *src_slice.get_unchecked(s_x + 1);
-                *dst_slice.get_unchecked_mut(px + 2) = *src_slice.get_unchecked(s_x + 2);
-                *dst_slice.get_unchecked_mut(px + 3) = *a_slice.get_unchecked(x);
+                let dst = dst_ptr.add(px);
+                let src = src_ptr.add(s_x);
+                dst.write_unaligned(src.read_unaligned());
+                dst.add(1).write_unaligned(src.add(1).read_unaligned());
+                dst.add(2).write_unaligned(src.add(2).read_unaligned());
+                dst.add(3).write_unaligned(a_ptr.add(x).read_unaligned());
             }
         }
 

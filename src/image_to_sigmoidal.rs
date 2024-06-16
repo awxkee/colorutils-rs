@@ -3,7 +3,6 @@
     target_feature = "avx2"
 ))]
 use crate::avx::avx_image_to_sigmoidal_row;
-use std::slice;
 
 use crate::image::ImageConfiguration;
 #[cfg(all(
@@ -75,8 +74,6 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-
         #[cfg(all(
             any(target_arch = "x86_64", target_arch = "x86"),
             target_feature = "avx2"
@@ -114,20 +111,20 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
         for x in cx..width as usize {
             let px = x * channels;
+            let src = unsafe { src_ptr.add(px) };
             let r = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+                src.add(image_configuration.get_r_channel_offset()).read_unaligned()
             };
             let g = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+                src.add(image_configuration.get_g_channel_offset()).read_unaligned()
             };
             let b = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+                src.add(image_configuration.get_b_channel_offset()).read_unaligned()
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
-            let hx = x * channels;
 
-            let writing_ptr = unsafe { dst_ptr.add(hx) };
+            let writing_ptr = unsafe { dst_ptr.add(px) };
 
             let sigmoidal = rgb.to_sigmoidal();
             unsafe {
@@ -138,7 +135,7 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
             if image_configuration.has_alpha() {
                 let a = unsafe {
-                    *src_slice.get_unchecked(hx + image_configuration.get_a_channel_offset())
+                    src.add(image_configuration.get_a_channel_offset()).read_unaligned()
                 } as f32
                     * COLOR_SCALE;
 

@@ -1,5 +1,3 @@
-use std::slice;
-
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
 #[cfg(all(
@@ -96,18 +94,20 @@ fn channels_to_hsv_u16<
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-
         for x in cx..width as usize {
             let px = x * channels;
+            let src = unsafe { src_ptr.add(px) };
             let r = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+                src.add(image_configuration.get_r_channel_offset())
+                    .read_unaligned()
             };
             let g = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+                src.add(image_configuration.get_g_channel_offset())
+                    .read_unaligned()
             };
             let b = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+                src.add(image_configuration.get_b_channel_offset())
+                    .read_unaligned()
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
@@ -134,7 +134,8 @@ fn channels_to_hsv_u16<
 
             if image_configuration.has_alpha() {
                 let a = unsafe {
-                    *src_slice.get_unchecked(hx + image_configuration.get_a_channel_offset())
+                    src.add(image_configuration.get_a_channel_offset())
+                        .read_unaligned()
                 };
                 unsafe {
                     dst.add(3).write_unaligned(a as u16);

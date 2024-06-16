@@ -355,7 +355,7 @@ pub unsafe fn _mm_cbrt_ulp2_ps<const HANDLE_NAN: bool>(x: __m128) -> __m128 {
         _mm_set1_epi32(642849266),
     );
     let hi_hx = _mm_add_epi32(
-        _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(hx),recpeq_3)),
+        _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(hx), recpeq_3)),
         _mm_set1_epi32(709958130),
     );
     let hx = _mm_select_si128(lo_mask, lo_hx, hi_hx);

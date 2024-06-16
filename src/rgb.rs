@@ -3,7 +3,7 @@ use crate::lab::Lab;
 use crate::luv::Luv;
 use crate::{Hsl, LCh, Sigmoidal};
 
-#[derive(Debug)]
+#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 pub struct Rgb<T> {
     pub r: T,
     pub g: T,
@@ -11,13 +11,11 @@ pub struct Rgb<T> {
 }
 
 impl Rgb<u8> {
-    #[allow(dead_code)]
     #[inline]
     pub fn to_hsl(&self) -> Hsl {
         Hsl::from_rgb(self)
     }
 
-    #[allow(dead_code)]
     #[inline]
     pub fn to_hsv(&self) -> Hsv {
         Hsv::from(self)
@@ -57,10 +55,26 @@ impl Rgb<u8> {
 impl From<Rgb<f32>> for Rgb<u8> {
     #[inline(always)]
     fn from(value: Rgb<f32>) -> Self {
+        value.to_u8()
+    }
+}
+
+impl Rgb<f32> {
+    #[inline(always)]
+    pub fn apply(&self, gen: fn(f32) -> f32) -> Self {
+        Self {
+            r: gen(self.r),
+            g: gen(self.g),
+            b: gen(self.b),
+        }
+    }
+
+    #[inline(always)]
+    pub fn to_u8(&self) -> Rgb<u8> {
         Rgb::<u8>::new(
-            (value.r * 255f32).max(0f32).round() as u8,
-            (value.g * 255f32).max(0f32).round() as u8,
-            (value.b * 255f32).max(0f32).round() as u8,
+            (self.r * 255f32).max(0f32).round().min(255f32) as u8,
+            (self.g * 255f32).max(0f32).round().min(255f32) as u8,
+            (self.b * 255f32).max(0f32).round().min(255f32) as u8,
         )
     }
 }

@@ -121,17 +121,14 @@ impl Luv {
 }
 
 impl LCh {
-    #[allow(dead_code)]
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         LCh::from_luv(Luv::from_rgb(rgb))
     }
 
-    #[allow(dead_code)]
     pub fn from_rgba(rgba: &Rgba<u8>) -> Self {
         LCh::from_luv(Luv::from_rgba(rgba))
     }
 
-    #[allow(dead_code)]
     pub fn new(l: f32, c: f32, h: f32) -> Self {
         LCh { l, c, h }
     }
@@ -144,7 +141,6 @@ impl LCh {
         }
     }
 
-    #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_luv().to_rgb()
     }

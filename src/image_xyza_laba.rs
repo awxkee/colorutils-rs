@@ -12,7 +12,6 @@ use crate::neon::neon_channels_to_xyza_or_laba;
 ))]
 use crate::sse::sse_channels_to_xyza_laba;
 use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
-use std::slice;
 
 #[inline(always)]
 fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -97,18 +96,20 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-
         for x in cx..width as usize {
             let px = x * channels;
+            let src = unsafe { src_ptr.add(px) };
             let r = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
+                src.add(image_configuration.get_r_channel_offset())
+                    .read_unaligned()
             };
             let g = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
+                src.add(image_configuration.get_g_channel_offset())
+                    .read_unaligned()
             };
             let b = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
+                src.add(image_configuration.get_b_channel_offset())
+                    .read_unaligned()
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
@@ -142,7 +143,8 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             }
 
             let a = unsafe {
-                *src_slice.get_unchecked(px + image_configuration.get_a_channel_offset())
+                src.add(image_configuration.get_a_channel_offset())
+                    .read_unaligned()
             };
             let a_lin = a as f32 * (1f32 / 255f32);
             unsafe {

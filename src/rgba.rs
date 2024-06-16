@@ -1,6 +1,7 @@
 use crate::rgb::Rgb;
 use half::f16;
 
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Rgba<T> {
     pub r: T,
     pub g: T,
@@ -9,12 +10,10 @@ pub struct Rgba<T> {
 }
 
 impl Rgba<f16> {
-    #[allow(dead_code)]
     pub fn new(r: f16, g: f16, b: f16, a: f16) -> Rgba<f16> {
         return Rgba { r, g, b, a };
     }
 
-    #[allow(dead_code)]
     pub fn from_rgb(r: f16, g: f16, b: f16) -> Rgba<f16> {
         return Rgba {
             r,
@@ -26,24 +25,20 @@ impl Rgba<f16> {
 }
 
 impl Rgba<f32> {
-    #[allow(dead_code)]
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Rgba<f32> {
         return Rgba { r, g, b, a };
     }
 
-    #[allow(dead_code)]
     pub fn from_rgb(r: f32, g: f32, b: f32) -> Rgba<f32> {
         return Rgba { r, g, b, a: 1f32 };
     }
 }
 
 impl Rgba<u8> {
-    #[allow(dead_code)]
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Rgba<u8> {
         return Rgba { r, g, b, a };
     }
 
-    #[allow(dead_code)]
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Rgba<u8> {
         return Rgba {
             r,
@@ -53,7 +48,6 @@ impl Rgba<u8> {
         };
     }
 
-    #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
         Rgb {
             r: self.r,
@@ -96,7 +90,6 @@ impl ToRgbaF32 for Rgba<u8> {
 }
 
 impl ToRgba8 for Rgba<f32> {
-    #[allow(dead_code)]
     fn to_rgba8(&self) -> Rgba<u8> {
         return Rgba {
             r: (self.r * 255f32).min(255f32).max(0f32) as u8,
@@ -108,7 +101,6 @@ impl ToRgba8 for Rgba<f32> {
 }
 
 impl ToRgba8 for Rgba<f16> {
-    #[allow(dead_code)]
     fn to_rgba8(&self) -> Rgba<u8> {
         return Rgba {
             r: (self.r.to_f32() * 255f32).min(255f32).max(0f32) as u8,
@@ -120,7 +112,6 @@ impl ToRgba8 for Rgba<f16> {
 }
 
 impl ToRgbaF16 for Rgba<f32> {
-    #[allow(dead_code)]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         Rgba {
             r: f16::from_f32(self.r),
@@ -134,7 +125,6 @@ impl ToRgbaF16 for Rgba<f32> {
 static SCALE_U8_F32: f32 = 1f32 / 255f32;
 
 impl ToRgbaF16 for Rgba<u8> {
-    #[allow(dead_code)]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         Rgba {
             r: f16::from_f32(self.r as f32 * SCALE_U8_F32),
@@ -218,7 +208,6 @@ pub struct Rgba1010102 {
 }
 
 impl Rgba1010102 {
-    #[allow(dead_code)]
     pub fn new(color: u32) -> Rgba1010102 {
         Rgba1010102 { rgba: color }
     }

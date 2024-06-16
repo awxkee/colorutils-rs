@@ -1,5 +1,3 @@
-use std::slice;
-
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "avx2"
@@ -132,8 +130,6 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
-
         for x in cx..width as usize {
             let px = x * 4;
             let l_x = unsafe { src_ptr.add(px).read_unaligned() };
@@ -158,18 +154,15 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             let l_a = unsafe { src_ptr.add(px + 3).read_unaligned() };
             let a_value = (l_a * 255f32).max(0f32);
             unsafe {
-                *dst_slice
-                    .get_unchecked_mut(x * channels + image_configuration.get_r_channel_offset()) =
-                    rgb.r;
-                *dst_slice
-                    .get_unchecked_mut(x * channels + image_configuration.get_g_channel_offset()) =
-                    rgb.g;
-                *dst_slice
-                    .get_unchecked_mut(x * channels + image_configuration.get_b_channel_offset()) =
-                    rgb.b;
-                *dst_slice
-                    .get_unchecked_mut(x * channels + image_configuration.get_a_channel_offset()) =
-                    a_value as u8;
+                let dst = dst_ptr.add(x * channels);
+                dst.add(image_configuration.get_r_channel_offset())
+                    .write_unaligned(rgb.r);
+                dst.add(image_configuration.get_g_channel_offset())
+                    .write_unaligned(rgb.g);
+                dst.add(image_configuration.get_b_channel_offset())
+                    .write_unaligned(rgb.b);
+                dst.add(image_configuration.get_a_channel_offset())
+                    .write_unaligned(a_value as u8);
             }
         }
 

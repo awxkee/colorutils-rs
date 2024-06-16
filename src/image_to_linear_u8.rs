@@ -119,15 +119,14 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
-            let rgb_f32 = rgb.to_rgb_f32();
+            let mut rgb_f32 = rgb.to_rgb_f32();
+            rgb_f32 = rgb_f32.apply(transfer);
+            let rgb = rgb_f32.to_u8();
 
             unsafe {
-                let t_r = (transfer(rgb_f32.r) * 255f32).min(255f32).max(0f32) as u8;
-                let t_g = (transfer(rgb_f32.g) * 255f32).min(255f32).max(0f32) as u8;
-                let t_b = (transfer(rgb_f32.b) * 255f32).min(255f32).max(0f32) as u8;
-                *dst_slice.get_unchecked_mut(px) = t_r;
-                *dst_slice.get_unchecked_mut(px + 1) = t_g;
-                *dst_slice.get_unchecked_mut(px + 2) = t_b;
+                *dst_slice.get_unchecked_mut(px) = rgb.r;
+                *dst_slice.get_unchecked_mut(px + 1) = rgb.g;
+                *dst_slice.get_unchecked_mut(px + 2) = rgb.b;
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {

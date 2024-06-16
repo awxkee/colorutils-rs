@@ -15,7 +15,6 @@ use crate::neon::neon_from_sigmoidal_row;
 ))]
 use crate::sse::sse_from_sigmoidal_row;
 use crate::{Rgb, Sigmoidal};
-use std::slice;
 
 #[inline]
 fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -95,8 +94,6 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             _cx = neon_from_sigmoidal_row::<CHANNELS_CONFIGURATION>(_cx, src_ptr, dst_ptr, width);
         }
 
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
-
         for x in _cx..width as usize {
             let px = x * channels;
             let reading_ptr = unsafe { src_ptr.add(px) };
@@ -109,20 +106,25 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
             let hx = x * channels;
 
+            let dst = unsafe { dst_ptr.add(hx) };
+
             unsafe {
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
-                    rgb.r;
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_g_channel_offset()) =
-                    rgb.g;
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_b_channel_offset()) =
-                    rgb.b;
+                dst.add(image_configuration.get_r_channel_offset())
+                    .write_unaligned(rgb.r);
+                dst.add(image_configuration.get_g_channel_offset())
+                    .write_unaligned(rgb.g);
+                dst.add(image_configuration.get_b_channel_offset())
+                    .write_unaligned(rgb.b);
             }
 
             if image_configuration.has_alpha() {
-                let a = (unsafe { reading_ptr.add(3).read_unaligned() } * 255f32).max(0f32);
+                let a = (unsafe { reading_ptr.add(3).read_unaligned() } * 255f32)
+                    .max(0f32)
+                    .round()
+                    .min(255f32);
                 unsafe {
-                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
-                        a as u8;
+                    dst.add(image_configuration.get_a_channel_offset())
+                        .write_unaligned(a as u8);
                 }
             }
         }

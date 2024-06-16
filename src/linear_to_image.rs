@@ -16,7 +16,6 @@ use crate::neon::neon_linear_to_gamma;
 ))]
 use crate::sse::sse_linear_to_gamma;
 use crate::Rgb;
-use std::slice;
 
 #[inline(always)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -128,8 +127,6 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
-
         for x in _cx..width as usize {
             let px = x * channels;
             let src_slice = unsafe { src_ptr.add(px) };
@@ -155,10 +152,14 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                 b.min(1f32).max(0f32),
             );
 
+            let dst = unsafe { dst_ptr.add(px) };
+
             unsafe {
-                *dst_slice.get_unchecked_mut(px) = (transfer(rgb.r) * 255f32) as u8;
-                *dst_slice.get_unchecked_mut(px + 1) = (transfer(rgb.g) * 255f32) as u8;
-                *dst_slice.get_unchecked_mut(px + 2) = (transfer(rgb.b) * 255f32) as u8;
+                dst.write_unaligned((transfer(rgb.r).round() * 255f32) as u8);
+                dst.add(1)
+                    .write_unaligned((transfer(rgb.g).round() * 255f32) as u8);
+                dst.add(2)
+                    .write_unaligned((transfer(rgb.b).round() * 255f32) as u8);
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
@@ -167,9 +168,9 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                         .add(image_configuration.get_a_channel_offset())
                         .read_unaligned()
                 };
-                let a_lin = (a * 255f32) as u8;
+                let a_lin = (a * 255f32).round() as u8;
                 unsafe {
-                    *dst_slice.get_unchecked_mut(px + 3) = a_lin;
+                    dst.add(3).write_unaligned(a_lin);
                 }
             }
         }

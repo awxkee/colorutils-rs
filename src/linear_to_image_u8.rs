@@ -118,12 +118,15 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
-            let rgb = rgb.to_rgb_f32();
+            let mut rgb = rgb.to_rgb_f32();
+
+            rgb = rgb.apply(transfer);
+            let new_rgb = rgb.to_u8();
 
             unsafe {
-                *dst_slice.get_unchecked_mut(px) = (transfer(rgb.r) * 255f32) as u8;
-                *dst_slice.get_unchecked_mut(px + 1) = (transfer(rgb.g) * 255f32) as u8;
-                *dst_slice.get_unchecked_mut(px + 2) = (transfer(rgb.b) * 255f32) as u8;
+                *dst_slice.get_unchecked_mut(px) = new_rgb.r;
+                *dst_slice.get_unchecked_mut(px + 1) = new_rgb.g;
+                *dst_slice.get_unchecked_mut(px + 2) = new_rgb.b;
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
