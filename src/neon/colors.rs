@@ -1,4 +1,4 @@
-use crate::neon::neon_math::{prefer_vfmaq_f32, vfmodq_f32};
+use crate::neon::math::{prefer_vfmaq_f32, vfmodq_f32};
 use std::arch::aarch64::*;
 
 #[inline(always)]

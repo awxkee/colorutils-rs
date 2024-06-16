@@ -6,7 +6,7 @@ use crate::image::ImageConfiguration;
 use crate::image_to_xyz_lab::XyzTarget;
 #[allow(unused_imports)]
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
-use crate::neon::neon_math::*;
+use crate::neon::math::*;
 #[allow(unused_imports)]
 use crate::neon::*;
 #[cfg(all(

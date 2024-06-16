@@ -1,5 +1,5 @@
 use crate::gamma_curves::TransferFunction;
-use crate::neon::neon_math::vpowq_n_f32;
+use crate::neon::math::vpowq_n_f32;
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -69,23 +69,34 @@ pub unsafe fn neon_rec709_to_linear(linear: float32x4_t) -> float32x4_t {
 }
 
 #[inline(always)]
+pub unsafe fn neon_pure_gamma_function(gamma: float32x4_t, gamma_constant: f32) -> float32x4_t {
+    let zero_mask = vceqzq_f32(gamma);
+    let ones = vdupq_n_f32(1f32);
+    let one_mask = vcgtq_f32(gamma, ones);
+    let mut rs = vpowq_n_f32(gamma, gamma_constant);
+    rs = vbslq_f32(zero_mask, vdupq_n_f32(0f32), rs);
+    rs = vbslq_f32(one_mask, ones, rs);
+    rs
+}
+
+#[inline(always)]
 pub unsafe fn neon_gamma2p2_to_linear(gamma: float32x4_t) -> float32x4_t {
-    vpowq_n_f32(gamma, 2.2f32)
+    neon_pure_gamma_function(gamma, 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn neon_gamma2p8_to_linear(gamma: float32x4_t) -> float32x4_t {
-    vpowq_n_f32(gamma, 2.8f32)
+    neon_pure_gamma_function(gamma, 2.8f32)
 }
 
 #[inline(always)]
 pub unsafe fn neon_gamma2p2_from_linear(linear: float32x4_t) -> float32x4_t {
-    vpowq_n_f32(linear, 1f32 / 2.2f32)
+    neon_pure_gamma_function(linear, 1f32 / 2.2f32)
 }
 
 #[inline(always)]
 pub unsafe fn neon_gamma2p8_from_linear(linear: float32x4_t) -> float32x4_t {
-    vpowq_n_f32(linear, 1f32 / 2.8f32)
+    neon_pure_gamma_function(linear, 1f32 / 2.8f32)
 }
 
 #[inline(always)]

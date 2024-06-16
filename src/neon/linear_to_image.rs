@@ -1,19 +1,8 @@
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
 use crate::neon::*;
-#[allow(unused_imports)]
 use crate::TransferFunction;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use std::arch::aarch64::*;
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
@@ -53,6 +42,13 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
         }
     }
 
+    let zeros = vdupq_n_f32(0f32);
+    let ones = vdupq_n_f32(1f32);
+
+    r_f32 = vmaxq_f32(vminq_f32(r_f32, ones), zeros);
+    g_f32 = vmaxq_f32(vminq_f32(g_f32, ones), zeros);
+    b_f32 = vmaxq_f32(vminq_f32(b_f32, ones), zeros);
+
     r_f32 = transfer(r_f32);
     g_f32 = transfer(g_f32);
     b_f32 = transfer(b_f32);
@@ -60,7 +56,7 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     g_f32 = vmulq_f32(g_f32, v_scale_alpha);
     b_f32 = vmulq_f32(b_f32, v_scale_alpha);
     if USE_ALPHA {
-        a_f32 = vmulq_f32(a_f32, v_scale_alpha);
+        a_f32 = vminq_f32(vmulq_f32(a_f32, v_scale_alpha), ones);
     }
     (
         vcvtaq_u32_f32(r_f32),
@@ -70,10 +66,6 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     )
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub unsafe fn neon_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,

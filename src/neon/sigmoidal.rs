@@ -1,6 +1,6 @@
 use std::arch::aarch64::*;
 
-use crate::neon::neon_math::{vexpq_f32, vlogq_f32};
+use crate::neon::math::{vexpq_f32, vlogq_f32};
 
 #[inline(always)]
 pub(crate) unsafe fn neon_color_to_sigmoidal(x: float32x4_t) -> float32x4_t {

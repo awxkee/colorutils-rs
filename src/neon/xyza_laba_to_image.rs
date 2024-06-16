@@ -2,7 +2,7 @@
 use crate::image::ImageConfiguration;
 #[allow(unused_imports)]
 use crate::image_to_xyz_lab::XyzTarget;
-use crate::neon::neon_math::vcolorq_matrix_f32;
+use crate::neon::math::vcolorq_matrix_f32;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"

@@ -7,7 +7,7 @@ use crate::image_to_xyz_lab::XyzTarget;
     target_feature = "neon"
 ))]
 use crate::luv::*;
-use crate::neon::neon_math::*;
+use crate::neon::math::*;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"

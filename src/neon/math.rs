@@ -245,10 +245,6 @@ pub unsafe fn vispinfq_f32(d: float32x4_t) -> uint32x4_t {
     return vceqq_f32(d, vdupq_n_f32(f32::INFINITY));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 /// High precision log ULP = 3.5
@@ -287,22 +283,12 @@ pub unsafe fn vlogq_f32_ulp35(d: float32x4_t) -> float32x4_t {
     return x;
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn vpowq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
     return vexpq_f32(vmulq_f32(n, vlogq_f32(val)));
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
     return vpowq_f32(t, vdupq_n_f32(power));
 }
