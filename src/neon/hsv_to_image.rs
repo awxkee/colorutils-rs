@@ -4,10 +4,6 @@ use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
 use crate::neon::{neon_hsl_to_rgb, neon_hsv_to_rgb};
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline]
 pub unsafe fn neon_hsv_u16_to_image<
     const CHANNELS_CONFIGURATION: u8,

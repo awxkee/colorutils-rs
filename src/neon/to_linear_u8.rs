@@ -1,7 +1,3 @@
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 pub mod neon_image_linear_to_u8 {
     use crate::image::ImageConfiguration;
     use std::arch::aarch64::*;

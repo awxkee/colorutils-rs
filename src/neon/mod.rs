@@ -1,3 +1,4 @@
+mod cie;
 mod colors;
 mod from_sigmoidal;
 mod gamma_curves;

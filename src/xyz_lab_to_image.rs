@@ -5,8 +5,6 @@
 use crate::avx::avx_xyz_to_channels;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -17,7 +15,8 @@ use crate::neon::neon_xyz_to_channels;
     target_feature = "sse4.1"
 ))]
 use crate::sse::sse_xyz_to_channels;
-use crate::{Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
+use crate::xyz_target::XyzTarget;
+use crate::{LCh, Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
 
 fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
     src: &[f32],
@@ -77,74 +76,76 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            if _has_avx2 {
-                if USE_ALPHA {
-                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        a_channel.as_ptr(),
-                        a_offset,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
-                } else {
-                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        std::ptr::null(),
-                        0usize,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
+        if source != XyzTarget::LCH {
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "avx2"
+            ))]
+            unsafe {
+                if _has_avx2 {
+                    if USE_ALPHA {
+                        cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            a_channel.as_ptr(),
+                            a_offset,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            width,
+                            &matrix,
+                            transfer_function,
+                        )
+                    } else {
+                        cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            std::ptr::null(),
+                            0usize,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            width,
+                            &matrix,
+                            transfer_function,
+                        )
+                    }
                 }
             }
-        }
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                if USE_ALPHA {
-                    cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        a_channel.as_ptr(),
-                        a_offset,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
-                } else {
-                    cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        std::ptr::null(),
-                        0usize,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "sse4.1"
+            ))]
+            unsafe {
+                if _has_sse {
+                    if USE_ALPHA {
+                        cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            a_channel.as_ptr(),
+                            a_offset,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            width,
+                            &matrix,
+                            transfer_function,
+                        )
+                    } else {
+                        cx = sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            std::ptr::null(),
+                            0usize,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            width,
+                            &matrix,
+                            transfer_function,
+                        )
+                    }
                 }
             }
         }
@@ -193,17 +194,21 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
             let l_z = unsafe { src_slice.add(2).read_unaligned() };
             let rgb;
             match source {
-                LAB => {
+                XyzTarget::LAB => {
                     let lab = Lab::new(l_x, l_y, l_z);
                     rgb = lab.to_rgb();
                 }
-                XYZ => {
+                XyzTarget::XYZ => {
                     let xyz = Xyz::new(l_x, l_y, l_z);
                     rgb = xyz.to_rgb(&matrix, transfer_function);
                 }
                 XyzTarget::LUV => {
                     let luv = Luv::new(l_x, l_y, l_z);
                     rgb = luv.to_rgb();
+                }
+                XyzTarget::LCH => {
+                    let lch = LCh::new(l_x, l_y, l_z);
+                    rgb = lch.to_rgb();
                 }
             }
 
@@ -257,7 +262,7 @@ pub fn xyz_to_rgb(
     transfer_function: TransferFunction,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -289,7 +294,7 @@ pub fn xyz_to_srgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -321,7 +326,7 @@ pub fn lab_to_srgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { LAB as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -356,7 +361,7 @@ pub fn laba_to_srgb(
     width: u32,
     height: u32,
 ) {
-    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { LAB as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         &a_plane,
@@ -393,7 +398,7 @@ pub fn xyza_to_rgba(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) {
-    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         &a_plane,
@@ -425,7 +430,7 @@ pub fn luv_to_rgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { LUV as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LUV as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -457,7 +462,71 @@ pub fn luv_to_bgr(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { LUV as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LUV as u8 }>(
+        src,
+        src_stride,
+        &empty_vec,
+        0,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LCH to RGB. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn lch_to_rgb(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let empty_vec = vec![];
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LCH as u8 }>(
+        src,
+        src_stride,
+        &empty_vec,
+        0,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LCH to RGB. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LAB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn lch_to_bgr(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let empty_vec = vec![];
+    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LCH as u8 }>(
         src,
         src_stride,
         &empty_vec,

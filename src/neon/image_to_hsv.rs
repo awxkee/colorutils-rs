@@ -3,10 +3,6 @@ use crate::image_to_hsv_support::HsvTarget;
 use crate::neon::{neon_rgb_to_hsl, neon_rgb_to_hsv};
 use std::arch::aarch64::*;
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn neon_channels_to_hsv<

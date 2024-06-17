@@ -89,7 +89,6 @@ impl Luv {
         Luv::from_rgb(&rgba.to_rgb())
     }
 
-    #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
         if self.l <= 0f32 {
             return Xyz::new(0f32, 0f32, 0f32).to_srgb();

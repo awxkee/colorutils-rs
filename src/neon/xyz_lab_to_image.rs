@@ -1,113 +1,11 @@
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::luv::*;
+use crate::neon::cie::{neon_lab_to_xyz, neon_lch_to_xyz, neon_luv_to_xyz};
 use crate::neon::math::*;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use crate::neon::*;
-#[allow(unused_imports)]
+use crate::xyz_target::XyzTarget;
 use crate::TransferFunction;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 use std::arch::aarch64::*;
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[inline(always)]
-unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
-    vmulq_f32(vmulq_f32(x, x), x)
-}
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[inline(always)]
-pub(crate) unsafe fn neon_luv_to_xyz(
-    l: float32x4_t,
-    u: float32x4_t,
-    v: float32x4_t,
-) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let zero_mask = vclezq_f32(l);
-    let zeros = vdupq_n_f32(0f32);
-    let l13 = vrecpeq_f32(vmulq_n_f32(l, 13f32));
-    let u = prefer_vfmaq_f32(vdupq_n_f32(LUV_WHITE_U_PRIME), l13, u);
-    let v = prefer_vfmaq_f32(vdupq_n_f32(LUV_WHITE_V_PRIME), l13, v);
-    let l_h = vmulq_n_f32(vaddq_f32(l, vdupq_n_f32(16f32)), 1f32 / 116f32);
-    let y_high = vmulq_f32(vmulq_f32(l_h, l_h), l_h);
-    let y_low = vmulq_n_f32(l, LUV_MULTIPLIER_INVERSE_Y);
-    let y = vbslq_f32(
-        zero_mask,
-        zeros,
-        vbslq_f32(vcgtq_f32(l, vdupq_n_f32(8f32)), y_high, y_low),
-    );
-    let zero_mask_2 = vclezq_f32(v);
-    let den = vrecpeq_f32(vmulq_n_f32(v, 4f32));
-    let mut x = vmulq_n_f32(vmulq_f32(vmulq_f32(y, u), den), 9f32);
-    x = vbslq_f32(zero_mask, zeros, x);
-    x = vbslq_f32(zero_mask_2, zeros, x);
-    let mut z = vmulq_f32(
-        vmulq_f32(
-            prefer_vfmaq_f32(
-                prefer_vfmaq_f32(vdupq_n_f32(12f32), vdupq_n_f32(-3f32), u),
-                v,
-                vdupq_n_f32(-20f32),
-            ),
-            y,
-        ),
-        den,
-    );
-    z = vbslq_f32(zero_mask, zeros, z);
-    z = vbslq_f32(zero_mask_2, zeros, z);
-    (x, y, z)
-}
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-#[inline(always)]
-pub(crate) unsafe fn neon_lab_to_xyz(
-    l: float32x4_t,
-    a: float32x4_t,
-    b: float32x4_t,
-) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let y = vmulq_n_f32(vaddq_f32(l, vdupq_n_f32(16f32)), 1f32 / 116f32);
-    let x = vaddq_f32(vmulq_n_f32(a, 1f32 / 500f32), y);
-    let z = vsubq_f32(y, vmulq_n_f32(b, 1f32 / 200f32));
-    let x3 = vcubeq_f32(x);
-    let y3 = vcubeq_f32(y);
-    let z3 = vcubeq_f32(z);
-    let kappa = vdupq_n_f32(0.008856f32);
-    let k_sub = vdupq_n_f32(16f32 / 116f32);
-    let low_x = vmulq_n_f32(vsubq_f32(x, k_sub), 1f32 / 7.787f32);
-    let low_y = vmulq_n_f32(vsubq_f32(y, k_sub), 1f32 / 7.787f32);
-    let low_z = vmulq_n_f32(vsubq_f32(z, k_sub), 1f32 / 7.787f32);
-
-    let x = vbslq_f32(vcgtq_f32(x3, kappa), x3, low_x);
-    let y = vbslq_f32(vcgtq_f32(y3, kappa), y3, low_y);
-    let z = vbslq_f32(vcgtq_f32(z3, kappa), z3, low_z);
-    let x = vmulq_n_f32(x, 95.047f32 / 100f32);
-    let z = vmulq_n_f32(z, 108.883f32 / 100f32);
-    (x, y, z)
-}
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub(crate) unsafe fn neon_xyz_lab_vld<
     const CHANNELS_CONFIGURATION: u8,
@@ -141,6 +39,12 @@ pub(crate) unsafe fn neon_xyz_lab_vld<
         }
         XyzTarget::LUV => {
             let (x, y, z) = neon_luv_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LCH => {
+            let (x, y, z) = neon_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;

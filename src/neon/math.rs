@@ -1,4 +1,3 @@
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -475,4 +474,173 @@ pub unsafe fn vcolorq_matrix_f32(
     let new_g = prefer_vfmaq_f32(prefer_vfmaq_f32(vmulq_f32(g, c5), b, c6), r, c4);
     let new_b = prefer_vfmaq_f32(prefer_vfmaq_f32(vmulq_f32(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
+}
+
+#[inline(always)]
+pub unsafe fn vhypotq_f32(x: float32x4_t, y: float32x4_t) -> float32x4_t {
+    let xp2 = vmulq_f32(x, x);
+    let yp2 = vmulq_f32(y, y);
+    let z = vaddq_f32(xp2, yp2);
+    return vsqrtq_f32(z);
+}
+
+#[inline(always)]
+pub unsafe fn vpoly4q_f32(
+    x: float32x4_t,
+    x2: float32x4_t,
+    c3: float32x4_t,
+    c2: float32x4_t,
+    c1: float32x4_t,
+    c0: float32x4_t,
+) -> float32x4_t {
+    vmlafq_f32(x2, vmlafq_f32(x, c3, c2), vmlafq_f32(x, c1, c0))
+}
+
+#[inline(always)]
+pub unsafe fn vpoly8q_f32(
+    x: float32x4_t,
+    x2: float32x4_t,
+    x4: float32x4_t,
+    c7: float32x4_t,
+    c6: float32x4_t,
+    c5: float32x4_t,
+    c4: float32x4_t,
+    c3: float32x4_t,
+    c2: float32x4_t,
+    c1: float32x4_t,
+    c0: float32x4_t,
+) -> float32x4_t {
+    vmlafq_f32(
+        x4,
+        vpoly4q_f32(x, x2, c7, c6, c5, c4),
+        vpoly4q_f32(x, x2, c3, c2, c1, c0),
+    )
+}
+
+#[inline(always)]
+unsafe fn vatan2q_f32_impl(y: float32x4_t, x: float32x4_t) -> float32x4_t {
+    let q = vbslq_s32(vcltzq_f32(x), vdupq_n_s32(-2), vdupq_n_s32(0));
+    let x = vabsq_f32(x);
+    let is_y_more_than_x = vcgtq_f32(y, x);
+    let t = vbslq_f32(is_y_more_than_x, x, vdupq_n_f32(0f32));
+    let x = vbslq_f32(is_y_more_than_x, y, x);
+    let y = vbslq_f32(is_y_more_than_x, vnegq_f32(t), y);
+    let q = vbslq_s32(is_y_more_than_x, vaddq_s32(q, vdupq_n_s32(1)), q);
+    let s = vdivq_f32(y, x);
+    let t = vmulq_f32(s, s);
+    let t2 = vmulq_f32(t, t);
+    let t4 = vmulq_f32(t2, t2);
+    let poly = vpoly8q_f32(
+        t,
+        t2,
+        t4,
+        vdupq_n_f32(0.00282363896258175373077393f32),
+        vdupq_n_f32(-0.0159569028764963150024414f32),
+        vdupq_n_f32(0.0425049886107444763183594f32),
+        vdupq_n_f32(-0.0748900920152664184570312f32),
+        vdupq_n_f32(0.106347933411598205566406f32),
+        vdupq_n_f32(-0.142027363181114196777344f32),
+        vdupq_n_f32(0.199926957488059997558594f32),
+        vdupq_n_f32(-0.333331018686294555664062f32),
+    );
+    let t = prefer_vfmaq_f32(s, vmulq_f32(poly, t), s);
+    let t = prefer_vfmaq_f32(
+        t,
+        vcvtq_f32_s32(q),
+        vdupq_n_f32(std::f32::consts::FRAC_PI_2),
+    );
+    t
+}
+
+#[inline(always)]
+pub unsafe fn vatan2q_f32(y: float32x4_t, x: float32x4_t) -> float32x4_t {
+    let r = vatan2q_f32_impl(vabsq_f32(y), x);
+    let r = vmulsignq_f32(r, x);
+    vmulsignq_f32(r, y)
+}
+
+#[inline(always)]
+pub unsafe fn vsinq_f32(val: float32x4_t) -> float32x4_t {
+    let pi_v = vdupq_n_f32(std::f32::consts::PI);
+    let pio2_v = vdupq_n_f32(std::f32::consts::FRAC_PI_2);
+    let ipi_v = vdupq_n_f32(std::f32::consts::FRAC_1_PI);
+
+    //Find positive or negative
+    let c_v = vabsq_s32(vcvtq_s32_f32(vmulq_f32(val, ipi_v)));
+    let sign_v = vcleq_f32(val, vdupq_n_f32(0f32));
+    let odd_v = vandq_u32(vreinterpretq_u32_s32(c_v), vdupq_n_u32(1));
+
+    let neg_v = veorq_u32(odd_v, sign_v);
+
+    //Modulus a - (n * int(a*(1/n)))
+    let mut ma = vsubq_f32(vabsq_f32(val), vmulq_f32(pi_v, vcvtq_f32_s32(c_v)));
+    let reb_v = vcgeq_f32(ma, pio2_v);
+
+    //Rebase a between 0 and pi/2
+    ma = vbslq_f32(reb_v, vsubq_f32(pi_v, ma), ma);
+
+    //Taylor series
+    let ma2 = vmulq_f32(ma, ma);
+
+    //2nd elem: x^3 / 3!
+    let mut elem = vmulq_f32(vmulq_f32(ma, ma2), vdupq_n_f32(0.166666666666f32));
+    let mut res = vsubq_f32(ma, elem);
+
+    //3rd elem: x^5 / 5!
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.05f32));
+    res = vaddq_f32(res, elem);
+
+    //4th elem: x^7 / 7!float32x2_t vsin_f32(float32x2_t val)
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.023809523810f32));
+    res = vsubq_f32(res, elem);
+
+    //5th elem: x^9 / 9!
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.013888888889f32));
+    res = vaddq_f32(res, elem);
+
+    //Change of sign
+    let neg_v = vshlq_n_u32::<31>(neg_v);
+    res = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(res), neg_v));
+    return res;
+}
+
+#[inline(always)]
+pub unsafe fn vcosq_f32(d: float32x4_t) -> float32x4_t {
+    let mut q = vcvtq_s32_f32(vsubq_f32(
+        vmulq_f32(d, vdupq_n_f32(std::f32::consts::FRAC_1_PI)),
+        vdupq_n_f32(0.5f32),
+    ));
+
+    q = vaddq_s32(vaddq_s32(q, q), vdupq_n_s32(1));
+
+    let mut u = vcvtq_f32_s32(q);
+    let mut d = vmlafq_f32(u, vdupq_n_f32(-0.78515625f32 * 2f32), d);
+    d = vmlafq_f32(u, vdupq_n_f32(-0.00024187564849853515625f32 * 2f32), d);
+    d = vmlafq_f32(u, vdupq_n_f32(-3.7747668102383613586e-08f32 * 2f32), d);
+    d = vmlafq_f32(u, vdupq_n_f32(-1.2816720341285448015e-12f32 * 2f32), d);
+
+    let s = vmulq_f32(d, d);
+
+    d = vreinterpretq_f32_u32(veorq_u32(
+        vandq_u32(
+            vceqq_s32(vandq_s32(q, vdupq_n_s32(2)), vdupq_n_s32(0)),
+            vreinterpretq_u32_f32(vdupq_n_f32(-0.0f32)),
+        ),
+        vreinterpretq_u32_f32(d),
+    ));
+
+    u = vdupq_n_f32(2.6083159809786593541503e-06f32);
+    u = vmlafq_f32(u, s, vdupq_n_f32(-0.0001981069071916863322258f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(0.00833307858556509017944336f32));
+    u = vmlafq_f32(u, s, vdupq_n_f32(-0.166666597127914428710938f32));
+
+    u = vmlafq_f32(s, vmulq_f32(u, d), d);
+
+    u = vreinterpretq_f32_u32(vorrq_u32(vispinfq_f32(d), vreinterpretq_u32_f32(u)));
+    return u;
+}
+
+#[inline(always)]
+pub(crate) unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
+    vmulq_f32(vmulq_f32(x, x), x)
 }

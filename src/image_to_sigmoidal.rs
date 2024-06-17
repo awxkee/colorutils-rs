@@ -113,13 +113,16 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             let px = x * channels;
             let src = unsafe { src_ptr.add(px) };
             let r = unsafe {
-                src.add(image_configuration.get_r_channel_offset()).read_unaligned()
+                src.add(image_configuration.get_r_channel_offset())
+                    .read_unaligned()
             };
             let g = unsafe {
-                src.add(image_configuration.get_g_channel_offset()).read_unaligned()
+                src.add(image_configuration.get_g_channel_offset())
+                    .read_unaligned()
             };
             let b = unsafe {
-                src.add(image_configuration.get_b_channel_offset()).read_unaligned()
+                src.add(image_configuration.get_b_channel_offset())
+                    .read_unaligned()
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
@@ -135,7 +138,8 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
             if image_configuration.has_alpha() {
                 let a = unsafe {
-                    src.add(image_configuration.get_a_channel_offset()).read_unaligned()
+                    src.add(image_configuration.get_a_channel_offset())
+                        .read_unaligned()
                 } as f32
                     * COLOR_SCALE;
 

@@ -5,7 +5,6 @@
 use crate::avx::avx2_image_to_xyz_lab;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -16,26 +15,8 @@ use crate::neon::neon_channels_to_xyz_or_lab;
     target_feature = "sse4.1"
 ))]
 use crate::sse::sse_channels_to_xyz_or_lab;
+use crate::xyz_target::XyzTarget;
 use crate::{Rgb, Xyz, SRGB_TO_XYZ_D65};
-
-pub(crate) enum XyzTarget {
-    LAB = 0,
-    XYZ = 1,
-    LUV = 2,
-}
-
-impl From<u8> for XyzTarget {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => LAB,
-            1 => XYZ,
-            2 => LUV,
-            _ => {
-                panic!("Not implemented")
-            }
-        }
-    }
-}
 
 #[inline(always)]
 fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
@@ -95,74 +76,76 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            if _has_avx2 {
-                if USE_ALPHA {
-                    cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        a_channel.as_mut_ptr(),
-                        a_offset,
-                        &matrix,
-                        transfer_function,
-                    );
-                } else {
-                    cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        std::ptr::null_mut(),
-                        0usize,
-                        &matrix,
-                        transfer_function,
-                    );
+        if target != XyzTarget::LCH {
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "avx2"
+            ))]
+            unsafe {
+                if _has_avx2 {
+                    if USE_ALPHA {
+                        cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            width,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            a_channel.as_mut_ptr(),
+                            a_offset,
+                            &matrix,
+                            transfer_function,
+                        );
+                    } else {
+                        cx = avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            width,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            std::ptr::null_mut(),
+                            0usize,
+                            &matrix,
+                            transfer_function,
+                        );
+                    }
                 }
             }
-        }
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                if USE_ALPHA {
-                    cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        a_channel.as_mut_ptr(),
-                        a_offset,
-                        &matrix,
-                        transfer_function,
-                    )
-                } else {
-                    cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        std::ptr::null_mut(),
-                        0usize,
-                        &matrix,
-                        transfer_function,
-                    )
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "sse4.1"
+            ))]
+            unsafe {
+                if _has_sse {
+                    if USE_ALPHA {
+                        cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            width,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            a_channel.as_mut_ptr(),
+                            a_offset,
+                            &matrix,
+                            transfer_function,
+                        )
+                    } else {
+                        cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                            cx,
+                            src.as_ptr(),
+                            src_offset,
+                            width,
+                            dst.as_mut_ptr(),
+                            dst_offset,
+                            std::ptr::null_mut(),
+                            0usize,
+                            &matrix,
+                            transfer_function,
+                        )
+                    }
                 }
             }
         }
@@ -221,20 +204,19 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
+            let ptr = unsafe { dst_ptr.add(x * 3) };
             match target {
-                LAB => {
+                XyzTarget::LAB => {
                     let lab = rgb.to_lab();
                     unsafe {
-                        let ptr = dst_ptr.add(x * 3);
                         ptr.write_unaligned(lab.l);
                         ptr.add(1).write_unaligned(lab.a);
                         ptr.add(2).write_unaligned(lab.b);
                     }
                 }
-                XYZ => {
+                XyzTarget::XYZ => {
                     let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
                     unsafe {
-                        let ptr = dst_ptr.add(x * 3);
                         ptr.write_unaligned(xyz.x);
                         ptr.add(1).write_unaligned(xyz.y);
                         ptr.add(2).write_unaligned(xyz.z);
@@ -243,10 +225,17 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 XyzTarget::LUV => {
                     let luv = rgb.to_luv();
                     unsafe {
-                        let ptr = dst_ptr.add(x * 3);
                         ptr.write_unaligned(luv.l);
                         ptr.add(1).write_unaligned(luv.u);
                         ptr.add(2).write_unaligned(luv.v);
+                    }
+                }
+                XyzTarget::LCH => {
+                    let lch = rgb.to_lch();
+                    unsafe {
+                        ptr.write_unaligned(lch.l);
+                        ptr.add(1).write_unaligned(lch.c);
+                        ptr.add(2).write_unaligned(lch.h);
                     }
                 }
             }
@@ -293,7 +282,7 @@ pub fn rgb_to_xyz(
     transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -327,7 +316,7 @@ pub fn srgb_to_xyz(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -359,7 +348,7 @@ pub fn rgb_to_lab(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { LAB as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -395,7 +384,7 @@ pub fn rgba_to_xyz(
     transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -429,7 +418,7 @@ pub fn srgba_to_xyz(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -468,7 +457,7 @@ pub fn rgba_to_xyza(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) {
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -503,7 +492,7 @@ pub fn srgba_to_xyza(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XYZ as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -538,7 +527,7 @@ pub fn rgba_to_lab(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { LAB as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -573,7 +562,7 @@ pub fn rgba_to_laba(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { LAB as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -606,7 +595,7 @@ pub fn bgra_to_laba(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz::<{ ImageConfiguration::Bgra as u8 }, true, { LAB as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Bgra as u8 }, true, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -638,7 +627,7 @@ pub fn bgr_to_lab(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { LAB as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -670,7 +659,7 @@ pub fn rgb_to_luv(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { LUV as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LUV as u8 }>(
         src,
         src_stride,
         dst,
@@ -702,7 +691,71 @@ pub fn bgr_to_luv(
     height: u32,
 ) {
     let mut empty_vec = vec![];
-    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { LUV as u8 }>(
+    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LUV as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        &mut empty_vec,
+        0,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts RGB to CIE L\*C\*h against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn rgb_to_lch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let mut empty_vec = vec![];
+    channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LCH as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        &mut empty_vec,
+        0,
+        width,
+        height,
+        &SRGB_TO_XYZ_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts BGR to CIE L\*C\*h against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LAB data
+/// * `dst_stride` - Bytes per row for dst data
+pub fn bgr_to_lch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    let mut empty_vec = vec![];
+    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LCH as u8 }>(
         src,
         src_stride,
         dst,

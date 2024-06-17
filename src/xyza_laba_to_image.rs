@@ -5,8 +5,6 @@
 use crate::avx::avx_xyza_to_image;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget;
-use crate::image_to_xyz_lab::XyzTarget::{LAB, LUV, XYZ};
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
@@ -17,7 +15,8 @@ use crate::neon::neon_xyza_to_image;
     target_feature = "sse4.1"
 ))]
 use crate::sse::sse_xyza_to_image;
-use crate::{Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
+use crate::xyz_target::XyzTarget;
+use crate::{LCh, Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
 
 fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
@@ -72,13 +71,51 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            if _has_avx2 {
-                cx = avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+        if source != XyzTarget::LCH {
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "avx2"
+            ))]
+            unsafe {
+                if _has_avx2 {
+                    cx = avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                }
+            }
+
+            #[cfg(all(
+                any(target_arch = "x86_64", target_arch = "x86"),
+                target_feature = "sse4.1"
+            ))]
+            unsafe {
+                if _has_sse {
+                    cx = sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                }
+            }
+
+            #[cfg(all(
+                any(target_arch = "aarch64", target_arch = "arm"),
+                target_feature = "neon"
+            ))]
+            unsafe {
+                cx = neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
                     cx,
                     src.as_ptr(),
                     src_offset,
@@ -89,42 +126,6 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     transfer_function,
                 )
             }
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                cx = sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
-                    cx,
-                    src.as_ptr(),
-                    src_offset,
-                    dst.as_mut_ptr(),
-                    dst_offset,
-                    width,
-                    &matrix,
-                    transfer_function,
-                )
-            }
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            cx = neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
-                cx,
-                src.as_ptr(),
-                src_offset,
-                dst.as_mut_ptr(),
-                dst_offset,
-                width,
-                &matrix,
-                transfer_function,
-            )
         }
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
@@ -137,17 +138,21 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
             let rgb;
             match source {
-                LAB => {
+                XyzTarget::LAB => {
                     let lab = Lab::new(l_x, l_y, l_z);
                     rgb = lab.to_rgb();
                 }
-                XYZ => {
+                XyzTarget::XYZ => {
                     let xyz = Xyz::new(l_x, l_y, l_z);
                     rgb = xyz.to_rgb(&matrix, transfer_function);
                 }
-                LUV => {
+                XyzTarget::LUV => {
                     let luv = Luv::new(l_x, l_y, l_z);
                     rgb = luv.to_rgb();
+                }
+                XyzTarget::LCH => {
+                    let lch = LCh::new(l_x, l_y, l_z);
+                    rgb = lch.to_rgb();
                 }
             }
 
@@ -188,7 +193,7 @@ pub fn lab_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -217,7 +222,7 @@ pub fn lab_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -246,7 +251,7 @@ pub fn luv_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { LUV as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LUV as u8 }>(
         src,
         src_stride,
         dst,
@@ -277,7 +282,7 @@ pub fn luv_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -306,7 +311,7 @@ pub fn xyz_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XYZ as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::XYZ as u8 }>(
         src,
         src_stride,
         dst,
@@ -335,7 +340,65 @@ pub fn xyz_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XYZ as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::XYZ as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LCH with separate alpha channel to RGBA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCHa data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive RGBA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn lch_with_alpha_to_rgba(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LCH as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        &XYZ_TO_SRGB_D65,
+        TransferFunction::Srgb,
+    );
+}
+
+/// This function converts LCH with separate alpha channel to BGRA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCHa data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive BGRA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+pub fn lch_with_alpha_to_bgra(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+) {
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LCH as u8 }>(
         src,
         src_stride,
         dst,

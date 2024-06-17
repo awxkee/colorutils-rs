@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::neon::*;

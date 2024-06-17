@@ -1,25 +1,12 @@
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+use crate::gamma_curves::TransferFunction;
+use crate::image::ImageConfiguration;
+use crate::neon::cie::{
+    neon_triple_to_lab, neon_triple_to_lch, neon_triple_to_luv, neon_triple_to_xyz,
+};
+use crate::neon::*;
+use crate::xyz_target::XyzTarget;
 use std::arch::aarch64::*;
 
-#[allow(unused_imports)]
-use crate::gamma_curves::TransferFunction;
-#[allow(unused_imports)]
-use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
-use crate::neon::*;
-
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
@@ -103,6 +90,12 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
                 z_low_low = b;
             }
             XyzTarget::XYZ => {}
+            XyzTarget::LCH => {
+                let (l, c, h) = neon_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = c;
+                z_low_low = h;
+            }
             XyzTarget::LUV => {
                 let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
@@ -141,6 +134,12 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
                 y_low_high = u;
                 z_low_high = v;
             }
+            XyzTarget::LCH => {
+                let (l, c, h) = neon_triple_to_lch(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = c;
+                z_low_high = h;
+            }
         }
 
         let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -174,6 +173,12 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
                 x_high_low = l;
                 y_high_low = u;
                 z_high_low = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = neon_triple_to_lch(x_high_low, y_high_low, z_high_low);
+                x_high_low = l;
+                y_high_low = c;
+                z_high_low = h;
             }
         }
 
@@ -219,6 +224,12 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
                 x_high_high = l;
                 y_high_high = u;
                 z_high_high = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = neon_triple_to_lch(x_high_high, y_high_high, z_high_high);
+                x_high_high = l;
+                y_high_high = c;
+                z_high_high = h;
             }
         }
 

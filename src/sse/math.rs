@@ -419,3 +419,48 @@ pub(crate) unsafe fn _mm_fmod_ps(a: __m128, b: __m128) -> __m128 {
     let remainder = _mm_sub_ps(dividend_vec, product); // Subtract the product from the dividend
     remainder
 }
+
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn _mm_is_infinity(d: __m128) -> __m128 {
+    return _mm_cmpeq_ps(_mm_abs_ps(d), _mm_set1_ps(f32::INFINITY));
+}
+
+#[inline(always)]
+#[allow(dead_code)]
+pub unsafe fn _mm_cos_ps(d: __m128) -> __m128 {
+    let mut q = _mm_cvtps_epi32(_mm_sub_ps(
+        _mm_mul_ps(d, _mm_set1_ps(std::f32::consts::FRAC_1_PI)),
+        _mm_set1_ps(0.5f32),
+    ));
+
+    q = _mm_add_epi32(_mm_add_epi32(q, q), _mm_set1_epi32(1));
+
+    let mut u = _mm_cvtepi32_ps(q);
+    let mut d = _mm_fmaf_ps(u, _mm_set1_ps(-0.78515625f32 * 2f32), d);
+    d = _mm_fmaf_ps(u, _mm_set1_ps(-0.00024187564849853515625f32 * 2f32), d);
+    d = _mm_fmaf_ps(u, _mm_set1_ps(-3.7747668102383613586e-08f32 * 2f32), d);
+    d = _mm_fmaf_ps(u, _mm_set1_ps(-1.2816720341285448015e-12f32 * 2f32), d);
+
+    let s = _mm_mul_ps(d, d);
+
+    // TODO: Perform float masking instead
+    d = _mm_castsi128_ps(_mm_xor_si128(
+        _mm_and_si128(
+            _mm_cmpeq_epi32(_mm_and_si128(q, _mm_set1_epi32(2)), _mm_set1_epi32(0)),
+            _mm_castps_si128(_mm_set1_ps(-0.0f32)),
+        ),
+        _mm_castps_si128(d),
+    ));
+
+    u = _mm_set1_ps(2.6083159809786593541503e-06f32);
+    u = _mm_fmaf_ps(u, s, _mm_set1_ps(-0.0001981069071916863322258f32));
+    u = _mm_fmaf_ps(u, s, _mm_set1_ps(0.00833307858556509017944336f32));
+    u = _mm_fmaf_ps(u, s, _mm_set1_ps(-0.166666597127914428710938f32));
+
+    u = _mm_fmaf_ps(s, _mm_mul_ps(u, d), d);
+
+    u = _mm_or_ps(_mm_is_infinity(d), u);
+
+    return u;
+}
