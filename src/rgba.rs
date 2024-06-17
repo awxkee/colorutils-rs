@@ -58,22 +58,18 @@ impl Rgba<u8> {
 }
 
 pub trait ToRgba8 {
-    #[allow(dead_code)]
     fn to_rgba8(&self) -> Rgba<u8>;
 }
 
 pub trait ToRgbaF16 {
-    #[allow(dead_code)]
     fn to_rgba_f16(&self) -> Rgba<f16>;
 }
 
 pub trait ToRgb565 {
-    #[allow(dead_code)]
     fn to_rgb_565(&self) -> Rgb565;
 }
 
 pub trait ToRgbaF32 {
-    #[allow(dead_code)]
     fn to_rgba_f32(&self) -> Rgba<f32>;
 }
 
