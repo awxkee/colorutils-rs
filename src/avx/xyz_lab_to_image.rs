@@ -5,7 +5,7 @@ use crate::avx::{
     avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16,
 };
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget;
+use crate::xyz_target::XyzTarget;
 use crate::TransferFunction;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

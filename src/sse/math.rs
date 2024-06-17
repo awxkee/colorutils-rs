@@ -444,7 +444,6 @@ pub unsafe fn _mm_cos_ps(d: __m128) -> __m128 {
 
     let s = _mm_mul_ps(d, d);
 
-    // TODO: Perform float masking instead
     d = _mm_castsi128_ps(_mm_xor_si128(
         _mm_and_si128(
             _mm_cmpeq_epi32(_mm_and_si128(q, _mm_set1_epi32(2)), _mm_set1_epi32(0)),
@@ -463,4 +462,140 @@ pub unsafe fn _mm_cos_ps(d: __m128) -> __m128 {
     u = _mm_or_ps(_mm_is_infinity(d), u);
 
     return u;
+}
+
+#[inline(always)]
+pub unsafe fn _mm_hypot_ps(x: __m128, y: __m128) -> __m128 {
+    let xp2 = _mm_mul_ps(x, x);
+    let yp2 = _mm_mul_ps(y, y);
+    let z = _mm_add_ps(xp2, yp2);
+    return _mm_sqrt_ps(z);
+}
+
+#[inline(always)]
+pub unsafe fn _mm_poly4_ps(
+    x: __m128,
+    x2: __m128,
+    c3: __m128,
+    c2: __m128,
+    c1: __m128,
+    c0: __m128,
+) -> __m128 {
+    _mm_fmaf_ps(x2, _mm_fmaf_ps(x, c3, c2), _mm_fmaf_ps(x, c1, c0))
+}
+
+#[inline(always)]
+pub unsafe fn _mm_poly8q_ps(
+    x: __m128,
+    x2: __m128,
+    x4: __m128,
+    c7: __m128,
+    c6: __m128,
+    c5: __m128,
+    c4: __m128,
+    c3: __m128,
+    c2: __m128,
+    c1: __m128,
+    c0: __m128,
+) -> __m128 {
+    _mm_fmaf_ps(
+        x4,
+        _mm_poly4_ps(x, x2, c7, c6, c5, c4),
+        _mm_poly4_ps(x, x2, c3, c2, c1, c0),
+    )
+}
+
+#[inline(always)]
+unsafe fn _mm_atan2q_ps_impl(y: __m128, x: __m128) -> __m128 {
+    let q = _mm_select_si128(
+        _mm_castps_si128(_mm_cmplt_ps(x, _mm_setzero_ps())),
+        _mm_set1_epi32(-2),
+        _mm_set1_epi32(0),
+    );
+    let x = _mm_abs_ps(x);
+    let is_y_more_than_x = _mm_cmpgt_ps(y, x);
+    let t = _mm_select_ps(is_y_more_than_x, x, _mm_setzero_ps());
+    let x = _mm_select_ps(is_y_more_than_x, y, x);
+    let y = _mm_select_ps(is_y_more_than_x, _mm_neg_ps(t), y);
+    let q = _mm_select_si128(
+        _mm_castps_si128(is_y_more_than_x),
+        _mm_add_epi32(q, _mm_set1_epi32(1)),
+        q,
+    );
+    let s = _mm_div_ps(y, x);
+    let t = _mm_mul_ps(s, s);
+    let t2 = _mm_mul_ps(t, t);
+    let t4 = _mm_mul_ps(t2, t2);
+    let poly = _mm_poly8q_ps(
+        t,
+        t2,
+        t4,
+        _mm_set1_ps(0.00282363896258175373077393f32),
+        _mm_set1_ps(-0.0159569028764963150024414f32),
+        _mm_set1_ps(0.0425049886107444763183594f32),
+        _mm_set1_ps(-0.0748900920152664184570312f32),
+        _mm_set1_ps(0.106347933411598205566406f32),
+        _mm_set1_ps(-0.142027363181114196777344f32),
+        _mm_set1_ps(0.199926957488059997558594f32),
+        _mm_set1_ps(-0.333331018686294555664062f32),
+    );
+    let t = _mm_prefer_fma_ps(s, _mm_mul_ps(poly, t), s);
+    let t = _mm_prefer_fma_ps(
+        t,
+        _mm_cvtepi32_ps(q),
+        _mm_set1_ps(std::f32::consts::FRAC_PI_2),
+    );
+    t
+}
+
+#[inline(always)]
+pub unsafe fn _mm_atan2_ps(y: __m128, x: __m128) -> __m128 {
+    let r = _mm_atan2q_ps_impl(_mm_abs_ps(y), x);
+    let r = _mm_mulsign_ps(r, x);
+    _mm_mulsign_ps(r, y)
+}
+
+#[inline(always)]
+pub unsafe fn _mm_sin_ps(val: __m128) -> __m128 {
+    let pi_v = _mm_set1_ps(std::f32::consts::PI);
+    let pio2_v = _mm_set1_ps(std::f32::consts::FRAC_PI_2);
+    let ipi_v = _mm_set1_ps(std::f32::consts::FRAC_1_PI);
+
+    //Find positive or negative
+    let c_v = _mm_abs_epi32(_mm_cvtps_epi32(_mm_mul_ps(val, ipi_v)));
+    let sign_v = _mm_castps_si128(_mm_cmple_ps(val, _mm_setzero_ps()));
+    let odd_v = _mm_and_si128(c_v, _mm_set1_epi32(1));
+
+    let neg_v = _mm_xor_si128(odd_v, sign_v);
+
+    //Modulus a - (n * int(a*(1/n)))
+    let mut ma = _mm_sub_ps(_mm_abs_ps(val), _mm_mul_ps(pi_v, _mm_cvtepi32_ps(c_v)));
+    let reb_v = _mm_cmpge_ps(ma, pio2_v);
+
+    //Rebase a between 0 and pi/2
+    ma = _mm_select_ps(reb_v, _mm_sub_ps(pi_v, ma), ma);
+
+    //Taylor series
+    let ma2 = _mm_mul_ps(ma, ma);
+
+    //2nd elem: x^3 / 3!
+    let mut elem = _mm_mul_ps(_mm_mul_ps(ma, ma2), _mm_set1_ps(0.166666666666f32));
+    let mut res = _mm_sub_ps(ma, elem);
+
+    //3rd elem: x^5 / 5!
+    elem = _mm_mul_ps(_mm_mul_ps(elem, ma2), _mm_set1_ps(0.05f32));
+    res = _mm_add_ps(res, elem);
+
+    //4th elem: x^7 / 7!float32x2_t vsin_f32(float32x2_t val)
+    elem = _mm_mul_ps(_mm_mul_ps(elem, ma2), _mm_set1_ps(0.023809523810f32));
+    res = _mm_sub_ps(res, elem);
+
+    //5th elem: x^9 / 9!
+    elem = _mm_mul_ps(_mm_mul_ps(elem, ma2), _mm_set1_ps(0.013888888889f32));
+    res = _mm_add_ps(res, elem);
+
+    //Change of sign
+    let neg_v = _mm_slli_epi32::<31>(neg_v);
+    res = _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(res), neg_v));
+    return res;
 }

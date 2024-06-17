@@ -31,6 +31,7 @@ mod to_xyza_laba;
 
 mod xyz_lab_to_image;
 
+mod cie;
 mod from_sigmoidal;
 mod sigmoidal;
 mod to_sigmoidal;

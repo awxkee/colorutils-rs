@@ -1,18 +1,13 @@
-#[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[allow(unused_imports)]
+use crate::sse::cie::{sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
 use crate::sse::*;
+use crate::xyz_target::XyzTarget;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
@@ -110,6 +105,12 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
                 y_low_low = u;
                 z_low_low = v;
             }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = c;
+                z_low_low = h;
+            }
         }
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
@@ -144,6 +145,12 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
                 x_low_high = l;
                 y_low_high = u;
                 z_low_high = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = c;
+                z_low_high = h;
             }
         }
 
@@ -185,6 +192,12 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
                 x_high_low = l;
                 y_high_low = u;
                 z_high_low = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_high_low, y_high_low, z_high_low);
+                x_high_low = l;
+                y_high_low = c;
+                z_high_low = h;
             }
         }
 
@@ -232,6 +245,12 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
                 x_high_high = l;
                 y_high_high = u;
                 z_high_high = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_high_high, y_high_high, z_high_high);
+                x_high_high = l;
+                y_high_high = c;
+                z_high_high = h;
             }
         }
 

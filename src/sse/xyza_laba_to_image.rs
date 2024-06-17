@@ -1,9 +1,9 @@
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget;
-use crate::sse::color::{sse_lab_to_xyz, sse_luv_to_xyz};
+use crate::sse::cie::{sse_lab_to_xyz, sse_lch_to_xyz, sse_luv_to_xyz};
 use crate::sse::{
     _mm_color_matrix_ps, get_sse_gamma_transfer, sse_deinterleave_rgba_ps, sse_interleave_rgba,
 };
+use crate::xyz_target::XyzTarget;
 use crate::TransferFunction;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -43,6 +43,12 @@ unsafe fn sse_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         }
         XyzTarget::LUV => {
             let (x, y, z) = sse_luv_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LCH => {
+            let (x, y, z) = sse_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;

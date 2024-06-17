@@ -56,24 +56,22 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        if target != XyzTarget::LCH {
-            #[cfg(all(
-                any(target_arch = "x86_64", target_arch = "x86"),
-                target_feature = "sse4.1"
-            ))]
-            unsafe {
-                if _has_sse {
-                    cx = sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        &matrix,
-                        transfer_function,
-                    );
-                }
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            if _has_sse {
+                cx = sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    width,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    &matrix,
+                    transfer_function,
+                );
             }
         }
 

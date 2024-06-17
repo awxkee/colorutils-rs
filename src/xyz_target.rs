@@ -1,5 +1,5 @@
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub(crate) enum XyzTarget {
+pub enum XyzTarget {
     LAB = 0,
     XYZ = 1,
     LUV = 2,

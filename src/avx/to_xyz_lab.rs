@@ -5,13 +5,10 @@ use std::arch::x86_64::*;
 
 use crate::avx::gamma_curves::get_avx2_linear_transfer;
 use crate::avx::*;
-#[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
-#[allow(unused_imports)]
 use crate::image::ImageConfiguration;
-#[allow(unused_imports)]
-use crate::image_to_xyz_lab::XyzTarget;
 use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
+use crate::xyz_target::XyzTarget;
 
 #[inline(always)]
 unsafe fn avx2_triple_to_xyz(
@@ -200,6 +197,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_low_low = u;
                 z_low_low = v;
             }
+            XyzTarget::LCH => {}
         }
 
         let write_dst_ptr = dst_ptr.add(cx * 3);
@@ -233,6 +231,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_low_high = u;
                 z_low_high = v;
             }
+            XyzTarget::LCH => {}
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_low_high, y_low_high, z_low_high);
@@ -267,6 +266,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_high_low = u;
                 z_high_low = v;
             }
+            XyzTarget::LCH => {}
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_low, y_high_low, z_high_low);
@@ -308,6 +308,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_high_high = u;
                 z_high_high = v;
             }
+            XyzTarget::LCH => {}
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_high, y_high_high, z_high_high);

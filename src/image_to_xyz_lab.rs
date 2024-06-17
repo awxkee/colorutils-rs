@@ -112,40 +112,40 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                     }
                 }
             }
+        }
 
-            #[cfg(all(
-                any(target_arch = "x86_64", target_arch = "x86"),
-                target_feature = "sse4.1"
-            ))]
-            unsafe {
-                if _has_sse {
-                    if USE_ALPHA {
-                        cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                            cx,
-                            src.as_ptr(),
-                            src_offset,
-                            width,
-                            dst.as_mut_ptr(),
-                            dst_offset,
-                            a_channel.as_mut_ptr(),
-                            a_offset,
-                            &matrix,
-                            transfer_function,
-                        )
-                    } else {
-                        cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                            cx,
-                            src.as_ptr(),
-                            src_offset,
-                            width,
-                            dst.as_mut_ptr(),
-                            dst_offset,
-                            std::ptr::null_mut(),
-                            0usize,
-                            &matrix,
-                            transfer_function,
-                        )
-                    }
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            if _has_sse {
+                if USE_ALPHA {
+                    cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        a_channel.as_mut_ptr(),
+                        a_offset,
+                        &matrix,
+                        transfer_function,
+                    )
+                } else {
+                    cx = sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        std::ptr::null_mut(),
+                        0usize,
+                        &matrix,
+                        transfer_function,
+                    )
                 }
             }
         }

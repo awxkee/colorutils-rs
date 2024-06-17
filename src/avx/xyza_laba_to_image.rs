@@ -10,7 +10,7 @@ use crate::avx::{
     avx2_pack_u16,
 };
 use crate::image::ImageConfiguration;
-use crate::image_to_xyz_lab::XyzTarget;
+use crate::xyz_target::XyzTarget;
 use crate::TransferFunction;
 
 #[inline(always)]

@@ -90,32 +90,15 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     )
                 }
             }
+        }
 
-            #[cfg(all(
-                any(target_arch = "x86_64", target_arch = "x86"),
-                target_feature = "sse4.1"
-            ))]
-            unsafe {
-                if _has_sse {
-                    cx = sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
-                }
-            }
-
-            #[cfg(all(
-                any(target_arch = "aarch64", target_arch = "arm"),
-                target_feature = "neon"
-            ))]
-            unsafe {
-                cx = neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            if _has_sse {
+                cx = sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
                     cx,
                     src.as_ptr(),
                     src_offset,
@@ -126,6 +109,23 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     transfer_function,
                 )
             }
+        }
+
+        #[cfg(all(
+            any(target_arch = "aarch64", target_arch = "arm"),
+            target_feature = "neon"
+        ))]
+        unsafe {
+            cx = neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                cx,
+                src.as_ptr(),
+                src_offset,
+                dst.as_mut_ptr(),
+                dst_offset,
+                width,
+                &matrix,
+                transfer_function,
+            )
         }
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
