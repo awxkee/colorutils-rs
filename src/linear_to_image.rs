@@ -153,13 +153,13 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             );
 
             let dst = unsafe { dst_ptr.add(px) };
+            let transferred = rgb.apply(transfer);
+            let rgb8 = transferred.to_u8();
 
             unsafe {
-                dst.write_unaligned((transfer(rgb.r).round() * 255f32) as u8);
-                dst.add(1)
-                    .write_unaligned((transfer(rgb.g).round() * 255f32) as u8);
-                dst.add(2)
-                    .write_unaligned((transfer(rgb.b).round() * 255f32) as u8);
+                dst.write_unaligned(rgb8.r);
+                dst.add(1).write_unaligned(rgb8.g);
+                dst.add(2).write_unaligned(rgb8.b);
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
