@@ -5,7 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-mod color;
+mod cie;
 mod from_sigmoidal;
 mod gamma_curves;
 mod linear_to_image;

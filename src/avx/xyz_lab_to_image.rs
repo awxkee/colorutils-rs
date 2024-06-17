@@ -1,4 +1,4 @@
-use crate::avx::color::{avx_lab_to_xyz, avx_luv_to_xyz};
+use crate::avx::cie::{avx_lab_to_xyz, avx_lch_to_xyz, avx_luv_to_xyz};
 use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::{
     _mm256_color_matrix_ps, avx2_deinterleave_rgb_ps, avx2_interleave_rgb,
@@ -48,6 +48,12 @@ unsafe fn avx_xyz_lab_vld<
         }
         XyzTarget::LUV => {
             let (x, y, z) = avx_luv_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LCH => {
+            let (x, y, z) = avx_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;

@@ -3,95 +3,14 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+use crate::avx::cie::{
+    avx2_triple_to_lab, avx2_triple_to_luv, avx2_triple_to_xyz, avx_triple_to_lch,
+};
 use crate::avx::gamma_curves::get_avx2_linear_transfer;
 use crate::avx::*;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::luv::{LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y};
 use crate::xyz_target::XyzTarget;
-
-#[inline(always)]
-unsafe fn avx2_triple_to_xyz(
-    r: __m256i,
-    g: __m256i,
-    b: __m256i,
-    c1: __m256,
-    c2: __m256,
-    c3: __m256,
-    c4: __m256,
-    c5: __m256,
-    c6: __m256,
-    c7: __m256,
-    c8: __m256,
-    c9: __m256,
-    transfer: &unsafe fn(__m256) -> __m256,
-) -> (__m256, __m256, __m256) {
-    let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-    let r_f = _mm256_mul_ps(_mm256_cvtepi32_ps(r), u8_scale);
-    let g_f = _mm256_mul_ps(_mm256_cvtepi32_ps(g), u8_scale);
-    let b_f = _mm256_mul_ps(_mm256_cvtepi32_ps(b), u8_scale);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
-
-    let (x, y, z) = _mm256_color_matrix_ps(
-        r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
-    );
-    (x, y, z)
-}
-
-#[inline(always)]
-pub(crate) unsafe fn avx2_triple_to_luv(
-    x: __m256,
-    y: __m256,
-    z: __m256,
-) -> (__m256, __m256, __m256) {
-    let zeros = _mm256_setzero_ps();
-    let den = _mm256_prefer_fma_ps(
-        _mm256_prefer_fma_ps(x, z, _mm256_set1_ps(3f32)),
-        y,
-        _mm256_set1_ps(15f32),
-    );
-    let nan_mask = _mm256_cmp_ps::<_CMP_LT_OS>(den, _mm256_set1_ps(0f32));
-    let l_low_mask = _mm256_cmp_ps::<_CMP_LT_OS>(y, _mm256_set1_ps(LUV_CUTOFF_FORWARD_Y));
-    let y_cbrt = _mm256_cbrt_ps(y);
-    let l = _mm256_select_ps(
-        l_low_mask,
-        _mm256_mul_ps(y, _mm256_set1_ps(LUV_MULTIPLIER_FORWARD_Y)),
-        _mm256_prefer_fma_ps(_mm256_set1_ps(-16f32), y_cbrt, _mm256_set1_ps(116f32)),
-    );
-    let u_prime = _mm256_div_ps(_mm256_mul_ps(x, _mm256_set1_ps(4f32)), den);
-    let v_prime = _mm256_div_ps(_mm256_mul_ps(y, _mm256_set1_ps(9f32)), den);
-    let sub_u_prime = _mm256_sub_ps(u_prime, _mm256_set1_ps(crate::luv::LUV_WHITE_U_PRIME));
-    let sub_v_prime = _mm256_sub_ps(v_prime, _mm256_set1_ps(crate::luv::LUV_WHITE_V_PRIME));
-    let l13 = _mm256_mul_ps(l, _mm256_set1_ps(13f32));
-    let u = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_u_prime));
-    let v = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_v_prime));
-    (l, u, v)
-}
-
-#[inline(always)]
-unsafe fn avx2_triple_to_lab(x: __m256, y: __m256, z: __m256) -> (__m256, __m256, __m256) {
-    let x = _mm256_mul_ps(x, _mm256_set1_ps(100f32 / 95.047f32));
-    let y = _mm256_mul_ps(y, _mm256_set1_ps(100f32 / 100f32));
-    let z = _mm256_mul_ps(z, _mm256_set1_ps(100f32 / 108.883f32));
-    let cbrt_x = _mm256_cbrt_ps(x);
-    let cbrt_y = _mm256_cbrt_ps(y);
-    let cbrt_z = _mm256_cbrt_ps(z);
-    let s_1 = _mm256_set1_ps(16.0 / 116.0);
-    let s_2 = _mm256_set1_ps(7.787);
-    let lower_x = _mm256_prefer_fma_ps(s_1, s_2, x);
-    let lower_y = _mm256_prefer_fma_ps(s_1, s_2, y);
-    let lower_z = _mm256_prefer_fma_ps(s_1, s_2, z);
-    let cutoff = _mm256_set1_ps(0.008856f32);
-    let x = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, cutoff), cbrt_x, lower_x);
-    let y = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(y, cutoff), cbrt_y, lower_y);
-    let z = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(z, cutoff), cbrt_z, lower_z);
-    let l = _mm256_prefer_fma_ps(_mm256_set1_ps(-16.0f32), y, _mm256_set1_ps(116.0f32));
-    let a = _mm256_mul_ps(_mm256_sub_ps(x, y), _mm256_set1_ps(500f32));
-    let b = _mm256_mul_ps(_mm256_sub_ps(y, z), _mm256_set1_ps(200f32));
-    (l, a, b)
-}
 
 #[inline(always)]
 pub unsafe fn avx2_image_to_xyz_lab<
@@ -197,7 +116,12 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_low_low = u;
                 z_low_low = v;
             }
-            XyzTarget::LCH => {}
+            XyzTarget::LCH => {
+                let (l, c, h) = avx_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = c;
+                z_low_low = h;
+            }
         }
 
         let write_dst_ptr = dst_ptr.add(cx * 3);
@@ -231,7 +155,12 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_low_high = u;
                 z_low_high = v;
             }
-            XyzTarget::LCH => {}
+            XyzTarget::LCH => {
+                let (l, c, h) = avx_triple_to_lch(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = c;
+                z_low_high = h;
+            }
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_low_high, y_low_high, z_low_high);
@@ -266,7 +195,12 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_high_low = u;
                 z_high_low = v;
             }
-            XyzTarget::LCH => {}
+            XyzTarget::LCH => {
+                let (l, c, h) = avx_triple_to_lch(x_high_low, y_high_low, z_high_low);
+                x_high_low = l;
+                y_high_low = c;
+                z_high_low = h;
+            }
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_low, y_high_low, z_high_low);
@@ -308,7 +242,12 @@ pub unsafe fn avx2_image_to_xyz_lab<
                 y_high_high = u;
                 z_high_high = v;
             }
-            XyzTarget::LCH => {}
+            XyzTarget::LCH => {
+                let (l, u, v) = avx_triple_to_lch(x_high_high, y_high_high, z_high_high);
+                x_high_high = l;
+                y_high_high = u;
+                z_high_high = v;
+            }
         }
 
         let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_high, y_high_high, z_high_high);

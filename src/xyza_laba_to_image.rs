@@ -71,24 +71,22 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        if source != XyzTarget::LCH {
-            #[cfg(all(
-                any(target_arch = "x86_64", target_arch = "x86"),
-                target_feature = "avx2"
-            ))]
-            unsafe {
-                if _has_avx2 {
-                    cx = avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
-                        cx,
-                        src.as_ptr(),
-                        src_offset,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        width,
-                        &matrix,
-                        transfer_function,
-                    )
-                }
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
+        unsafe {
+            if _has_avx2 {
+                cx = avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>(
+                    cx,
+                    src.as_ptr(),
+                    src_offset,
+                    dst.as_mut_ptr(),
+                    dst_offset,
+                    width,
+                    &matrix,
+                    transfer_function,
+                )
             }
         }
 

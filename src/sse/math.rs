@@ -240,7 +240,6 @@ pub unsafe fn _mm_vilogbk_ps(d: __m128) -> __m128i {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 pub(crate) unsafe fn _mm_fmaf_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     _mm_prefer_fma_ps(c, b, a)
 }

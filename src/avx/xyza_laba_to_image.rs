@@ -3,7 +3,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use crate::avx::color::{avx_lab_to_xyz, avx_luv_to_xyz};
+use crate::avx::cie::{avx_lab_to_xyz, avx_lch_to_xyz, avx_luv_to_xyz};
 use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::{
     _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_s32,
@@ -46,6 +46,12 @@ unsafe fn avx_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         }
         XyzTarget::LUV => {
             let (x, y, z) = avx_luv_to_xyz(r_f32, g_f32, b_f32);
+            r_f32 = x;
+            g_f32 = y;
+            b_f32 = z;
+        }
+        XyzTarget::LCH => {
+            let (x, y, z) = avx_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;

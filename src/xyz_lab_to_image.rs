@@ -76,40 +76,38 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         #[allow(unused_mut)]
         let mut cx = 0usize;
 
-        if source != XyzTarget::LCH {
-            #[cfg(all(
-                any(target_arch = "x86_64", target_arch = "x86"),
-                target_feature = "avx2"
-            ))]
-            unsafe {
-                if _has_avx2 {
-                    if USE_ALPHA {
-                        cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                            cx,
-                            src.as_ptr(),
-                            src_offset,
-                            a_channel.as_ptr(),
-                            a_offset,
-                            dst.as_mut_ptr(),
-                            dst_offset,
-                            width,
-                            &matrix,
-                            transfer_function,
-                        )
-                    } else {
-                        cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                            cx,
-                            src.as_ptr(),
-                            src_offset,
-                            std::ptr::null(),
-                            0usize,
-                            dst.as_mut_ptr(),
-                            dst_offset,
-                            width,
-                            &matrix,
-                            transfer_function,
-                        )
-                    }
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "avx2"
+        ))]
+        unsafe {
+            if _has_avx2 {
+                if USE_ALPHA {
+                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        a_channel.as_ptr(),
+                        a_offset,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
+                } else {
+                    cx = avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                        cx,
+                        src.as_ptr(),
+                        src_offset,
+                        std::ptr::null(),
+                        0usize,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        width,
+                        &matrix,
+                        transfer_function,
+                    )
                 }
             }
         }

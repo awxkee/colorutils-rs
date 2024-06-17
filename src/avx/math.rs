@@ -443,3 +443,187 @@ pub(crate) unsafe fn _mm256_neg_ps(x: __m256) -> __m256 {
     let high = _mm256_set1_ps(0f32);
     return _mm256_sub_ps(high, x);
 }
+
+#[inline(always)]
+pub unsafe fn _mm256_is_infinity(d: __m256) -> __m256 {
+    return _mm256_cmp_ps::<_CMP_EQ_OS>(_mm256_abs_ps(d), _mm256_set1_ps(f32::INFINITY));
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_cos_ps(d: __m256) -> __m256 {
+    let mut q = _mm256_cvtps_epi32(_mm256_sub_ps(
+        _mm256_mul_ps(d, _mm256_set1_ps(std::f32::consts::FRAC_1_PI)),
+        _mm256_set1_ps(0.5f32),
+    ));
+
+    q = _mm256_add_epi32(_mm256_add_epi32(q, q), _mm256_set1_epi32(1));
+
+    let mut u = _mm256_cvtepi32_ps(q);
+    let mut d = _mm256_fmaf_ps(u, _mm256_set1_ps(-0.78515625f32 * 2f32), d);
+    d = _mm256_fmaf_ps(u, _mm256_set1_ps(-0.00024187564849853515625f32 * 2f32), d);
+    d = _mm256_fmaf_ps(u, _mm256_set1_ps(-3.7747668102383613586e-08f32 * 2f32), d);
+    d = _mm256_fmaf_ps(u, _mm256_set1_ps(-1.2816720341285448015e-12f32 * 2f32), d);
+
+    let s = _mm256_mul_ps(d, d);
+
+    d = _mm256_castsi256_ps(_mm256_xor_si256(
+        _mm256_and_si256(
+            _mm256_cmpeq_epi32(
+                _mm256_and_si256(q, _mm256_set1_epi32(2)),
+                _mm256_set1_epi32(0),
+            ),
+            _mm256_castps_si256(_mm256_set1_ps(-0.0f32)),
+        ),
+        _mm256_castps_si256(d),
+    ));
+
+    u = _mm256_set1_ps(2.6083159809786593541503e-06f32);
+    u = _mm256_fmaf_ps(u, s, _mm256_set1_ps(-0.0001981069071916863322258f32));
+    u = _mm256_fmaf_ps(u, s, _mm256_set1_ps(0.00833307858556509017944336f32));
+    u = _mm256_fmaf_ps(u, s, _mm256_set1_ps(-0.166666597127914428710938f32));
+
+    u = _mm256_fmaf_ps(s, _mm256_mul_ps(u, d), d);
+
+    u = _mm256_or_ps(_mm256_is_infinity(d), u);
+
+    return u;
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_hypot_ps(x: __m256, y: __m256) -> __m256 {
+    let xp2 = _mm256_mul_ps(x, x);
+    let yp2 = _mm256_mul_ps(y, y);
+    let z = _mm256_add_ps(xp2, yp2);
+    return _mm256_sqrt_ps(z);
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_poly4_ps(
+    x: __m256,
+    x2: __m256,
+    c3: __m256,
+    c2: __m256,
+    c1: __m256,
+    c0: __m256,
+) -> __m256 {
+    _mm256_fmaf_ps(x2, _mm256_fmaf_ps(x, c3, c2), _mm256_fmaf_ps(x, c1, c0))
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_poly8q_ps(
+    x: __m256,
+    x2: __m256,
+    x4: __m256,
+    c7: __m256,
+    c6: __m256,
+    c5: __m256,
+    c4: __m256,
+    c3: __m256,
+    c2: __m256,
+    c1: __m256,
+    c0: __m256,
+) -> __m256 {
+    _mm256_fmaf_ps(
+        x4,
+        _mm256_poly4_ps(x, x2, c7, c6, c5, c4),
+        _mm256_poly4_ps(x, x2, c3, c2, c1, c0),
+    )
+}
+
+#[inline(always)]
+unsafe fn _mm256_atan2q_ps_impl(y: __m256, x: __m256) -> __m256 {
+    let q = _mm256_select_si256(
+        _mm256_castps_si256(_mm256_cmp_ps::<_CMP_LT_OS>(x, _mm256_setzero_ps())),
+        _mm256_set1_epi32(-2),
+        _mm256_set1_epi32(0),
+    );
+    let x = _mm256_abs_ps(x);
+    let is_y_more_than_x = _mm256_cmp_ps::<_CMP_GT_OS>(y, x);
+    let t = _mm256_select_ps(is_y_more_than_x, x, _mm256_setzero_ps());
+    let x = _mm256_select_ps(is_y_more_than_x, y, x);
+    let y = _mm256_select_ps(is_y_more_than_x, _mm256_neg_ps(t), y);
+    let q = _mm256_select_si256(
+        _mm256_castps_si256(is_y_more_than_x),
+        _mm256_add_epi32(q, _mm256_set1_epi32(1)),
+        q,
+    );
+    let s = _mm256_div_ps(y, x);
+    let t = _mm256_mul_ps(s, s);
+    let t2 = _mm256_mul_ps(t, t);
+    let t4 = _mm256_mul_ps(t2, t2);
+    let poly = _mm256_poly8q_ps(
+        t,
+        t2,
+        t4,
+        _mm256_set1_ps(0.00282363896258175373077393f32),
+        _mm256_set1_ps(-0.0159569028764963150024414f32),
+        _mm256_set1_ps(0.0425049886107444763183594f32),
+        _mm256_set1_ps(-0.0748900920152664184570312f32),
+        _mm256_set1_ps(0.106347933411598205566406f32),
+        _mm256_set1_ps(-0.142027363181114196777344f32),
+        _mm256_set1_ps(0.199926957488059997558594f32),
+        _mm256_set1_ps(-0.333331018686294555664062f32),
+    );
+    let t = _mm256_prefer_fma_ps(s, _mm256_mul_ps(poly, t), s);
+    let t = _mm256_prefer_fma_ps(
+        t,
+        _mm256_cvtepi32_ps(q),
+        _mm256_set1_ps(std::f32::consts::FRAC_PI_2),
+    );
+    t
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_atan2_ps(y: __m256, x: __m256) -> __m256 {
+    let r = _mm256_atan2q_ps_impl(_mm256_abs_ps(y), x);
+    let r = _mm256_mulsign_ps(r, x);
+    _mm256_mulsign_ps(r, y)
+}
+
+#[inline(always)]
+pub unsafe fn _mm256_sin_ps(val: __m256) -> __m256 {
+    let pi_v = _mm256_set1_ps(std::f32::consts::PI);
+    let pio2_v = _mm256_set1_ps(std::f32::consts::FRAC_PI_2);
+    let ipi_v = _mm256_set1_ps(std::f32::consts::FRAC_1_PI);
+
+    //Find positive or negative
+    let c_v = _mm256_abs_epi32(_mm256_cvtps_epi32(_mm256_mul_ps(val, ipi_v)));
+    let sign_v = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_LE_OS>(val, _mm256_setzero_ps()));
+    let odd_v = _mm256_and_si256(c_v, _mm256_set1_epi32(1));
+
+    let neg_v = _mm256_xor_si256(odd_v, sign_v);
+
+    //Modulus a - (n * int(a*(1/n)))
+    let mut ma = _mm256_sub_ps(
+        _mm256_abs_ps(val),
+        _mm256_mul_ps(pi_v, _mm256_cvtepi32_ps(c_v)),
+    );
+    let reb_v = _mm256_cmp_ps::<_CMP_GE_OS>(ma, pio2_v);
+
+    //Rebase a between 0 and pi/2
+    ma = _mm256_select_ps(reb_v, _mm256_sub_ps(pi_v, ma), ma);
+
+    //Taylor series
+    let ma2 = _mm256_mul_ps(ma, ma);
+
+    //2nd elem: x^3 / 3!
+    let mut elem = _mm256_mul_ps(_mm256_mul_ps(ma, ma2), _mm256_set1_ps(0.166666666666f32));
+    let mut res = _mm256_sub_ps(ma, elem);
+
+    //3rd elem: x^5 / 5!
+    elem = _mm256_mul_ps(_mm256_mul_ps(elem, ma2), _mm256_set1_ps(0.05f32));
+    res = _mm256_add_ps(res, elem);
+
+    //4th elem: x^7 / 7!float32x2_t vsin_f32(float32x2_t val)
+    elem = _mm256_mul_ps(_mm256_mul_ps(elem, ma2), _mm256_set1_ps(0.023809523810f32));
+    res = _mm256_sub_ps(res, elem);
+
+    //5th elem: x^9 / 9!
+    elem = _mm256_mul_ps(_mm256_mul_ps(elem, ma2), _mm256_set1_ps(0.013888888889f32));
+    res = _mm256_add_ps(res, elem);
+
+    //Change of sign
+    let neg_v = _mm256_slli_epi32::<31>(neg_v);
+    res = _mm256_castsi256_ps(_mm256_xor_si256(_mm256_castps_si256(res), neg_v));
+    return res;
+}
