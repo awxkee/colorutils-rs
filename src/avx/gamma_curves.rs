@@ -88,9 +88,13 @@ pub unsafe fn avx2_rec709_to_linear(gamma: __m256) -> __m256 {
 
 #[inline(always)]
 pub unsafe fn avx2_pure_gamma(x: __m256, value: f32) -> __m256 {
-    let x = _mm256_max_ps(x, _mm256_setzero_ps());
-    let x = _mm256_min_ps(x, _mm256_set1_ps(1f32));
-    _mm256_pow_n_ps(x, value)
+    let zeros = _mm256_setzero_ps();
+    let ones = _mm256_set1_ps(1f32);
+    let zero_mask = _mm256_cmp_ps::<_CMP_LE_OS>(x, zeros);
+    let ones_mask = _mm256_cmp_ps::<_CMP_GE_OS>(x, ones);
+    let mut rs = _mm256_pow_n_ps(x, value);
+    rs = crate::avx::math::_mm256_select_ps(zero_mask, zeros, rs);
+    crate::avx::math::_mm256_select_ps(ones_mask, ones, rs)
 }
 
 #[inline(always)]

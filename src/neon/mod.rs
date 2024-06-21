@@ -21,6 +21,7 @@ pub use gamma_curves::*;
 pub use hsv_to_image::*;
 pub use image_to_hsv::*;
 pub use linear_to_image::*;
+pub use math::vatan2q_f32;
 pub use to_linear::*;
 pub use to_linear_u8::*;
 pub use to_sigmoidal::neon_image_to_sigmoidal;

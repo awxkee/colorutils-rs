@@ -19,7 +19,7 @@ pub(crate) unsafe fn neon_sigmoidal_to_color(x: float32x4_t) -> float32x4_t {
     let k = vmulq_f32(x, vrecpeq_f32(den));
     let zeros = vdupq_n_f32(0f32);
     let zero_mask_2 = vcleq_f32(k, zeros);
-    let ln = vlogq_f32(k);
+    let ln = vlogq_f32::<false>(k);
     let rs = vbslq_f32(vandq_u32(zero_mask_1, zero_mask_2), zeros, ln);
     return rs;
 }

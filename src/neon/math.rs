@@ -213,7 +213,8 @@ pub unsafe fn vexpq_f32_ulp1(d: float32x4_t) -> float32x4_t {
 }
 
 #[inline(always)]
-pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
+pub unsafe fn vlogq_f32<const HANDLE_NAN: bool>(x: float32x4_t) -> float32x4_t {
+    let nan_mask = vclezq_f32(x);
     let const_ln127 = vdupq_n_s32(127); // 127
     let const_ln2 = vdupq_n_f32(std::f32::consts::LN_2); // ln(2)
 
@@ -239,6 +240,12 @@ pub unsafe fn vlogq_f32(x: float32x4_t) -> float32x4_t {
 
     // Reconstruct
     poly = prefer_vfmaq_f32(poly, vcvtq_f32_s32(m), const_ln2);
+
+    if HANDLE_NAN {
+        poly = vbslq_f32(nan_mask, vdupq_n_f32(-f32::INFINITY), poly);
+    } else {
+        poly = vbslq_f32(nan_mask, vdupq_n_f32(0f32), poly);
+    }
 
     return poly;
 }
@@ -295,7 +302,7 @@ pub unsafe fn vlogq_f32_ulp35(d: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn vpowq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
-    return vexpq_f32(vmulq_f32(n, vlogq_f32(val)));
+    return vexpq_f32(vmulq_f32(n, vlogq_f32::<false>(val)));
 }
 
 #[inline(always)]
@@ -553,9 +560,25 @@ unsafe fn vatan2q_f32_impl(y: float32x4_t, x: float32x4_t) -> float32x4_t {
 }
 
 #[inline(always)]
+pub unsafe fn visnegq_f32(x: float32x4_t) -> uint32x4_t {
+    vcltzq_f32(x)
+}
+
+#[inline(always)]
 pub unsafe fn vatan2q_f32(y: float32x4_t, x: float32x4_t) -> float32x4_t {
     let r = vatan2q_f32_impl(vabsq_f32(y), x);
-    let r = vmulsignq_f32(r, x);
+    let mut r = vmulsignq_f32(r, x);
+    let y_zero_mask = vceqzq_f32(y);
+    r = vbslq_f32(vceqzq_f32(x), vdupq_n_f32(std::f32::consts::FRAC_PI_2), r);
+    r = vbslq_f32(
+        y_zero_mask,
+        vbslq_f32(
+            visnegq_f32(x),
+            vdupq_n_f32(std::f32::consts::PI),
+            vdupq_n_f32(0f32),
+        ),
+        r,
+    );
     vmulsignq_f32(r, y)
 }
 

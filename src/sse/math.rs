@@ -43,7 +43,9 @@ unsafe fn _mm_taylorpoly_ps(
 }
 
 #[inline(always)]
-pub unsafe fn _mm_log_ps(v: __m128) -> __m128 {
+pub unsafe fn _mm_log_ps<const HANDLE_NAN: bool>(v: __m128) -> __m128 {
+    let zeros = _mm_setzero_ps();
+    let nan_mask = _mm_cmple_ps(v, zeros);
     let const_ln127 = _mm_set1_epi32(127); // 127
     let const_ln2 = _mm_set1_ps(std::f32::consts::LN_2); // ln(2)
 
@@ -64,6 +66,13 @@ pub unsafe fn _mm_log_ps(v: __m128) -> __m128 {
     );
 
     poly = _mm_prefer_fma_ps(poly, _mm_cvtepi32_ps(m), const_ln2);
+
+    if HANDLE_NAN {
+        poly = _mm_select_ps(nan_mask, _mm_set1_ps(-f32::INFINITY), poly);
+    } else {
+        poly = _mm_select_ps(nan_mask, zeros, poly);
+    }
+
     poly
 }
 
@@ -550,7 +559,15 @@ unsafe fn _mm_atan2q_ps_impl(y: __m128, x: __m128) -> __m128 {
 #[inline(always)]
 pub unsafe fn _mm_atan2_ps(y: __m128, x: __m128) -> __m128 {
     let r = _mm_atan2q_ps_impl(_mm_abs_ps(y), x);
-    let r = _mm_mulsign_ps(r, x);
+    let mut r = _mm_mulsign_ps(r, x);
+    let zeros = _mm_setzero_ps();
+    let y_zero_mask = _mm_cmpeq_ps(y, zeros);
+    r = _mm_select_ps(
+        _mm_cmpeq_ps(x, zeros),
+        _mm_set1_ps(std::f32::consts::FRAC_PI_2),
+        r,
+    );
+    r = _mm_select_ps(y_zero_mask, zeros, r);
     _mm_mulsign_ps(r, y)
 }
 

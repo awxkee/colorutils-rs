@@ -78,9 +78,13 @@ pub unsafe fn neon_rec709_to_linear(gamma: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn neon_pure_gamma_function(gamma: float32x4_t, gamma_constant: f32) -> float32x4_t {
-    let gamma = vmaxq_f32(gamma, vdupq_n_f32(0f32));
-    let gamma = vminq_f32(gamma, vdupq_n_f32(1f32));
-    vpowq_n_f32(gamma, gamma_constant)
+    let zero_mask = vclezq_f32(gamma);
+    let ones = vdupq_n_f32(1f32);
+    let zeros = vdupq_n_f32(0f32);
+    let ones_mask = vcgeq_f32(gamma, ones);
+    let mut rs = vpowq_n_f32(gamma, gamma_constant);
+    rs = vbslq_f32(zero_mask, zeros, rs);
+    vbslq_f32(ones_mask, ones, rs)
 }
 
 #[inline(always)]

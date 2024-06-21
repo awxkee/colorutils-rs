@@ -1,6 +1,5 @@
 use crate::rgb::Rgb;
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Hsl {
     pub h: f32,
@@ -9,7 +8,6 @@ pub struct Hsl {
 }
 
 impl Hsl {
-    #[allow(dead_code)]
     pub fn new(h: u16, s: u16, l: u16) -> Hsl {
         Hsl {
             h: h as f32,
@@ -22,12 +20,10 @@ impl Hsl {
         Hsl { h, s, l }
     }
 
-    #[allow(dead_code)]
     pub fn from_rgb(rgb: &Rgb<u8>) -> Hsl {
         rgb2hsl(rgb.r, rgb.g, rgb.b)
     }
 
-    #[allow(dead_code)]
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let c = (1f32 - (2f32 * self.l - 1f32).abs()) * self.s;
         let x = c * (1f32 - ((self.h / 60f32) % 2f32 - 1f32).abs());
@@ -54,22 +50,18 @@ impl Hsl {
         }
     }
 
-    #[allow(dead_code)]
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_rgb8()
     }
 
-    #[allow(dead_code)]
     pub fn get_saturation(&self) -> u16 {
         ((self.s * 100f32) as u16).min(100u16)
     }
 
-    #[allow(dead_code)]
     pub fn get_lightness(&self) -> u16 {
         ((self.l * 100f32) as u16).min(100u16)
     }
 
-    #[allow(dead_code)]
     pub fn get_hue(&self) -> u16 {
         (self.h as u16).min(360)
     }

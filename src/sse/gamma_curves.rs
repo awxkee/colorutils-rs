@@ -87,9 +87,13 @@ pub unsafe fn sse_rec709_to_linear(gamma: __m128) -> __m128 {
 
 #[inline(always)]
 pub unsafe fn sse_pure_gamma(gamma: __m128, value: f32) -> __m128 {
-    let gamma = _mm_max_ps(gamma, _mm_setzero_ps());
-    let gamma = _mm_min_ps(gamma, _mm_set1_ps(1f32));
-    _mm_pow_n_ps(gamma, value)
+    let zeros = _mm_setzero_ps();
+    let zero_mask = _mm_cmple_ps(gamma, zeros);
+    let ones = _mm_set1_ps(1f32);
+    let ones_mask = _mm_cmpge_ps(gamma, ones);
+    let mut rs = _mm_pow_n_ps(gamma, value);
+    rs = _mm_select_ps(zero_mask, zeros, rs);
+    _mm_select_ps(ones_mask, ones, rs)
 }
 
 #[inline(always)]

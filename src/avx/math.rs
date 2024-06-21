@@ -1,3 +1,4 @@
+use crate::sse::{_mm_mulsign_ps, _mm_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -47,7 +48,9 @@ unsafe fn _mm256_taylorpoly_ps(
 }
 
 #[inline(always)]
-pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
+pub unsafe fn _mm256_log_ps<const HANDLE_NAN: bool>(v: __m256) -> __m256 {
+    let zeros = _mm256_setzero_ps();
+    let nan_mask = _mm256_cmp_ps::<_CMP_LE_OS>(v, zeros);
     let const_ln127 = _mm256_set1_epi32(127); // 127
     let const_ln2 = _mm256_set1_ps(std::f32::consts::LN_2); // ln(2)
 
@@ -71,6 +74,13 @@ pub unsafe fn _mm256_log_ps(v: __m256) -> __m256 {
     );
 
     poly = _mm256_prefer_fma_ps(poly, _mm256_cvtepi32_ps(m), const_ln2);
+
+    if HANDLE_NAN {
+        poly = _mm256_select_ps(nan_mask, _mm256_set1_ps(-f32::INFINITY), poly);
+    } else {
+        poly = _mm256_select_ps(nan_mask, zeros, poly);
+    }
+
     poly
 }
 
@@ -576,7 +586,15 @@ unsafe fn _mm256_atan2q_ps_impl(y: __m256, x: __m256) -> __m256 {
 #[inline(always)]
 pub unsafe fn _mm256_atan2_ps(y: __m256, x: __m256) -> __m256 {
     let r = _mm256_atan2q_ps_impl(_mm256_abs_ps(y), x);
-    let r = _mm256_mulsign_ps(r, x);
+    let mut r = _mm256_mulsign_ps(r, x);
+    let zeros = _mm256_setzero_ps();
+    let y_zero_mask = _mm256_cmp_ps::<_CMP_EQ_OS>(y, zeros);
+    r = _mm256_select_ps(
+        _mm256_cmp_ps::<_CMP_EQ_OS>(x, zeros),
+        _mm256_set1_ps(std::f32::consts::FRAC_PI_2),
+        r,
+    );
+    r = _mm256_select_ps(y_zero_mask, zeros, r);
     _mm256_mulsign_ps(r, y)
 }
 
