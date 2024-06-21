@@ -1,4 +1,3 @@
-use crate::sse::{_mm_mulsign_ps, _mm_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -210,13 +209,13 @@ unsafe fn _mm256_exp_ps_impl<const PROCESS_NAN: bool>(x: __m256) -> __m256 {
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_pow_ps(x: __m256, n: __m256) -> __m256 {
-    _mm256_exp_ps(_mm256_mul_ps(n, _mm256_log_ps(x)))
+    _mm256_exp_ps(_mm256_mul_ps(n, _mm256_log_ps::<false>(x)))
 }
 
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn _mm256_pow_n_ps(x: __m256, n: f32) -> __m256 {
-    _mm256_exp_ps(_mm256_mul_ps(_mm256_set1_ps(n), _mm256_log_ps(x)))
+    _mm256_exp_ps(_mm256_mul_ps(_mm256_set1_ps(n), _mm256_log_ps::<false>(x)))
 }
 
 #[inline(always)]

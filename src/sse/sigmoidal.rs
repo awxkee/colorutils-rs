@@ -21,7 +21,7 @@ pub(crate) unsafe fn sse_sigmoidal_to_color(x: __m128) -> __m128 {
     let k = _mm_mul_ps(x, _mm_rcp_ps(den));
     let zeros = _mm_setzero_ps();
     let zero_mask_2 = _mm_cmple_ps(k, zeros);
-    let ln = _mm_log_ps(k);
+    let ln = _mm_log_ps::<false>(k);
     let rs = _mm_select_ps(_mm_and_ps(zero_mask_1, zero_mask_2), zeros, ln);
     return rs;
 }

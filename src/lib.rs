@@ -109,7 +109,6 @@ pub use xyza_laba_to_image::xyz_with_alpha_to_rgba;
 pub use image_to_sigmoidal::bgra_to_sigmoidal;
 pub use image_to_sigmoidal::rgb_to_sigmoidal;
 pub use image_to_sigmoidal::rgba_to_sigmoidal;
-pub use neon::*;
 pub use rgb_expand::*;
 pub use sigmoidal::Sigmoidal;
 pub use sigmoidal_to_image::sigmoidal_to_bgra;

@@ -21,7 +21,7 @@ pub(crate) unsafe fn avx_sigmoidal_to_color(x: __m256) -> __m256 {
     let k = _mm256_mul_ps(x, _mm256_rcp_ps(den));
     let zeros = _mm256_setzero_ps();
     let zero_mask_2 = _mm256_cmp_ps::<_CMP_LT_OS>(k, zeros);
-    let ln = _mm256_log_ps(k);
+    let ln = _mm256_log_ps::<false>(k);
     let rs = _mm256_select_ps(_mm256_and_ps(zero_mask_1, zero_mask_2), zeros, ln);
     return rs;
 }

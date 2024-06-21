@@ -1,4 +1,3 @@
-use std::arch::aarch64::{vdupq_n_f32, vgetq_lane_f32};
 use std::time::Instant;
 
 use image::io::Reader as ImageReader;
@@ -15,13 +14,6 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    unsafe {
-        let y = vdupq_n_f32(0f32);
-        let x = vdupq_n_f32(0f32);
-        let v = vatan2q_f32(y, x);
-        let val = vgetq_lane_f32::<0>(v);
-        print!("{}", val);
-    }
     let r = 140;
     let g = 164;
     let b = 177;
@@ -31,7 +23,7 @@ fn main() {
     println!("HSL {:?}", hsl);
     println!("Back RGB {:?}", hsl.to_rgb8());
 
-    let img = ImageReader::open("./assets/horse.png")
+    let img = ImageReader::open("./assets/asset_2.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -42,7 +34,7 @@ fn main() {
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
-    let components = 4;
+    let components = 3;
     //
     // let mut dst_rgba = vec![];
     // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
@@ -66,13 +58,14 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0f32);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgba_to_lch_with_alpha(
+        rgb_to_linear(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
+            TransferFunction::Gamma2p2,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -100,13 +93,14 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        lch_with_alpha_to_rgba(
+        linear_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
+            TransferFunction::Gamma2p2,
         );
 
         let elapsed_time = start_time.elapsed();
