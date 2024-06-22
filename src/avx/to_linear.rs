@@ -166,7 +166,7 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64), v0);
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 8), v1);
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 32), v3);
+            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 24), v3);
         } else {
             let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_low, y_high_low, z_high_low);
             _mm256_storeu_ps(dst_ptr.add(cx * 3 + 48), v0);
@@ -192,7 +192,7 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96), v0);
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 8), v1);
             _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 32), v3);
+            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 24), v3);
         } else {
             let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_high, y_high_high, z_high_high);
             _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 * 3), v0);
