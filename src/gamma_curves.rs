@@ -1,4 +1,5 @@
 #[inline(always)]
+/// Linear transfer function for sRGB
 pub fn srgb_to_linear(gamma: f32) -> f32 {
     return if gamma < 0f32 {
         0f32
@@ -12,6 +13,7 @@ pub fn srgb_to_linear(gamma: f32) -> f32 {
 }
 
 #[inline(always)]
+/// Gamma transfer function for sRGB
 pub fn srgb_from_linear(linear: f32) -> f32 {
     return if linear < 0.0f32 {
         0.0f32
@@ -25,6 +27,7 @@ pub fn srgb_from_linear(linear: f32) -> f32 {
 }
 
 #[inline(always)]
+/// Linear transfer function for Rec.709
 pub fn rec709_to_linear(gamma: f32) -> f32 {
     return if gamma < 0.0f32 {
         0.0f32
@@ -38,6 +41,7 @@ pub fn rec709_to_linear(gamma: f32) -> f32 {
 }
 
 #[inline(always)]
+/// Gamma transfer function for Rec.709
 pub fn rec709_from_linear(linear: f32) -> f32 {
     return if linear < 0.0f32 {
         0.0f32
@@ -51,26 +55,43 @@ pub fn rec709_from_linear(linear: f32) -> f32 {
 }
 
 #[inline(always)]
+/// Pure gamma transfer function for gamma 2.2
+pub fn pure_gamma_function(x: f32, gamma: f32) -> f32 {
+    if x <= 0f32 {
+        return 0f32;
+    } else if x >= 1f32 {
+        return 1f32;
+    } else {
+        return x.powf(gamma);
+    }
+}
+
+#[inline(always)]
+/// Pure gamma transfer function for gamma 2.2
 pub fn gamma2p2_from_linear(linear: f32) -> f32 {
-    linear.powf(1f32 / 2.2f32)
+    pure_gamma_function(linear, 1f32 / 2.2f32)
 }
 
 #[inline(always)]
+/// Linear transfer function for gamma 2.2
 pub fn gamma2p2_to_linear(gamma: f32) -> f32 {
-    gamma.powf(2.2f32)
+    pure_gamma_function(gamma, 2.2f32)
 }
 
 #[inline(always)]
+/// Pure gamma transfer function for gamma 2.8
 pub fn gamma2p8_from_linear(linear: f32) -> f32 {
-    linear.powf(1f32 / 2.8f32)
+    pure_gamma_function(linear, 1f32 / 2.8f32)
 }
 
 #[inline(always)]
+/// Linear transfer function for gamma 2.8
 pub fn gamma2p8_to_linear(gamma: f32) -> f32 {
-    gamma.powf(2.8f32)
+    pure_gamma_function(gamma, 2.8f32)
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+/// Declares transfer function for transfer components into a linear colorspace and its inverse
 pub enum TransferFunction {
     /// sRGB Transfer function
     Srgb,

@@ -19,12 +19,14 @@ mod image_xyza_laba;
 mod lab;
 mod linear_to_image;
 mod linear_to_image_u8;
+pub mod linear_to_planar;
 mod luv;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 mod neon;
+pub mod planar_to_linear;
 mod rgb;
 mod rgb_expand;
 mod rgba;

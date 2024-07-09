@@ -1,9 +1,13 @@
 use crate::rgb::Rgb;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+/// Represents *HSV* (hue, saturation, value) colorspace, H ∈ [0, 360f32], s ∈ [0f32, 1f32], v ∈ [0f32, 1f32]
 pub struct Hsv {
+    /// Hue H ∈ [0, 360f32]
     pub h: f32,
+    /// Saturation s ∈ [0, 1f32]
     pub s: f32,
+    /// Value v ∈ [0, 1f32]
     pub v: f32,
 }
 

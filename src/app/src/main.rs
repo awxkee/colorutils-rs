@@ -23,7 +23,7 @@ fn main() {
     println!("HSL {:?}", hsl);
     println!("Back RGB {:?}", hsl.to_rgb8());
 
-    let img = ImageReader::open("./assets/test_image_2.png")
+    let img = ImageReader::open("./assets/beach_horizon.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -34,7 +34,7 @@ fn main() {
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
-    let components = 4;
+    let components = 3;
     //
     // let mut dst_rgba = vec![];
     // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
@@ -58,14 +58,13 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0f32);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgba_to_linear(
+        rgb_to_lab(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -93,14 +92,13 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        linear_to_rgba(
+        lab_to_srgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            TransferFunction::Srgb,
         );
 
         let elapsed_time = start_time.elapsed();

@@ -2,10 +2,12 @@ use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
-use crate::neon::math::{
-    prefer_vfmaq_f32, vatan2q_f32, vcbrtq_f32, vcolorq_matrix_f32, vcosq_f32, vcubeq_f32,
-    vhypotq_f32, vsinq_f32,
-};
+use crate::neon::math::{prefer_vfmaq_f32, vcolorq_matrix_f32, vcubeq_f32};
+use erydanos::neon::atan2f::vatan2q_f32;
+use erydanos::neon::cbrtf::vcbrtq_f32;
+use erydanos::neon::cosf::vcosq_f32;
+use erydanos::neon::hypotf::vhypotq_fast_f32;
+use erydanos::neon::sinf::vsinq_f32;
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -100,7 +102,7 @@ pub(crate) unsafe fn neon_triple_to_lch(
     z: float32x4_t,
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
     let (luv_l, luv_u, luv_v) = neon_triple_to_luv(x, y, z);
-    let lch_c = vhypotq_f32(luv_u, luv_v);
+    let lch_c = vhypotq_fast_f32(luv_u, luv_v);
     let lch_h = vatan2q_f32(luv_v, luv_u);
     (luv_l, lch_c, lch_h)
 }

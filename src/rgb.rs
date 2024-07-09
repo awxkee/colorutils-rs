@@ -4,9 +4,13 @@ use crate::luv::Luv;
 use crate::{Hsl, LCh, Sigmoidal};
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
+/// Represents any RGB values, Rgb<u8>, Rgb<u16> etc.
 pub struct Rgb<T> {
+    /// Red component
     pub r: T,
+    /// Green component
     pub g: T,
+    /// Blue component
     pub b: T,
 }
 

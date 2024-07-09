@@ -1,5 +1,7 @@
 use std::arch::aarch64::*;
 
+use erydanos::neon::powf::vpowq_fast_f32;
+
 #[inline(always)]
 #[allow(dead_code)]
 pub(crate) unsafe fn vfmodq_f32(a: float32x4_t, b: float32x4_t) -> float32x4_t {
@@ -301,13 +303,13 @@ pub unsafe fn vlogq_f32_ulp35(d: float32x4_t) -> float32x4_t {
 }
 
 #[inline(always)]
-pub unsafe fn vpowq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
-    return vexpq_f32(vmulq_f32(n, vlogq_f32::<false>(val)));
+pub unsafe fn vpowjq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
+    vpowq_fast_f32(val, n)
 }
 
 #[inline(always)]
 pub unsafe fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
-    return vpowq_f32(t, vdupq_n_f32(power));
+    return vpowjq_f32(t, vdupq_n_f32(power));
 }
 
 #[inline(always)]
@@ -360,109 +362,6 @@ pub(crate) unsafe fn vmlafq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) 
 }
 
 #[inline(always)]
-pub unsafe fn vcbrtq_f32(d: float32x4_t) -> float32x4_t {
-    vcbrtq_f32_ulp2::<false>(d)
-}
-
-#[inline(always)]
-/// Precise version of Cube Root with ULP 2
-pub unsafe fn vcbrtq_f32_ulp2<const HANDLE_NAN: bool>(x: float32x4_t) -> float32x4_t {
-    let x1p24 = vreinterpretq_f32_u32(vdupq_n_u32(0x4b800000)); // 0x1p24f === 2 ^ 24
-
-    let mut ui = vreinterpretq_u32_f32(x);
-    let hx = vandq_u32(ui, vdupq_n_u32(0x7fffffff));
-
-    let nan_mask = vcgeq_u32(hx, vdupq_n_u32(0x7f800000));
-    let is_zero_mask = vceqzq_u32(hx);
-
-    let lo_mask = vcltq_u32(hx, vdupq_n_u32(0x00800000));
-    let hi_ui_f = vreinterpretq_u32_f32(vmulq_f32(x, x1p24));
-    let mut lo_hx = vandq_u32(hi_ui_f, vdupq_n_u32(0x7fffffff));
-    lo_hx = vaddq_u32(
-        vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(lo_hx), 1f32 / 3f32)),
-        vdupq_n_u32(642849266),
-    );
-    let hi_hx = vaddq_u32(
-        vcvtq_u32_f32(vmulq_n_f32(vcvtq_f32_u32(hx), 1f32 / 3f32)),
-        vdupq_n_u32(709958130),
-    );
-    let hx = vbslq_u32(lo_mask, lo_hx, hi_hx);
-
-    ui = vbslq_u32(lo_mask, hi_ui_f, ui);
-    ui = vandq_u32(ui, vdupq_n_u32(0x80000000));
-    ui = vorrq_u32(ui, hx);
-
-    let mut t = vreinterpretq_f32_u32(ui);
-    let mut r = vmulq_f32(vmulq_f32(t, t), t);
-
-    let sum_x = vaddq_f32(x, x);
-
-    t = vmulq_f32(
-        vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)),
-        t,
-    );
-
-    r = vmulq_f32(vmulq_f32(t, t), t);
-    t = vmulq_f32(
-        vdivq_f32(vaddq_f32(sum_x, r), vaddq_f32(vaddq_f32(r, r), x)),
-        t,
-    );
-    if HANDLE_NAN {
-        t = vbslq_f32(nan_mask, vdupq_n_f32(f32::NAN), t);
-        t = vbslq_f32(is_zero_mask, vdupq_n_f32(0f32), t);
-    }
-    t
-}
-
-#[inline(always)]
-#[allow(dead_code)]
-/// Precise version of Cube Root with ULP 3.5
-pub unsafe fn vcbrtq_f32_ulp35(d: float32x4_t) -> float32x4_t {
-    let mut q = vdupq_n_f32(1f32);
-    let e = vaddq_s32(vilogbk_vi2_vf(vabsq_f32(d)), vdupq_n_s32(1));
-    let mut d = vldexp2q_f32(d, vnegq_s32(e));
-
-    let t = vaddq_f32(vcvtq_f32_s32(e), vdupq_n_f32(6144f32));
-    let qu = vcvtq_s32_f32(vmulq_n_f32(t, 1.0f32 / 3.0f32));
-    let re = vcvtq_s32_f32(vsubq_f32(t, vmulq_n_f32(vcvtq_f32_s32(qu), 3f32)));
-
-    q = vbslq_f32(
-        vceqq_s32(re, vdupq_n_s32(1)),
-        vdupq_n_f32(1.2599210498948731647672106f32),
-        q,
-    );
-    q = vbslq_f32(
-        vceqq_s32(re, vdupq_n_s32(2)),
-        vdupq_n_f32(1.5874010519681994747517056f32),
-        q,
-    );
-    q = vldexp2q_f32(q, vsubq_s32(qu, vdupq_n_s32(2048)));
-
-    q = vmulsignq_f32(q, d);
-    d = vabsq_f32(d);
-
-    let mut x = vdupq_n_f32(-0.601564466953277587890625f32);
-    x = vmlafq_f32(x, d, vdupq_n_f32(2.8208892345428466796875f32));
-    x = vmlafq_f32(x, d, vdupq_n_f32(-5.532182216644287109375f32));
-    x = vmlafq_f32(x, d, vdupq_n_f32(5.898262500762939453125f32));
-    x = vmlafq_f32(x, d, vdupq_n_f32(-3.8095417022705078125f32));
-    x = vmlafq_f32(x, d, vdupq_n_f32(2.2241256237030029296875f32));
-
-    let mut y = vmulq_f32(vmulq_f32(d, x), x);
-    y = vmulq_f32(
-        vsubq_f32(
-            y,
-            vmulq_f32(
-                vmulq_n_f32(y, 2.0f32 / 3.0f32),
-                vmlafq_f32(y, x, vdupq_n_f32(-1.0f32)),
-            ),
-        ),
-        q,
-    );
-    return y;
-}
-
-#[inline(always)]
 pub unsafe fn vcolorq_matrix_f32(
     r: float32x4_t,
     g: float32x4_t,
@@ -482,187 +381,6 @@ pub unsafe fn vcolorq_matrix_f32(
     let new_b = prefer_vfmaq_f32(prefer_vfmaq_f32(vmulq_f32(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
 }
-
-#[inline(always)]
-pub unsafe fn vhypotq_f32(x: float32x4_t, y: float32x4_t) -> float32x4_t {
-    let xp2 = vmulq_f32(x, x);
-    let yp2 = vmulq_f32(y, y);
-    let z = vaddq_f32(xp2, yp2);
-    return vsqrtq_f32(z);
-}
-
-#[inline(always)]
-pub unsafe fn vpoly4q_f32(
-    x: float32x4_t,
-    x2: float32x4_t,
-    c3: float32x4_t,
-    c2: float32x4_t,
-    c1: float32x4_t,
-    c0: float32x4_t,
-) -> float32x4_t {
-    vmlafq_f32(x2, vmlafq_f32(x, c3, c2), vmlafq_f32(x, c1, c0))
-}
-
-#[inline(always)]
-pub unsafe fn vpoly8q_f32(
-    x: float32x4_t,
-    x2: float32x4_t,
-    x4: float32x4_t,
-    c7: float32x4_t,
-    c6: float32x4_t,
-    c5: float32x4_t,
-    c4: float32x4_t,
-    c3: float32x4_t,
-    c2: float32x4_t,
-    c1: float32x4_t,
-    c0: float32x4_t,
-) -> float32x4_t {
-    vmlafq_f32(
-        x4,
-        vpoly4q_f32(x, x2, c7, c6, c5, c4),
-        vpoly4q_f32(x, x2, c3, c2, c1, c0),
-    )
-}
-
-#[inline(always)]
-unsafe fn vatan2q_f32_impl(y: float32x4_t, x: float32x4_t) -> float32x4_t {
-    let q = vbslq_s32(vcltzq_f32(x), vdupq_n_s32(-2), vdupq_n_s32(0));
-    let x = vabsq_f32(x);
-    let is_y_more_than_x = vcgtq_f32(y, x);
-    let t = vbslq_f32(is_y_more_than_x, x, vdupq_n_f32(0f32));
-    let x = vbslq_f32(is_y_more_than_x, y, x);
-    let y = vbslq_f32(is_y_more_than_x, vnegq_f32(t), y);
-    let q = vbslq_s32(is_y_more_than_x, vaddq_s32(q, vdupq_n_s32(1)), q);
-    let s = vdivq_f32(y, x);
-    let t = vmulq_f32(s, s);
-    let t2 = vmulq_f32(t, t);
-    let t4 = vmulq_f32(t2, t2);
-    let poly = vpoly8q_f32(
-        t,
-        t2,
-        t4,
-        vdupq_n_f32(0.00282363896258175373077393f32),
-        vdupq_n_f32(-0.0159569028764963150024414f32),
-        vdupq_n_f32(0.0425049886107444763183594f32),
-        vdupq_n_f32(-0.0748900920152664184570312f32),
-        vdupq_n_f32(0.106347933411598205566406f32),
-        vdupq_n_f32(-0.142027363181114196777344f32),
-        vdupq_n_f32(0.199926957488059997558594f32),
-        vdupq_n_f32(-0.333331018686294555664062f32),
-    );
-    let t = prefer_vfmaq_f32(s, vmulq_f32(poly, t), s);
-    let t = prefer_vfmaq_f32(
-        t,
-        vcvtq_f32_s32(q),
-        vdupq_n_f32(std::f32::consts::FRAC_PI_2),
-    );
-    t
-}
-
-#[inline(always)]
-pub unsafe fn visnegq_f32(x: float32x4_t) -> uint32x4_t {
-    vcltzq_f32(x)
-}
-
-#[inline(always)]
-pub unsafe fn vatan2q_f32(y: float32x4_t, x: float32x4_t) -> float32x4_t {
-    let r = vatan2q_f32_impl(vabsq_f32(y), x);
-    let mut r = vmulsignq_f32(r, x);
-    let y_zero_mask = vceqzq_f32(y);
-    r = vbslq_f32(vceqzq_f32(x), vdupq_n_f32(std::f32::consts::FRAC_PI_2), r);
-    r = vbslq_f32(
-        y_zero_mask,
-        vbslq_f32(
-            visnegq_f32(x),
-            vdupq_n_f32(std::f32::consts::PI),
-            vdupq_n_f32(0f32),
-        ),
-        r,
-    );
-    vmulsignq_f32(r, y)
-}
-
-#[inline(always)]
-pub unsafe fn vsinq_f32(val: float32x4_t) -> float32x4_t {
-    let pi_v = vdupq_n_f32(std::f32::consts::PI);
-    let pio2_v = vdupq_n_f32(std::f32::consts::FRAC_PI_2);
-    let ipi_v = vdupq_n_f32(std::f32::consts::FRAC_1_PI);
-
-    //Find positive or negative
-    let c_v = vabsq_s32(vcvtq_s32_f32(vmulq_f32(val, ipi_v)));
-    let sign_v = vcleq_f32(val, vdupq_n_f32(0f32));
-    let odd_v = vandq_u32(vreinterpretq_u32_s32(c_v), vdupq_n_u32(1));
-
-    let neg_v = veorq_u32(odd_v, sign_v);
-
-    //Modulus a - (n * int(a*(1/n)))
-    let mut ma = vsubq_f32(vabsq_f32(val), vmulq_f32(pi_v, vcvtq_f32_s32(c_v)));
-    let reb_v = vcgeq_f32(ma, pio2_v);
-
-    //Rebase a between 0 and pi/2
-    ma = vbslq_f32(reb_v, vsubq_f32(pi_v, ma), ma);
-
-    //Taylor series
-    let ma2 = vmulq_f32(ma, ma);
-
-    //2nd elem: x^3 / 3!
-    let mut elem = vmulq_f32(vmulq_f32(ma, ma2), vdupq_n_f32(0.166666666666f32));
-    let mut res = vsubq_f32(ma, elem);
-
-    //3rd elem: x^5 / 5!
-    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.05f32));
-    res = vaddq_f32(res, elem);
-
-    //4th elem: x^7 / 7!float32x2_t vsin_f32(float32x2_t val)
-    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.023809523810f32));
-    res = vsubq_f32(res, elem);
-
-    //5th elem: x^9 / 9!
-    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(0.013888888889f32));
-    res = vaddq_f32(res, elem);
-
-    //Change of sign
-    let neg_v = vshlq_n_u32::<31>(neg_v);
-    res = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(res), neg_v));
-    return res;
-}
-
-#[inline(always)]
-pub unsafe fn vcosq_f32(d: float32x4_t) -> float32x4_t {
-    let mut q = vcvtq_s32_f32(vsubq_f32(
-        vmulq_f32(d, vdupq_n_f32(std::f32::consts::FRAC_1_PI)),
-        vdupq_n_f32(0.5f32),
-    ));
-
-    q = vaddq_s32(vaddq_s32(q, q), vdupq_n_s32(1));
-
-    let mut u = vcvtq_f32_s32(q);
-    let mut d = vmlafq_f32(u, vdupq_n_f32(-0.78515625f32 * 2f32), d);
-    d = vmlafq_f32(u, vdupq_n_f32(-0.00024187564849853515625f32 * 2f32), d);
-    d = vmlafq_f32(u, vdupq_n_f32(-3.7747668102383613586e-08f32 * 2f32), d);
-    d = vmlafq_f32(u, vdupq_n_f32(-1.2816720341285448015e-12f32 * 2f32), d);
-
-    let s = vmulq_f32(d, d);
-
-    d = vreinterpretq_f32_u32(veorq_u32(
-        vandq_u32(
-            vceqq_s32(vandq_s32(q, vdupq_n_s32(2)), vdupq_n_s32(0)),
-            vreinterpretq_u32_f32(vdupq_n_f32(-0.0f32)),
-        ),
-        vreinterpretq_u32_f32(d),
-    ));
-
-    u = vdupq_n_f32(2.6083159809786593541503e-06f32);
-    u = vmlafq_f32(u, s, vdupq_n_f32(-0.0001981069071916863322258f32));
-    u = vmlafq_f32(u, s, vdupq_n_f32(0.00833307858556509017944336f32));
-    u = vmlafq_f32(u, s, vdupq_n_f32(-0.166666597127914428710938f32));
-
-    u = vmlafq_f32(s, vmulq_f32(u, d), d);
-
-    u = vreinterpretq_f32_u32(vorrq_u32(vispinfq_f32(d), vreinterpretq_u32_f32(u)));
-    return u;
-}
-
 #[inline(always)]
 pub(crate) unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
     vmulq_f32(vmulq_f32(x, x), x)

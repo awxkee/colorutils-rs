@@ -2,10 +2,15 @@ use crate::rgb::Rgb;
 use half::f16;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+/// Represents any RGBA values, Rgba<u8>, Rgba<u16> etc.
 pub struct Rgba<T> {
+    /// Red component
     pub r: T,
+    /// Green component
     pub g: T,
+    /// Blue component
     pub b: T,
+    /// Alpha component
     pub a: T,
 }
 
@@ -131,6 +136,8 @@ impl ToRgbaF16 for Rgba<u8> {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+/// Represents RGB 565 color in one u16
 pub struct Rgb565 {
     pub rgb565: u16,
 }
@@ -199,6 +206,8 @@ impl ToRgb565 for Rgba<f32> {
     }
 }
 
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+/// Represents RGBA 1010102 in one u32 store
 pub struct Rgba1010102 {
     pub rgba: u32,
 }

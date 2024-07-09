@@ -1,11 +1,14 @@
 use crate::rgb::Rgb;
 use crate::xyz::Xyz;
 
-/// A CIELAB color.
+/// Represents CIELAB color space.
 #[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
 pub struct Lab {
+    /// `l`: lightness component (0 to 100)
     pub l: f32,
+    /// `a`: green (negative) and red (positive) component.
     pub a: f32,
+    /// `b`: blue (negative) and yellow (positive) component
     pub b: f32,
 }
 

@@ -1,5 +1,5 @@
 //! # Luv
-/// Struct representing a color in CIALuv, a.k.a. L\*u\*v\*, color space
+/// Struct representing a color in CIE LUV, a.k.a. L\*u\*v\*, color space
 #[derive(Debug, Copy, Clone, Default, PartialOrd)]
 pub struct Luv {
     /// The L\* value (achromatic luminance) of the colour in 0–100 range.
@@ -22,7 +22,7 @@ pub struct Luv {
     pub v: f32,
 }
 
-/// Struct representing a color in cylindrical CIELCh(uv) color space
+/// Representing a color in cylindrical CIE LCh(uv) color space
 #[derive(Debug, Copy, Clone, Default, PartialOrd)]
 pub struct LCh {
     /// The L\* value (achromatic luminance) of the colour in 0–100 range.
