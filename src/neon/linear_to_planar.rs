@@ -20,7 +20,7 @@ unsafe fn process_set(
     let y0 = transfer_to_gamma(k.0, &function);
     let y1 = transfer_to_gamma(k.1, &function);
     let y2 = transfer_to_gamma(k.2, &function);
-    let y3 = transfer_to_gamma(k.2, &function);
+    let y3 = transfer_to_gamma(k.3, &function);
 
     let y_row01 = vcombine_u16(vqmovn_u32(y0), vqmovn_u32(y1));
     let y_row23 = vcombine_u16(vqmovn_u32(y2), vqmovn_u32(y3));
