@@ -3,12 +3,8 @@ use crate::luv::{
     LUV_WHITE_V_PRIME,
 };
 use crate::neon::math::{prefer_vfmaq_f32, vcolorq_matrix_f32, vcubeq_f32};
-use erydanos::neon::atan2f::vatan2q_f32;
-use erydanos::neon::cbrtf::vcbrtq_f32;
-use erydanos::neon::cosf::vcosq_f32;
-use erydanos::neon::hypotf::vhypotq_fast_f32;
-use erydanos::neon::sinf::vsinq_f32;
 use std::arch::aarch64::*;
+use erydanos::{vatan2q_f32, vcbrtq_f32, vcosq_f32, vhypotq_fast_f32, vsinq_f32};
 
 #[inline(always)]
 pub(crate) unsafe fn neon_triple_to_xyz(

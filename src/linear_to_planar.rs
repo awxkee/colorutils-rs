@@ -3,6 +3,11 @@
     target_feature = "neon"
 ))]
 use crate::neon::linear_to_planar::neon_linear_plane_to_gamma;
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "sse4.1"
+))]
+use crate::sse::sse_linear_plane_to_gamma;
 use crate::TransferFunction;
 
 #[inline(always)]
@@ -19,6 +24,20 @@ fn linear_to_gamma_channels(
     let mut dst_offset = 0usize;
 
     let transfer = transfer_function.get_gamma_function();
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    let mut _has_sse = false;
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "sse4.1"
+    ))]
+    if is_x86_feature_detected!("sse4.1") {
+        _has_sse = true;
+    }
 
     for _ in 0..height as usize {
         let mut _cx = 0usize;
@@ -37,6 +56,24 @@ fn linear_to_gamma_channels(
                 width,
                 transfer_function,
             );
+        }
+
+        #[cfg(all(
+            any(target_arch = "x86_64", target_arch = "x86"),
+            target_feature = "sse4.1"
+        ))]
+        unsafe {
+            if _has_sse {
+                _cx = sse_linear_plane_to_gamma(
+                    _cx,
+                    src.as_ptr(),
+                    src_offset as u32,
+                    dst.as_mut_ptr(),
+                    dst_offset as u32,
+                    width,
+                    transfer_function,
+                );
+            }
         }
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };

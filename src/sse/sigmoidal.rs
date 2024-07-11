@@ -1,8 +1,9 @@
-use crate::sse::{_mm_exp_ps, _mm_log_ps, _mm_neg_ps, _mm_select_ps};
+use crate::sse::{_mm_neg_ps, _mm_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+use erydanos::{_mm_exp_ps, _mm_ln_fast_ps};
 
 #[inline(always)]
 pub(crate) unsafe fn sse_color_to_sigmoidal(x: __m128) -> __m128 {
@@ -21,7 +22,7 @@ pub(crate) unsafe fn sse_sigmoidal_to_color(x: __m128) -> __m128 {
     let k = _mm_mul_ps(x, _mm_rcp_ps(den));
     let zeros = _mm_setzero_ps();
     let zero_mask_2 = _mm_cmple_ps(k, zeros);
-    let ln = _mm_log_ps::<false>(k);
+    let ln = _mm_ln_fast_ps(k);
     let rs = _mm_select_ps(_mm_and_ps(zero_mask_1, zero_mask_2), zeros, ln);
     return rs;
 }

@@ -8,27 +8,7 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
     ((z << 6) | (y << 4) | (x << 2) | w) as i32
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
-pub unsafe fn sse_promote_i16_toi32(s: __m128i) -> __m128i {
-    _mm_cvtepi16_epi32(_mm_srli_si128::<8>(s))
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
-pub unsafe fn sse_interleave_even(x: __m128i) -> __m128i {
-    #[rustfmt::skip]
-        let shuffle = _mm_setr_epi8(0, 0, 2, 2, 4, 4, 6, 6,
-                                    8, 8, 10, 10, 12, 12, 14, 14);
-    let new_lane = _mm_shuffle_epi8(x, shuffle);
-    return new_lane;
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_rgba(
     r: __m128i,
     g: __m128i,
@@ -358,17 +338,6 @@ pub unsafe fn sse_store_rgb_u8(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i)
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 #[allow(dead_code)]
-pub unsafe fn sse_div_by255(v: __m128i) -> __m128i {
-    let rounding = _mm_set1_epi16(1 << 7);
-    let x = _mm_adds_epi16(v, rounding);
-    let multiplier = _mm_set1_epi16(-32640);
-    let r = _mm_mulhi_epu16(x, multiplier);
-    return _mm_srli_epi16::<7>(r);
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgba_ps(
     t0: __m128,
     t1: __m128,
@@ -384,4 +353,40 @@ pub unsafe fn sse_deinterleave_rgba_ps(
     let v2 = _mm_unpacklo_ps(t02hi, t13hi);
     let v3 = _mm_unpackhi_ps(t02hi, t13hi);
     (v0, v1, v2, v3)
+}
+
+#[inline(always)]
+pub unsafe fn _mm_loadu_si128_x4(ptr: *const u8) -> (__m128i, __m128i, __m128i, __m128i) {
+    (
+        _mm_loadu_si128(ptr as *const __m128i),
+        _mm_loadu_si128(ptr.add(16) as *const __m128i),
+        _mm_loadu_si128(ptr.add(32) as *const __m128i),
+        _mm_loadu_si128(ptr.add(48) as *const __m128i),
+    )
+}
+
+#[inline(always)]
+pub unsafe fn _mm_storeu_ps_x4(ptr: *mut f32, set: (__m128, __m128, __m128, __m128)) {
+    _mm_storeu_ps(ptr, set.0);
+    _mm_storeu_ps(ptr.add(4), set.1);
+    _mm_storeu_ps(ptr.add(8), set.2);
+    _mm_storeu_ps(ptr.add(12), set.3);
+}
+
+#[inline(always)]
+pub unsafe fn _mm_loadu_ps_x4(ptr: *const f32) -> (__m128, __m128, __m128, __m128) {
+    (
+        _mm_loadu_ps(ptr),
+        _mm_loadu_ps(ptr.add(4)),
+        _mm_loadu_ps(ptr.add(8)),
+        _mm_loadu_ps(ptr.add(12)),
+    )
+}
+
+#[inline(always)]
+pub unsafe fn _mm_storeu_si128_x4(ptr: *mut u8, set: (__m128i, __m128i, __m128i, __m128i)) {
+    _mm_storeu_si128(ptr as * mut __m128i, set.0);
+    _mm_storeu_si128(ptr.add(16) as * mut __m128i, set.1);
+    _mm_storeu_si128(ptr.add(32) as * mut __m128i, set.2);
+    _mm_storeu_si128(ptr.add(48) as * mut __m128i, set.3);
 }

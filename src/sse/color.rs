@@ -1,8 +1,9 @@
-use crate::sse::{_mm_abs_ps, _mm_fmod_ps, _mm_prefer_fma_ps, _mm_select_ps};
+use crate::sse::{_mm_prefer_fma_ps, _mm_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+use erydanos::{_mm_abs_ps, _mm_fmod_ps};
 
 #[inline(always)]
 pub unsafe fn sse_hsl_to_rgb(

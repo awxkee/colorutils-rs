@@ -1,6 +1,5 @@
 use std::arch::aarch64::*;
-
-use erydanos::neon::powf::vpowq_fast_f32;
+use erydanos::vpowq_fast_f32;
 
 #[inline(always)]
 #[allow(dead_code)]

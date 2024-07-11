@@ -36,6 +36,8 @@ mod from_sigmoidal;
 mod sigmoidal;
 mod to_sigmoidal;
 mod xyza_laba_to_image;
+mod planar_to_linear;
+mod linear_to_planar;
 
 pub use from_sigmoidal::sse_from_sigmoidal_row;
 pub use gamma_curves::*;
@@ -51,3 +53,5 @@ pub use to_xyz_lab::*;
 pub use to_xyza_laba::*;
 pub use xyz_lab_to_image::*;
 pub use xyza_laba_to_image::*;
+pub use planar_to_linear::sse_plane_to_linear;
+pub use linear_to_planar::sse_linear_plane_to_gamma;

@@ -3,13 +3,14 @@ use crate::luv::{
     LUV_WHITE_V_PRIME,
 };
 use crate::sse::{
-    _mm_atan2_ps, _mm_cbrt_ps, _mm_color_matrix_ps, _mm_cos_ps, _mm_cube_ps, _mm_hypot_ps,
-    _mm_prefer_fma_ps, _mm_select_ps, _mm_sin_ps,
+    _mm_color_matrix_ps, _mm_cube_ps,
+    _mm_prefer_fma_ps, _mm_select_ps,
 };
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+use erydanos::{_mm_atan2_ps, _mm_cbrt_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 
 #[inline(always)]
 pub(crate) unsafe fn sse_triple_to_xyz(
