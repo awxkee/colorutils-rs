@@ -16,7 +16,7 @@ repository = "https://github.com/awxkee/colorutils-rs"
 exclude = ["*.jpg"]
 
 [dependencies]
-erydanos = "0.2.6"
+erydanos = "0.2.7"
 half = "2.4.1"
 
 [features]
