@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::rgb::Rgb;
 use half::f16;
 
@@ -79,6 +86,7 @@ pub trait ToRgbaF32 {
 }
 
 impl ToRgbaF32 for Rgba<u8> {
+    #[inline]
     fn to_rgba_f32(&self) -> Rgba<f32> {
         const SCALE_U8: f32 = 1f32 / 255f32;
         return Rgba::<f32>::new(
@@ -91,6 +99,7 @@ impl ToRgbaF32 for Rgba<u8> {
 }
 
 impl ToRgba8 for Rgba<f32> {
+    #[inline]
     fn to_rgba8(&self) -> Rgba<u8> {
         return Rgba {
             r: (self.r * 255f32).min(255f32).max(0f32) as u8,
@@ -102,6 +111,7 @@ impl ToRgba8 for Rgba<f32> {
 }
 
 impl ToRgba8 for Rgba<f16> {
+    #[inline]
     fn to_rgba8(&self) -> Rgba<u8> {
         return Rgba {
             r: (self.r.to_f32() * 255f32).min(255f32).max(0f32) as u8,
@@ -113,6 +123,7 @@ impl ToRgba8 for Rgba<f16> {
 }
 
 impl ToRgbaF16 for Rgba<f32> {
+    #[inline]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         Rgba {
             r: f16::from_f32(self.r),
@@ -126,6 +137,7 @@ impl ToRgbaF16 for Rgba<f32> {
 static SCALE_U8_F32: f32 = 1f32 / 255f32;
 
 impl ToRgbaF16 for Rgba<u8> {
+    #[inline]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         Rgba {
             r: f16::from_f32(self.r as f32 * SCALE_U8_F32),
@@ -174,6 +186,7 @@ impl ToRgbaF16 for Rgb565 {
 }
 
 impl ToRgb565 for Rgba<u8> {
+    #[inline]
     fn to_rgb_565(&self) -> Rgb565 {
         let red565 = ((self.r as u16) >> 3) << 11;
         let green565 = ((self.g as u16) >> 2) << 5;
@@ -185,6 +198,7 @@ impl ToRgb565 for Rgba<u8> {
 }
 
 impl ToRgb565 for Rgba<f16> {
+    #[inline]
     fn to_rgb_565(&self) -> Rgb565 {
         let red5 = (self.r.to_f32() * 31f32).max(31f32).min(0f32) as u16;
         let green6 = (self.g.to_f32() * 63f32).max(63f32).min(0f32) as u16;
@@ -196,6 +210,7 @@ impl ToRgb565 for Rgba<f16> {
 }
 
 impl ToRgb565 for Rgba<f32> {
+    #[inline]
     fn to_rgb_565(&self) -> Rgb565 {
         let red5 = (self.r * 31f32).max(31f32).min(0f32) as u16;
         let green6 = (self.g * 63f32).max(63f32).min(0f32) as u16;
@@ -213,12 +228,14 @@ pub struct Rgba1010102 {
 }
 
 impl Rgba1010102 {
+    #[inline]
     pub fn new(color: u32) -> Rgba1010102 {
         Rgba1010102 { rgba: color }
     }
 }
 
 impl ToRgba8 for Rgba1010102 {
+    #[inline]
     fn to_rgba8(&self) -> Rgba<u8> {
         let mask = (1u32 << 10u32) - 1u32;
         let r = (self.rgba) & mask;
@@ -238,6 +255,7 @@ static SCALE_RGBA10: f32 = 1f32 / 1023f32;
 static SCALE_RGBA10ALPHA: f32 = 1f32 / 3f32;
 
 impl ToRgbaF16 for Rgba1010102 {
+    #[inline]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         let mask = (1u32 << 10u32) - 1u32;
         let r = (self.rgba) & mask;
@@ -259,6 +277,7 @@ pub trait ToRgba1010102 {
 }
 
 impl ToRgba1010102 for Rgba<u8> {
+    #[inline]
     fn to_rgba1010102(&self) -> Rgba1010102 {
         let r = (self.r as u32) << 2;
         let g = (self.g as u32) << 2;
@@ -270,6 +289,7 @@ impl ToRgba1010102 for Rgba<u8> {
 }
 
 impl ToRgba1010102 for Rgba<f16> {
+    #[inline]
     fn to_rgba1010102(&self) -> Rgba1010102 {
         let r = (self.r.to_f32() * 1023f32).min(1023f32).max(0f32) as u32;
         let g = (self.g.to_f32() * 1023f32).min(1023f32).max(0f32) as u32;

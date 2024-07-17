@@ -1,16 +1,20 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
-use crate::sse::{
-    _mm_color_matrix_ps, _mm_cube_ps,
-    _mm_prefer_fma_ps, _mm_select_ps,
-};
+use crate::sse::{_mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps};
+use erydanos::{_mm_atan2_ps, _mm_cbrt_fast_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use erydanos::{_mm_atan2_ps, _mm_cbrt_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 
 #[inline(always)]
 pub(crate) unsafe fn sse_triple_to_xyz(
@@ -56,7 +60,7 @@ pub(crate) unsafe fn sse_triple_to_luv(
     );
     let nan_mask = _mm_cmpeq_ps(den, _mm_set1_ps(0f32));
     let l_low_mask = _mm_cmplt_ps(y, _mm_set1_ps(LUV_CUTOFF_FORWARD_Y));
-    let y_cbrt = _mm_cbrt_ps(y);
+    let y_cbrt = _mm_cbrt_fast_ps(y);
     let l = _mm_select_ps(
         l_low_mask,
         _mm_mul_ps(y, _mm_set1_ps(LUV_MULTIPLIER_FORWARD_Y)),
@@ -81,9 +85,9 @@ pub(crate) unsafe fn sse_triple_to_lab(
     let x = _mm_mul_ps(x, _mm_set1_ps(100f32 / 95.047f32));
     let y = _mm_mul_ps(y, _mm_set1_ps(100f32 / 100f32));
     let z = _mm_mul_ps(z, _mm_set1_ps(100f32 / 108.883f32));
-    let cbrt_x = _mm_cbrt_ps(x);
-    let cbrt_y = _mm_cbrt_ps(y);
-    let cbrt_z = _mm_cbrt_ps(z);
+    let cbrt_x = _mm_cbrt_fast_ps(x);
+    let cbrt_y = _mm_cbrt_fast_ps(y);
+    let cbrt_z = _mm_cbrt_fast_ps(z);
     let s_1 = _mm_set1_ps(16.0 / 116.0);
     let s_2 = _mm_set1_ps(7.787);
     let lower_x = _mm_prefer_fma_ps(s_1, s_2, x);

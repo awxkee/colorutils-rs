@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 /// sRGB to XYZ transformation matrix, D65 White point
 pub const SRGB_TO_XYZ_D65: [[f32; 3]; 3] = [
     [0.4124564f32, 0.3575761f32, 0.1804375f32],

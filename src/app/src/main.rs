@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use std::time::Instant;
 
 use image::io::Reader as ImageReader;
@@ -14,13 +21,21 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 140;
-    let g = 164;
-    let b = 177;
+    let r = 126;
+    let g = 126;
+    let b = 126;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let hsl = rgb.to_hsl();
+    let hsl = rgb.to_lab();
     println!("RGB {:?}", rgb);
-    println!("HSL {:?}", hsl);
+    println!("RGB 0,0,0 {:?}", hsl);
+    println!(
+        "RGB 127,127,127 {:?}",
+        Rgb::<u8>::new(127, 127, 127).to_lab()
+    );
+    println!(
+        "RGB 255,255,255 {:?}",
+        Rgb::<u8>::new(255, 255, 255).to_lab()
+    );
     println!("Back RGB {:?}", hsl.to_rgb8());
 
     let img = ImageReader::open("./assets/beach_horizon.jpg")
@@ -58,7 +73,7 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0f32);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_lch(
+        rgb_to_lab(
             src_bytes,
             src_stride,
             &mut lab_store,
@@ -92,7 +107,7 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        lch_to_rgb(
+        lab_to_srgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,

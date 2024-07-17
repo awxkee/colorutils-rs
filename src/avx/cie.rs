@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::avx::math::*;
 use crate::avx::{_mm256_cube_ps, _mm256_prefer_fma_ps, _mm256_select_ps};
 use crate::luv::{

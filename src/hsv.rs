@@ -1,3 +1,9 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
 use crate::rgb::Rgb;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
@@ -22,11 +28,11 @@ impl Hsv {
             v: l as f32 * HSV_PERCENTAGE_SCALE,
         }
     }
-
+    #[inline]
     pub fn from_components(h: f32, s: f32, v: f32) -> Hsv {
         Hsv { h, s, v }
     }
-
+    #[inline]
     pub fn from(rgb: &Rgb<u8>) -> Hsv {
         let (h, s, v) = rgb_to_hsv(
             rgb.r as f32 * HSV_U8_SCALE,
@@ -35,7 +41,7 @@ impl Hsv {
         );
         return Hsv { h, s, v };
     }
-
+    #[inline]
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let (rf, gf, bf) = hsv_to_rgb(self.h, self.s, self.v);
         return Rgb {
@@ -44,32 +50,32 @@ impl Hsv {
             b: (bf * 255f32) as u8,
         };
     }
-
+    #[inline]
     pub fn get_hue(&self) -> f32 {
         self.h
     }
-
+    #[inline]
     pub fn get_saturation(&self) -> f32 {
         self.s
     }
-
+    #[inline]
     pub fn get_value(&self) -> f32 {
         self.v
     }
-
+    #[inline]
     pub fn get_hue_p(&self) -> u16 {
         self.h.max(0f32).min(360f32) as u16
     }
-
+    #[inline]
     pub fn get_saturation_p(&self) -> u16 {
         (self.s * 100f32).max(0f32).min(100f32) as u16
     }
-
+    #[inline]
     pub fn get_value_p(&self) -> u16 {
         (self.v * 100f32).max(0f32).min(100f32) as u16
     }
 }
-
+#[inline]
 fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let c_max = r.max(g).max(b);
     let c_min = r.min(g).min(b);
@@ -100,6 +106,7 @@ fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     (h, s, v)
 }
 
+#[inline]
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     let c = v * s;
     let h_prime = (h / 60f32) % 6f32;

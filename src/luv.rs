@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 //! # Luv
 /// Struct representing a color in CIE LUV, a.k.a. L\*u\*v\*, color space
 #[derive(Debug, Copy, Clone, Default, PartialOrd)]
@@ -49,6 +56,8 @@ const D65_XYZ: [f32; 3] = [95.047f32, 100.0f32, 108.883f32];
 use crate::rgb::Rgb;
 use crate::rgba::Rgba;
 use crate::xyz::Xyz;
+use crate::EuclideanDistance;
+use erydanos::Euclidean3DDistance;
 
 pub(crate) const LUV_WHITE_U_PRIME: f32 =
     4.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);
@@ -182,5 +191,17 @@ impl PartialEq<LCh> for LCh {
             use std::f32::consts::TAU;
             self.h.rem_euclid(TAU) == other.h.rem_euclid(TAU)
         }
+    }
+}
+
+impl EuclideanDistance for Luv {
+    fn euclidean_distance(&self, other: Luv) -> f32 {
+        (self.l - other.l).hypot3(self.u - other.u, self.v - other.v)
+    }
+}
+
+impl EuclideanDistance for LCh {
+    fn euclidean_distance(&self, other: LCh) -> f32 {
+        (self.l - other.l).hypot3(self.c - other.c, self.h - other.h)
     }
 }

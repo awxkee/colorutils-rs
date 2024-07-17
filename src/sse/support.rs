@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -385,8 +392,8 @@ pub unsafe fn _mm_loadu_ps_x4(ptr: *const f32) -> (__m128, __m128, __m128, __m12
 
 #[inline(always)]
 pub unsafe fn _mm_storeu_si128_x4(ptr: *mut u8, set: (__m128i, __m128i, __m128i, __m128i)) {
-    _mm_storeu_si128(ptr as * mut __m128i, set.0);
-    _mm_storeu_si128(ptr.add(16) as * mut __m128i, set.1);
-    _mm_storeu_si128(ptr.add(32) as * mut __m128i, set.2);
-    _mm_storeu_si128(ptr.add(48) as * mut __m128i, set.3);
+    _mm_storeu_si128(ptr as *mut __m128i, set.0);
+    _mm_storeu_si128(ptr.add(16) as *mut __m128i, set.1);
+    _mm_storeu_si128(ptr.add(32) as *mut __m128i, set.2);
+    _mm_storeu_si128(ptr.add(48) as *mut __m128i, set.3);
 }

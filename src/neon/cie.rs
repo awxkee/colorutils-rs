@@ -1,10 +1,17 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
 use crate::neon::math::{prefer_vfmaq_f32, vcolorq_matrix_f32, vcubeq_f32};
+use erydanos::{vatan2q_f32, vcbrtq_fast_f32, vcosq_f32, vhypotq_fast_f32, vsinq_f32};
 use std::arch::aarch64::*;
-use erydanos::{vatan2q_f32, vcbrtq_f32, vcosq_f32, vhypotq_fast_f32, vsinq_f32};
 
 #[inline(always)]
 pub(crate) unsafe fn neon_triple_to_xyz(
@@ -49,7 +56,7 @@ pub(crate) unsafe fn neon_triple_to_luv(
     );
     let nan_mask = vceqzq_f32(den);
     let l_low_mask = vcltq_f32(y, vdupq_n_f32(LUV_CUTOFF_FORWARD_Y));
-    let y_cbrt = vcbrtq_f32(y);
+    let y_cbrt = vcbrtq_fast_f32(y);
     let l = vbslq_f32(
         l_low_mask,
         vmulq_n_f32(y, LUV_MULTIPLIER_FORWARD_Y),
@@ -73,9 +80,9 @@ pub(crate) unsafe fn neon_triple_to_lab(
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
     let x = vmulq_n_f32(x, 100f32 / 95.047f32);
     let z = vmulq_n_f32(z, 100f32 / 108.883f32);
-    let cbrt_x = vcbrtq_f32(x);
-    let cbrt_y = vcbrtq_f32(y);
-    let cbrt_z = vcbrtq_f32(z);
+    let cbrt_x = vcbrtq_fast_f32(x);
+    let cbrt_y = vcbrtq_fast_f32(y);
+    let cbrt_z = vcbrtq_fast_f32(z);
     let s_1 = vdupq_n_f32(16f32 / 116f32);
     let s_2 = vdupq_n_f32(7.787f32);
     let lower_x = prefer_vfmaq_f32(s_1, s_2, x);

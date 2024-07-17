@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::avx::sigmoidal::avx_rgb_to_sigmoidal;
 use crate::avx::{
     avx2_deinterleave_rgb_epi8, avx2_deinterleave_rgba_epi8, avx2_interleave_rgb_ps,

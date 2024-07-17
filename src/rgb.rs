@@ -1,7 +1,15 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+use crate::euclidean::EuclideanDistance;
 use crate::hsv::Hsv;
 use crate::lab::Lab;
 use crate::luv::Luv;
 use crate::{Hsl, LCh, Sigmoidal};
+use erydanos::Euclidean3DDistance;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 /// Represents any RGB values, Rgb<u8>, Rgb<u16> etc.
@@ -40,7 +48,7 @@ impl Rgb<u8> {
         LCh::from_rgb(self)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn to_rgb_f32(&self) -> Rgb<f32> {
         const SCALE: f32 = 1f32 / 255f32;
         Rgb::<f32>::new(
@@ -50,21 +58,21 @@ impl Rgb<u8> {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn to_sigmoidal(&self) -> Sigmoidal {
         Sigmoidal::from_rgb(self)
     }
 }
 
 impl From<Rgb<f32>> for Rgb<u8> {
-    #[inline(always)]
+    #[inline]
     fn from(value: Rgb<f32>) -> Self {
         value.to_u8()
     }
 }
 
 impl Rgb<f32> {
-    #[inline(always)]
+    #[inline]
     pub fn apply(&self, gen: fn(f32) -> f32) -> Self {
         Self {
             r: gen(self.r),
@@ -73,7 +81,7 @@ impl Rgb<f32> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn to_u8(&self) -> Rgb<u8> {
         Rgb::<u8>::new(
             (self.r * 255f32).max(0f32).round().min(255f32) as u8,
@@ -84,7 +92,7 @@ impl Rgb<f32> {
 }
 
 impl From<Sigmoidal> for Rgb<u8> {
-    #[inline(always)]
+    #[inline]
     fn from(value: Sigmoidal) -> Self {
         value.to_rgb()
     }
@@ -93,5 +101,29 @@ impl From<Sigmoidal> for Rgb<u8> {
 impl<T> Rgb<T> {
     pub fn new(r: T, g: T, b: T) -> Rgb<T> {
         Rgb { r, g, b }
+    }
+}
+
+impl EuclideanDistance for Rgb<u8> {
+    fn euclidean_distance(&self, other: Rgb<u8>) -> f32 {
+        (self.r as f32 - other.r as f32).hypot3(
+            self.g as f32 - other.g as f32,
+            self.b as f32 - other.b as f32,
+        )
+    }
+}
+
+impl EuclideanDistance for Rgb<f32> {
+    fn euclidean_distance(&self, other: Rgb<f32>) -> f32 {
+        (self.r - other.r).hypot3(self.g - other.g, self.b - other.b)
+    }
+}
+
+impl EuclideanDistance for Rgb<u16> {
+    fn euclidean_distance(&self, other: Rgb<u16>) -> f32 {
+        (self.r as f32 - other.r as f32).hypot3(
+            self.g as f32 - other.g as f32,
+            self.b as f32 - other.b as f32,
+        )
     }
 }

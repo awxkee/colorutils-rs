@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::image::ImageConfiguration;
 use crate::neon::cie::{neon_lab_to_xyz, neon_lch_to_xyz, neon_luv_to_xyz};
 use crate::neon::math::vcolorq_matrix_f32;

@@ -1,5 +1,15 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+use erydanos::Euclidean3DDistance;
+
 use crate::rgb::Rgb;
+use crate::taxicab::TaxicabDistance;
 use crate::xyz::Xyz;
+use crate::EuclideanDistance;
 
 /// Represents CIELAB color space.
 #[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
@@ -85,5 +95,17 @@ impl Lab {
 
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_rgb8()
+    }
+}
+
+impl EuclideanDistance for Lab {
+    fn euclidean_distance(&self, other: Lab) -> f32 {
+        (self.l - other.l).hypot3(self.a - other.a, self.b - other.b)
+    }
+}
+
+impl TaxicabDistance for Lab {
+    fn taxicab_distance(&self, other: Self) -> f32 {
+        (self.a - other.a).hypot(self.b - other.b) + (self.l - other.l).abs()
     }
 }

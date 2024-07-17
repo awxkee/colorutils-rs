@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::sse::{_mm_loadu_si128_x4, _mm_storeu_ps_x4, get_sse_linear_transfer};
 use crate::TransferFunction;
 #[cfg(target_arch = "x86")]

@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::Rgb;
 
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
@@ -10,7 +17,7 @@ pub struct Sigmoidal {
     pub sb: f32,
 }
 
-#[inline(always)]
+#[inline]
 fn to_sigmoidal(x: f32) -> f32 {
     let den = 1f32 + (-x).exp();
     if den == 0f32 {
@@ -19,7 +26,7 @@ fn to_sigmoidal(x: f32) -> f32 {
     return 1f32 / den;
 }
 
-#[inline(always)]
+#[inline]
 fn inverse_sigmoidal(x: f32) -> f32 {
     let den = 1f32 - x;
     if den == 0f32 {
@@ -37,7 +44,7 @@ impl Sigmoidal {
         Sigmoidal { sr, sg, sb }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
         let normalized = rgb.to_rgb_f32();
         Sigmoidal::new(
@@ -47,7 +54,7 @@ impl Sigmoidal {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         let rgb_normalized = Rgb::new(
             inverse_sigmoidal(self.sr),
@@ -59,14 +66,14 @@ impl Sigmoidal {
 }
 
 impl From<Rgb<u8>> for Sigmoidal {
-    #[inline(always)]
+    #[inline]
     fn from(value: Rgb<u8>) -> Self {
         Sigmoidal::from_rgb(&value)
     }
 }
 
 impl From<Rgb<f32>> for Sigmoidal {
-    #[inline(always)]
+    #[inline]
     fn from(value: Rgb<f32>) -> Self {
         Sigmoidal::new(
             to_sigmoidal(value.r),

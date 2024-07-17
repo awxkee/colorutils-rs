@@ -1,6 +1,12 @@
-use std::arch::aarch64::*;
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
 
-use crate::neon::math::{vexpq_f32, vlogq_f32};
+use erydanos::{vexpq_f32, vlnq_fast_f32};
+use std::arch::aarch64::*;
 
 #[inline(always)]
 pub(crate) unsafe fn neon_color_to_sigmoidal(x: float32x4_t) -> float32x4_t {
@@ -19,7 +25,7 @@ pub(crate) unsafe fn neon_sigmoidal_to_color(x: float32x4_t) -> float32x4_t {
     let k = vmulq_f32(x, vrecpeq_f32(den));
     let zeros = vdupq_n_f32(0f32);
     let zero_mask_2 = vcleq_f32(k, zeros);
-    let ln = vlogq_f32::<false>(k);
+    let ln = vlnq_fast_f32(k);
     let rs = vbslq_f32(vandq_u32(zero_mask_1, zero_mask_2), zeros, ln);
     return rs;
 }

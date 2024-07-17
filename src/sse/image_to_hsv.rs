@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
 use crate::sse::color::{sse_rgb_to_hsl, sse_rgb_to_hsv};

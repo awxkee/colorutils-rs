@@ -1,9 +1,17 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "avx2"
 ))]
 mod avx;
 mod concat_alpha;
+mod euclidean;
 mod gamma_curves;
 mod hsl;
 mod hsv;
@@ -37,6 +45,7 @@ mod sigmoidal_to_image;
     target_feature = "sse4.1"
 ))]
 mod sse;
+mod taxicab;
 mod xyz;
 mod xyz_lab_to_image;
 mod xyz_target;
@@ -108,6 +117,7 @@ pub use xyza_laba_to_image::luv_with_alpha_to_rgba;
 pub use xyza_laba_to_image::xyz_with_alpha_to_bgra;
 pub use xyza_laba_to_image::xyz_with_alpha_to_rgba;
 
+pub use euclidean::EuclideanDistance;
 pub use image_to_sigmoidal::bgra_to_sigmoidal;
 pub use image_to_sigmoidal::rgb_to_sigmoidal;
 pub use image_to_sigmoidal::rgba_to_sigmoidal;
@@ -116,3 +126,4 @@ pub use sigmoidal::Sigmoidal;
 pub use sigmoidal_to_image::sigmoidal_to_bgra;
 pub use sigmoidal_to_image::sigmoidal_to_rgb;
 pub use sigmoidal_to_image::sigmoidal_to_rgba;
+pub use taxicab::TaxicabDistance;

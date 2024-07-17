@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 use crate::avx::{_mm256_exp_ps, _mm256_log_ps, _mm256_neg_ps, _mm256_select_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

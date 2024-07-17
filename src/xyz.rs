@@ -1,6 +1,13 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
 use crate::gamma_curves::TransferFunction;
 use crate::rgb::Rgb;
-use crate::{SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use crate::{EuclideanDistance, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use erydanos::Euclidean3DDistance;
 
 /// A CIE 1931 XYZ color.
 #[derive(Copy, Clone, Debug, Default)]
@@ -39,7 +46,7 @@ static XYZ_SCALE_U8: f32 = 1f32 / 255f32;
 /// if you need this multiply by yourself or use `scaled`
 impl Xyz {
     /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
-    #[inline(always)]
+    #[inline]
     pub fn from_srgb(rgb: &Rgb<u8>) -> Self {
         Xyz::from_rgb(rgb, &SRGB_TO_XYZ_D65, TransferFunction::Srgb)
     }
@@ -48,21 +55,29 @@ impl Xyz {
     /// # Arguments
     /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
     /// * `transfer_function` - Transfer functions for current colorspace
-    #[inline(always)]
+    #[inline]
     pub fn from_rgb(
         rgb: &Rgb<u8>,
         matrix: &[[f32; 3]; 3],
         transfer_function: TransferFunction,
     ) -> Self {
         let linear_function = transfer_function.get_linearize_function();
-        let r = linear_function(rgb.r as f32 * XYZ_SCALE_U8);
-        let g = linear_function(rgb.g as f32 * XYZ_SCALE_U8);
-        let b = linear_function(rgb.b as f32 * XYZ_SCALE_U8);
-        Self::new(
-            matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b,
-            matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b,
-            matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b,
-        )
+        unsafe {
+            let r = linear_function(rgb.r as f32 * XYZ_SCALE_U8);
+            let g = linear_function(rgb.g as f32 * XYZ_SCALE_U8);
+            let b = linear_function(rgb.b as f32 * XYZ_SCALE_U8);
+            Self::new(
+                (*(*matrix.get_unchecked(0)).get_unchecked(0)) * r
+                    + (*(*matrix.get_unchecked(0)).get_unchecked(1)) * g
+                    + (*(*matrix.get_unchecked(0)).get_unchecked(2)) * b,
+                (*(*matrix.get_unchecked(1)).get_unchecked(0)) * r
+                    + (*(*matrix.get_unchecked(1)).get_unchecked(1)) * g
+                    + (*(*matrix.get_unchecked(1)).get_unchecked(2)) * b,
+                (*(*matrix.get_unchecked(2)).get_unchecked(0)) * r
+                    + (*(*matrix.get_unchecked(2)).get_unchecked(1)) * g
+                    + (*(*matrix.get_unchecked(2)).get_unchecked(2)) * b,
+            )
+        }
     }
 
     pub fn scaled(&self) -> (f32, f32, f32) {
@@ -80,18 +95,32 @@ impl Xyz {
     /// # Arguments
     /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
     /// * `transfer_function` - Transfer functions for current colorspace
-    #[inline(always)]
+    #[inline]
     pub fn to_rgb(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Rgb<u8> {
         let gamma_function = transfer_function.get_gamma_function();
         let x = self.x;
         let y = self.y;
         let z = self.z;
-        let r = x * matrix[0][0] + y * matrix[0][1] + z * matrix[0][2];
-        let g = x * matrix[1][0] + y * matrix[1][1] + z * matrix[1][2];
-        let b = x * matrix[2][0] + y * matrix[2][1] + z * matrix[2][2];
-        let r = 255f32 * gamma_function(r);
-        let g = 255f32 * gamma_function(g);
-        let b = 255f32 * gamma_function(b);
-        Rgb::new(r as u8, g as u8, b as u8)
+        unsafe {
+            let r = x * (*(*matrix.get_unchecked(0)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(0)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(0)).get_unchecked(2));
+            let g = x * (*(*matrix.get_unchecked(1)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(1)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(1)).get_unchecked(2));
+            let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
+            let r = 255f32 * gamma_function(r);
+            let g = 255f32 * gamma_function(g);
+            let b = 255f32 * gamma_function(b);
+            Rgb::new(r as u8, g as u8, b as u8)
+        }
+    }
+}
+
+impl EuclideanDistance for Xyz {
+    fn euclidean_distance(&self, other: Xyz) -> f32 {
+        (self.x - other.x).hypot3(self.y - other.y, self.z - other.z)
     }
 }

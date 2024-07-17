@@ -1,3 +1,10 @@
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -20,28 +27,6 @@ pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
 #[inline]
 pub unsafe fn _mm_prefer_fma_ps(a: __m128, b: __m128, c: __m128) -> __m128 {
     return _mm_fmadd_ps(b, c, a);
-}
-
-#[inline]
-unsafe fn _mm_taylorpoly_ps(
-    x: __m128,
-    poly0: __m128,
-    poly1: __m128,
-    poly2: __m128,
-    poly3: __m128,
-    poly4: __m128,
-    poly5: __m128,
-    poly6: __m128,
-    poly7: __m128,
-) -> __m128 {
-    let a = _mm_prefer_fma_ps(poly0, poly4, x);
-    let b = _mm_prefer_fma_ps(poly2, poly6, x);
-    let c = _mm_prefer_fma_ps(poly1, poly5, x);
-    let d = _mm_prefer_fma_ps(poly3, poly7, x);
-    let x2 = _mm_mul_ps(x, x);
-    let x4 = _mm_mul_ps(x2, x2);
-    let res = _mm_prefer_fma_ps(_mm_prefer_fma_ps(a, b, x2), _mm_prefer_fma_ps(c, d, x2), x4);
-    return res;
 }
 
 #[inline(always)]
@@ -160,37 +145,4 @@ pub unsafe fn _mm_color_matrix_ps(
     let new_g = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c5), b, c6), r, c4);
     let new_b = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
-}
-
-#[inline(always)]
-pub unsafe fn _mm_poly4_ps(
-    x: __m128,
-    x2: __m128,
-    c3: __m128,
-    c2: __m128,
-    c1: __m128,
-    c0: __m128,
-) -> __m128 {
-    _mm_fmaf_ps(x2, _mm_fmaf_ps(x, c3, c2), _mm_fmaf_ps(x, c1, c0))
-}
-
-#[inline(always)]
-pub unsafe fn _mm_poly8q_ps(
-    x: __m128,
-    x2: __m128,
-    x4: __m128,
-    c7: __m128,
-    c6: __m128,
-    c5: __m128,
-    c4: __m128,
-    c3: __m128,
-    c2: __m128,
-    c1: __m128,
-    c0: __m128,
-) -> __m128 {
-    _mm_fmaf_ps(
-        x4,
-        _mm_poly4_ps(x, x2, c7, c6, c5, c4),
-        _mm_poly4_ps(x, x2, c3, c2, c1, c0),
-    )
 }

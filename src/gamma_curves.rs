@@ -1,4 +1,11 @@
-#[inline(always)]
+/*
+ * // Copyright 2024 (c) the Radzivon Bartoshyk. All rights reserved.
+ * //
+ * // Use of this source code is governed by a BSD-style
+ * // license that can be found in the LICENSE file.
+ */
+
+#[inline]
 /// Linear transfer function for sRGB
 pub fn srgb_to_linear(gamma: f32) -> f32 {
     return if gamma < 0f32 {
@@ -12,7 +19,7 @@ pub fn srgb_to_linear(gamma: f32) -> f32 {
     };
 }
 
-#[inline(always)]
+#[inline]
 /// Gamma transfer function for sRGB
 pub fn srgb_from_linear(linear: f32) -> f32 {
     return if linear < 0.0f32 {
@@ -26,7 +33,7 @@ pub fn srgb_from_linear(linear: f32) -> f32 {
     };
 }
 
-#[inline(always)]
+#[inline]
 /// Linear transfer function for Rec.709
 pub fn rec709_to_linear(gamma: f32) -> f32 {
     return if gamma < 0.0f32 {
@@ -40,7 +47,7 @@ pub fn rec709_to_linear(gamma: f32) -> f32 {
     };
 }
 
-#[inline(always)]
+#[inline]
 /// Gamma transfer function for Rec.709
 pub fn rec709_from_linear(linear: f32) -> f32 {
     return if linear < 0.0f32 {
@@ -66,25 +73,25 @@ pub fn pure_gamma_function(x: f32, gamma: f32) -> f32 {
     }
 }
 
-#[inline(always)]
+#[inline]
 /// Pure gamma transfer function for gamma 2.2
 pub fn gamma2p2_from_linear(linear: f32) -> f32 {
     pure_gamma_function(linear, 1f32 / 2.2f32)
 }
 
-#[inline(always)]
+#[inline]
 /// Linear transfer function for gamma 2.2
 pub fn gamma2p2_to_linear(gamma: f32) -> f32 {
     pure_gamma_function(gamma, 2.2f32)
 }
 
-#[inline(always)]
+#[inline]
 /// Pure gamma transfer function for gamma 2.8
 pub fn gamma2p8_from_linear(linear: f32) -> f32 {
     pure_gamma_function(linear, 1f32 / 2.8f32)
 }
 
-#[inline(always)]
+#[inline]
 /// Linear transfer function for gamma 2.8
 pub fn gamma2p8_to_linear(gamma: f32) -> f32 {
     pure_gamma_function(gamma, 2.8f32)
@@ -104,7 +111,7 @@ pub enum TransferFunction {
 }
 
 impl TransferFunction {
-    #[inline(always)]
+    #[inline]
     pub fn get_linearize_function(&self) -> fn(f32) -> f32 {
         match self {
             TransferFunction::Srgb => srgb_to_linear,
@@ -114,7 +121,7 @@ impl TransferFunction {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn get_gamma_function(&self) -> fn(f32) -> f32 {
         match self {
             TransferFunction::Srgb => srgb_from_linear,
