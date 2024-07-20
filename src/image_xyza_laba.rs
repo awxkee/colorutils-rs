@@ -55,8 +55,6 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         }
     }
 
-    const CHANNELS: usize = 4;
-
     let channels = image_configuration.get_channels_count();
 
     for _ in 0..height as usize {
@@ -119,7 +117,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
-            let px = x * CHANNELS;
+            let px = x * channels;
             let dst_store = unsafe { dst_ptr.add(px) };
             match target {
                 XyzTarget::LAB => {
@@ -180,8 +178,6 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
-/// * `a_plane` - A mutable slice to receive XYZ data
-/// * `a_stride` - Bytes per row for dst data
 pub fn rgba_to_lab_with_alpha(
     src: &[u8],
     src_stride: u32,

@@ -181,7 +181,7 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     }
 }
 
-/// This function converts LAB with separate alpha channel to RGBA. This is much more effective than naive direct transformation
+/// This function converts LAB with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains LAB data

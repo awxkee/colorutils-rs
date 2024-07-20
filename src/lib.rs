@@ -21,6 +21,7 @@ mod image_to_hsv;
 mod image_to_hsv_support;
 mod image_to_linear;
 mod image_to_linear_u8;
+mod image_to_oklab;
 mod image_to_sigmoidal;
 mod image_to_xyz_lab;
 mod image_xyza_laba;
@@ -34,6 +35,8 @@ mod luv;
     target_feature = "neon"
 ))]
 mod neon;
+mod oklab;
+mod oklab_to_image;
 pub mod planar_to_linear;
 mod rgb;
 mod rgb_expand;
@@ -118,9 +121,18 @@ pub use xyza_laba_to_image::xyz_with_alpha_to_bgra;
 pub use xyza_laba_to_image::xyz_with_alpha_to_rgba;
 
 pub use euclidean::EuclideanDistance;
+pub use image_to_oklab::bgr_to_oklab;
+pub use image_to_oklab::bgra_to_oklab;
+pub use image_to_oklab::rgb_to_oklab;
+pub use image_to_oklab::rgba_to_oklab;
 pub use image_to_sigmoidal::bgra_to_sigmoidal;
 pub use image_to_sigmoidal::rgb_to_sigmoidal;
 pub use image_to_sigmoidal::rgba_to_sigmoidal;
+pub use oklab::Oklab;
+pub use oklab_to_image::oklab_to_bgr;
+pub use oklab_to_image::oklab_to_bgra;
+pub use oklab_to_image::oklab_to_rgb;
+pub use oklab_to_image::oklab_to_rgba;
 pub use rgb_expand::*;
 pub use sigmoidal::Sigmoidal;
 pub use sigmoidal_to_image::sigmoidal_to_bgra;

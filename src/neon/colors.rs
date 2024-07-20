@@ -5,9 +5,9 @@
  * // license that can be found in the LICENSE file.
  */
 
-use crate::neon::math::{prefer_vfmaq_f32};
-use std::arch::aarch64::*;
+use crate::neon::math::prefer_vfmaq_f32;
 use erydanos::vfmodq_f32;
+use std::arch::aarch64::*;
 
 #[inline(always)]
 pub unsafe fn neon_hsl_to_rgb(
