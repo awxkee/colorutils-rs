@@ -37,7 +37,9 @@ impl Lab {
 }
 
 impl Lab {
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
+    /// Converts to CIE Lab from Rgb
+    #[inline]
+    pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
         let x = xyz.x * 100f32 / 95.047f32;
         let y = xyz.y * 100f32 / 100f32;
@@ -62,6 +64,8 @@ impl Lab {
 }
 
 impl Lab {
+    /// Converts CIE Lab into Rgb
+    #[inline]
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let y = (self.l + 16.0) / 116.0;
         let x = self.a * (1f32 / 500f32) + y;
@@ -93,18 +97,22 @@ impl Lab {
         Xyz::new(x / 100f32, y / 100f32, z / 100f32).to_srgb()
     }
 
+    /// Converts CIE Lab into Rgb
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_rgb8()
     }
 }
 
 impl EuclideanDistance for Lab {
+    #[inline]
     fn euclidean_distance(&self, other: Lab) -> f32 {
         (self.l - other.l).hypot3(self.a - other.a, self.b - other.b)
     }
 }
 
 impl TaxicabDistance for Lab {
+    #[inline]
     fn taxicab_distance(&self, other: Self) -> f32 {
         (self.a - other.a).hypot(self.b - other.b) + (self.l - other.l).abs()
     }

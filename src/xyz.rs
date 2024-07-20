@@ -53,7 +53,7 @@ impl Xyz {
 
     /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
     #[inline]
-    pub fn from_srgb(rgb: &Rgb<u8>) -> Self {
+    pub fn from_srgb(rgb: Rgb<u8>) -> Self {
         Xyz::from_rgb(rgb, &SRGB_TO_XYZ_D65, TransferFunction::Srgb)
     }
 
@@ -63,7 +63,7 @@ impl Xyz {
     /// * `transfer_function` - Transfer functions for current colorspace
     #[inline]
     pub fn from_rgb(
-        rgb: &Rgb<u8>,
+        rgb: Rgb<u8>,
         matrix: &[[f32; 3]; 3],
         transfer_function: TransferFunction,
     ) -> Self {

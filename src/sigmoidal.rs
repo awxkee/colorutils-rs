@@ -40,12 +40,13 @@ fn inverse_sigmoidal(x: f32) -> f32 {
 }
 
 impl Sigmoidal {
+    #[inline]
     pub fn new(sr: f32, sg: f32, sb: f32) -> Self {
         Sigmoidal { sr, sg, sb }
     }
 
     #[inline]
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
+    pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         let normalized = rgb.to_rgb_f32();
         Sigmoidal::new(
             to_sigmoidal(normalized.r),
@@ -68,7 +69,7 @@ impl Sigmoidal {
 impl From<Rgb<u8>> for Sigmoidal {
     #[inline]
     fn from(value: Rgb<u8>) -> Self {
-        Sigmoidal::from_rgb(&value)
+        Sigmoidal::from_rgb(value)
     }
 }
 

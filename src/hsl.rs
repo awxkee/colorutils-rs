@@ -18,6 +18,7 @@ pub struct Hsl {
 }
 
 impl Hsl {
+    #[inline]
     pub fn new(h: u16, s: u16, l: u16) -> Hsl {
         Hsl {
             h: h as f32,
@@ -26,14 +27,17 @@ impl Hsl {
         }
     }
 
+    #[inline]
     pub fn from_components(h: f32, s: f32, l: f32) -> Hsl {
         Hsl { h, s, l }
     }
 
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Hsl {
+    #[inline]
+    pub fn from_rgb(rgb: Rgb<u8>) -> Hsl {
         rgb2hsl(rgb.r, rgb.g, rgb.b)
     }
 
+    #[inline]
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let c = (1f32 - (2f32 * self.l - 1f32).abs()) * self.s;
         let x = c * (1f32 - ((self.h / 60f32) % 2f32 - 1f32).abs());
@@ -60,23 +64,28 @@ impl Hsl {
         }
     }
 
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_rgb8()
     }
 
+    #[inline]
     pub fn get_saturation(&self) -> u16 {
         ((self.s * 100f32) as u16).min(100u16)
     }
 
+    #[inline]
     pub fn get_lightness(&self) -> u16 {
         ((self.l * 100f32) as u16).min(100u16)
     }
 
+    #[inline]
     pub fn get_hue(&self) -> u16 {
         (self.h as u16).min(360)
     }
 }
 
+#[inline]
 fn rgb2hsl(o_r: u8, o_g: u8, o_b: u8) -> Hsl {
     let r = o_r as f32 / 255f32;
     let g = o_g as f32 / 255f32;

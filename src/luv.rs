@@ -68,7 +68,9 @@ pub(crate) const LUV_CUTOFF_FORWARD_Y: f32 = (6f32 / 29f32) * (6f32 / 29f32) * (
 pub(crate) const LUV_MULTIPLIER_FORWARD_Y: f32 = (29f32 / 3f32) * (29f32 / 3f32) * (29f32 / 3f32);
 pub(crate) const LUV_MULTIPLIER_INVERSE_Y: f32 = (3f32 / 29f32) * (3f32 / 29f32) * (3f32 / 29f32);
 impl Luv {
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
+    /// Converts RGB to CIE Luv
+    #[inline]
+    pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
         let [x, y, z] = [xyz.x, xyz.y, xyz.z];
         let den = x + 15.0 * y + 3.0 * z;
@@ -94,8 +96,10 @@ impl Luv {
         Luv { l, u, v }
     }
 
-    pub fn from_rgba(rgba: &Rgba<u8>) -> Self {
-        Luv::from_rgb(&rgba.to_rgb())
+    //
+    #[inline]
+    pub fn from_rgba(rgba: Rgba<u8>) -> Self {
+        Luv::from_rgb(rgba.to_rgb())
     }
 
     pub fn to_rgb(&self) -> Rgb<u8> {
@@ -129,11 +133,11 @@ impl Luv {
 }
 
 impl LCh {
-    pub fn from_rgb(rgb: &Rgb<u8>) -> Self {
+    pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         LCh::from_luv(Luv::from_rgb(rgb))
     }
 
-    pub fn from_rgba(rgba: &Rgba<u8>) -> Self {
+    pub fn from_rgba(rgba: Rgba<u8>) -> Self {
         LCh::from_luv(Luv::from_rgba(rgba))
     }
 

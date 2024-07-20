@@ -32,37 +32,37 @@ impl Rgb<u8> {
     /// Converts rgb to XYZ
     #[inline]
     pub fn to_xyz(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Xyz {
-        Xyz::from_rgb(self, matrix, transfer_function)
+        Xyz::from_rgb(*self, matrix, transfer_function)
     }
 
     /// Converts rgb to HSL
     #[inline]
     pub fn to_hsl(&self) -> Hsl {
-        Hsl::from_rgb(self)
+        Hsl::from_rgb(*self)
     }
 
     /// Converts rgb to HSV
     #[inline]
     pub fn to_hsv(&self) -> Hsv {
-        Hsv::from(self)
+        Hsv::from(*self)
     }
 
     /// Converts rgb to CIELAB
     #[inline]
     pub fn to_lab(&self) -> Lab {
-        Lab::from_rgb(self)
+        Lab::from_rgb(*self)
     }
 
     /// Converts rgb to CIELUV
     #[inline]
     pub fn to_luv(&self) -> Luv {
-        Luv::from_rgb(self)
+        Luv::from_rgb(*self)
     }
 
     /// Converts rgb to CIELCH
     #[inline]
     pub fn to_lch(&self) -> LCh {
-        LCh::from_rgb(self)
+        LCh::from_rgb(*self)
     }
 
     /// Converts rgb to RGB f32
@@ -79,7 +79,7 @@ impl Rgb<u8> {
     /// Converts rgb to S-shaped sigmoidized components
     #[inline]
     pub fn to_sigmoidal(&self) -> Sigmoidal {
-        Sigmoidal::from_rgb(self)
+        Sigmoidal::from_rgb(*self)
     }
 }
 

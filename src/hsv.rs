@@ -21,6 +21,7 @@ static HSV_U8_SCALE: f32 = 1f32 / 255f32;
 static HSV_PERCENTAGE_SCALE: f32 = 1f32 / 100f32;
 
 impl Hsv {
+    #[inline]
     pub fn new(h: u16, s: u16, l: u16) -> Hsv {
         Hsv {
             h: h as f32,
@@ -33,7 +34,7 @@ impl Hsv {
         Hsv { h, s, v }
     }
     #[inline]
-    pub fn from(rgb: &Rgb<u8>) -> Hsv {
+    pub fn from(rgb: Rgb<u8>) -> Hsv {
         let (h, s, v) = rgb_to_hsv(
             rgb.r as f32 * HSV_U8_SCALE,
             rgb.g as f32 * HSV_U8_SCALE,

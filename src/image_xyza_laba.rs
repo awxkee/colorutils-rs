@@ -129,7 +129,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     }
                 }
                 XyzTarget::XYZ => {
-                    let xyz = Xyz::from_rgb(&rgb, &matrix, transfer_function);
+                    let xyz = Xyz::from_rgb(rgb, &matrix, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(xyz.x);
                         dst_store.add(1).write_unaligned(xyz.y);

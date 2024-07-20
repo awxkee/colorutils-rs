@@ -37,20 +37,24 @@ impl Rgba<f16> {
 }
 
 impl Rgba<f32> {
+    #[inline]
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Rgba<f32> {
         return Rgba { r, g, b, a };
     }
 
+    #[inline]
     pub fn from_rgb(r: f32, g: f32, b: f32) -> Rgba<f32> {
         return Rgba { r, g, b, a: 1f32 };
     }
 }
 
 impl Rgba<u8> {
+    #[inline]
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Rgba<u8> {
         return Rgba { r, g, b, a };
     }
 
+    #[inline]
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Rgba<u8> {
         return Rgba {
             r,
@@ -60,6 +64,7 @@ impl Rgba<u8> {
         };
     }
 
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         Rgb {
             r: self.r,
@@ -161,6 +166,7 @@ impl Rgb565 {
 }
 
 impl ToRgba8 for Rgb565 {
+    #[inline]
     fn to_rgba8(&self) -> Rgba<u8> {
         let red8 = ((self.rgb565 & 0b1111100000000000) >> 8) as u8;
         let green8 = ((self.rgb565 & 0b11111100000) >> 3) as u8;
@@ -173,6 +179,7 @@ static SCALE_RGB565_5BIT: f32 = 1f32 / 31f32;
 static SCALE_RGB565_6BIT: f32 = 1f32 / 63f32;
 
 impl ToRgbaF16 for Rgb565 {
+    #[inline]
     fn to_rgba_f16(&self) -> Rgba<f16> {
         let red5 = (self.rgb565 & 0b1111100000000000) as f32 * SCALE_RGB565_5BIT;
         let green6 = (self.rgb565 & 0b11111100000) as f32 * SCALE_RGB565_6BIT;

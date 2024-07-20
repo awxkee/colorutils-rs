@@ -218,8 +218,14 @@ pub unsafe fn neon_hsv_u16_to_image<
                     let pixel_set = uint8x8x3_t(r_chan, g_chan, b_chan);
                     vst3_u8(dst_ptr.add(cx * channels), pixel_set);
                 }
-                ImageConfiguration::Rgba => {}
-                ImageConfiguration::Bgra => {}
+                ImageConfiguration::Rgba => {
+                    let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, vdup_n_u8(0));
+                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
+                ImageConfiguration::Bgra => {
+                    let pixel_set = uint8x8x4_t(b_chan, g_chan, r_chan, vdup_n_u8(0));
+                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                }
                 ImageConfiguration::Bgr => {
                     let pixel_set = uint8x8x3_t(b_chan, g_chan, r_chan);
                     vst3_u8(dst_ptr.add(cx * channels), pixel_set);
