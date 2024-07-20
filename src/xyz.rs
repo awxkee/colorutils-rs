@@ -6,7 +6,7 @@
  */
 use crate::gamma_curves::TransferFunction;
 use crate::rgb::Rgb;
-use crate::{EuclideanDistance, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use crate::{EuclideanDistance, Jzazbz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
 use erydanos::Euclidean3DDistance;
 
 /// A CIE 1931 XYZ color.
@@ -45,6 +45,12 @@ static XYZ_SCALE_U8: f32 = 1f32 / 255f32;
 /// Normalized values are speeding up computing.
 /// if you need this multiply by yourself or use `scaled`
 impl Xyz {
+    /// Converts into *Xyz*
+    #[inline]
+    pub fn to_jzazbz(&self) -> Jzazbz {
+        Jzazbz::from_xyz(*self)
+    }
+
     /// This functions always use sRGB transfer function and Rec.601 primaries with D65 White point
     #[inline]
     pub fn from_srgb(rgb: &Rgb<u8>) -> Self {

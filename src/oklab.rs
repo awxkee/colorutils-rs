@@ -10,7 +10,7 @@ use crate::{
 };
 use erydanos::ehypot3f;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Struct that represent *Oklab* colorspace
 pub struct Oklab {
     /// All values in Oklab intended to be normalized [0;1]

@@ -8,7 +8,7 @@ use crate::euclidean::EuclideanDistance;
 use crate::hsv::Hsv;
 use crate::lab::Lab;
 use crate::luv::Luv;
-use crate::{Hsl, LCh, Sigmoidal};
+use crate::{Hsl, Jzazbz, LCh, Sigmoidal, TransferFunction, Xyz};
 use erydanos::Euclidean3DDistance;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
@@ -23,31 +23,49 @@ pub struct Rgb<T> {
 }
 
 impl Rgb<u8> {
+    /// Converts rgb to Jzazbz
+    #[inline]
+    pub fn to_jzazbz(&self, transfer_function: TransferFunction) -> Jzazbz {
+        Jzazbz::from_rgb(*self, transfer_function)
+    }
+
+    /// Converts rgb to XYZ
+    #[inline]
+    pub fn to_xyz(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Xyz {
+        Xyz::from_rgb(self, matrix, transfer_function)
+    }
+
+    /// Converts rgb to HSL
     #[inline]
     pub fn to_hsl(&self) -> Hsl {
         Hsl::from_rgb(self)
     }
 
+    /// Converts rgb to HSV
     #[inline]
     pub fn to_hsv(&self) -> Hsv {
         Hsv::from(self)
     }
 
+    /// Converts rgb to CIELAB
     #[inline]
     pub fn to_lab(&self) -> Lab {
         Lab::from_rgb(self)
     }
 
+    /// Converts rgb to CIELUV
     #[inline]
     pub fn to_luv(&self) -> Luv {
         Luv::from_rgb(self)
     }
 
+    /// Converts rgb to CIELCH
     #[inline]
     pub fn to_lch(&self) -> LCh {
         LCh::from_rgb(self)
     }
 
+    /// Converts rgb to RGB f32
     #[inline]
     pub fn to_rgb_f32(&self) -> Rgb<f32> {
         const SCALE: f32 = 1f32 / 255f32;
@@ -58,6 +76,7 @@ impl Rgb<u8> {
         )
     }
 
+    /// Converts rgb to S-shaped sigmoidized components
     #[inline]
     pub fn to_sigmoidal(&self) -> Sigmoidal {
         Sigmoidal::from_rgb(self)

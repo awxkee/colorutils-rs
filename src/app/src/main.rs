@@ -25,18 +25,11 @@ fn main() {
     let g = 126;
     let b = 126;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let hsl = rgb.to_lab();
-    println!("RGB {:?}", rgb);
-    println!("RGB 0,0,0 {:?}", hsl);
-    println!(
-        "RGB 127,127,127 {:?}",
-        Rgb::<u8>::new(127, 127, 127).to_lab()
-    );
-    println!(
-        "RGB 255,255,255 {:?}",
-        Rgb::<u8>::new(255, 255, 255).to_lab()
-    );
-    println!("Back RGB {:?}", hsl.to_rgb8());
+    let jzazbz = Jzczhz::from_rgb(rgb, TransferFunction::Srgb);
+    println!("Jzczhz {:?}", jzazbz);
+    println!("Rgb {:?}", rgb);
+    let restored = jzazbz.to_rgb(TransferFunction::Srgb);
+    println!("Restored RGB {:?}", restored);
 
     let img = ImageReader::open("./assets/beach_horizon.jpg")
         .unwrap()

@@ -5,12 +5,14 @@ Allows conversion between
 - [x] Rgb/Rgba/Rgba1010102/Rgb565/RgbF16
 - [x] HSL
 - [x] HSV
-- [x] LAB
-- [x] LUV
-- [x] LCh
+- [x] CIE LAB
+- [x] CIE LUV
+- [x] CIE LCh
 - [x] XYZ
 - [x] Sigmoidal
 - [x] Oklab
+- [x] Jzazbz
+- [x] Jzczhz
 
 ### Performance
 
