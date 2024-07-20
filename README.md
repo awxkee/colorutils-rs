@@ -2,13 +2,14 @@
 
 Allows conversion between
 
-- Rgb/Rgba/Rgba1010102/Rgb565/RgbF16
-- HSL
-- HSV
-- LAB
-- LUV
-- XYZ
-- Sigmoidal
+- [x] Rgb/Rgba/Rgba1010102/Rgb565/RgbF16
+- [x] HSL
+- [x] HSV
+- [x] LAB
+- [x] LUV
+- [x] XYZ
+- [x] Sigmoidal
+- [x] Oklab
 
 ### Performance
 
