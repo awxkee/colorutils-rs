@@ -17,6 +17,7 @@ pub mod linear_to_planar;
 mod math;
 mod oklab_to_image;
 pub mod planar_to_linear;
+mod routines;
 mod sigmoidal;
 mod to_linear;
 mod to_linear_u8;

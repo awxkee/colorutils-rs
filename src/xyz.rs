@@ -80,6 +80,27 @@ impl Xyz {
         }
     }
 
+    /// This function converts from non-linear RGB components to XYZ
+    /// # Arguments
+    /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
+    /// * `transfer_function` - Transfer functions for current colorspace
+    #[inline]
+    pub fn from_linear_rgb(rgb: &Rgb<f32>, matrix: &[[f32; 3]; 3]) -> Self {
+        unsafe {
+            Self::new(
+                (*(*matrix.get_unchecked(0)).get_unchecked(0)) * rgb.r
+                    + (*(*matrix.get_unchecked(0)).get_unchecked(1)) * rgb.g
+                    + (*(*matrix.get_unchecked(0)).get_unchecked(2)) * rgb.b,
+                (*(*matrix.get_unchecked(1)).get_unchecked(0)) * rgb.r
+                    + (*(*matrix.get_unchecked(1)).get_unchecked(1)) * rgb.g
+                    + (*(*matrix.get_unchecked(1)).get_unchecked(2)) * rgb.b,
+                (*(*matrix.get_unchecked(2)).get_unchecked(0)) * rgb.r
+                    + (*(*matrix.get_unchecked(2)).get_unchecked(1)) * rgb.g
+                    + (*(*matrix.get_unchecked(2)).get_unchecked(2)) * rgb.b,
+            )
+        }
+    }
+
     pub fn scaled(&self) -> (f32, f32, f32) {
         (self.x * 100f32, self.y * 100f32, self.z * 100f32)
     }
@@ -115,6 +136,28 @@ impl Xyz {
             let g = 255f32 * gamma_function(g);
             let b = 255f32 * gamma_function(b);
             Rgb::new(r as u8, g as u8, b as u8)
+        }
+    }
+
+    /// This function converts XYZ to linear RGB
+    /// # Arguments
+    /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
+    #[inline]
+    pub fn to_linear_rgb(&self, matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+        let x = self.x;
+        let y = self.y;
+        let z = self.z;
+        unsafe {
+            let r = x * (*(*matrix.get_unchecked(0)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(0)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(0)).get_unchecked(2));
+            let g = x * (*(*matrix.get_unchecked(1)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(1)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(1)).get_unchecked(2));
+            let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
+                + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
+                + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
+            Rgb::<f32>::new(r, g, b)
         }
     }
 }

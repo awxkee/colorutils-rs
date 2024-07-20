@@ -7,7 +7,7 @@
 use crate::image::ImageConfiguration;
 use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
-use crate::TransferFunction;
+use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -32,41 +32,21 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     c6: float32x4_t,
     c7: float32x4_t,
     c8: float32x4_t,
+    x0: float32x4_t,
+    x1: float32x4_t,
+    x2: float32x4_t,
+    x3: float32x4_t,
+    x4: float32x4_t,
+    x5: float32x4_t,
+    x6: float32x4_t,
+    x7: float32x4_t,
+    x8: float32x4_t,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
-    let d_alpha = vdupq_n_f32(1f32);
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
-    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    match image_configuration {
-        ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-            let rgba_pixels = vld4q_f32(src);
-            if image_configuration == ImageConfiguration::Rgba {
-                r_f32 = rgba_pixels.0;
-                g_f32 = rgba_pixels.1;
-                b_f32 = rgba_pixels.2;
-            } else {
-                r_f32 = rgba_pixels.2;
-                g_f32 = rgba_pixels.1;
-                b_f32 = rgba_pixels.0;
-            }
-            a_f32 = rgba_pixels.3;
-        }
-        ImageConfiguration::Bgr | ImageConfiguration::Rgb => {
-            let rgb_pixels = vld3q_f32(src);
-            if image_configuration == ImageConfiguration::Rgb {
-                r_f32 = rgb_pixels.0;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.2;
-            } else {
-                r_f32 = rgb_pixels.2;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.0;
-            }
-            a_f32 = d_alpha;
-        }
-    }
-
+    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
+        load_f32_and_deinterleave!(src, image_configuration);
     let (mut l_l, mut l_m, mut l_s) =
         vcolorq_matrix_f32(r_f32, g_f32, b_f32, m0, m1, m2, m3, m4, m5, m6, m7, m8);
 
@@ -74,7 +54,9 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     l_m = vmulq_f32(vmulq_f32(l_m, l_m), l_m);
     l_s = vmulq_f32(vmulq_f32(l_s, l_s), l_s);
 
-    let (r_l, g_l, b_l) = vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+    let (x, y, z) = vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+
+    let (r_l, g_l, b_l) = vcolorq_matrix_f32(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
     r_f32 = transfer(r_l);
     g_f32 = transfer(g_l);
@@ -106,6 +88,19 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
+
+    // Matrix from XYZ
+    let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(1)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(2)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(0)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(1)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(2)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(0)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(1)),
+        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(2)),
+    );
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
         vdupq_n_f32(1f32),
@@ -158,6 +153,15 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
             c6,
             c7,
             c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
@@ -183,6 +187,15 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
             c6,
             c7,
             c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
@@ -208,6 +221,15 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
             c6,
             c7,
             c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
@@ -233,6 +255,15 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
             c6,
             c7,
             c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));

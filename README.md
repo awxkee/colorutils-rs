@@ -7,6 +7,7 @@ Allows conversion between
 - [x] HSV
 - [x] LAB
 - [x] LUV
+- [x] LCh
 - [x] XYZ
 - [x] Sigmoidal
 - [x] Oklab

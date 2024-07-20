@@ -7,7 +7,7 @@
 
 use crate::image::ImageConfiguration;
 use crate::neon::*;
-use crate::TransferFunction;
+use crate::{load_f32_and_deinterleave, TransferFunction};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -15,39 +15,11 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     src: *const f32,
     transfer_function: TransferFunction,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
-    let d_alpha = vdupq_n_f32(1f32);
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
-    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    match image_configuration {
-        ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-            let rgba_pixels = vld4q_f32(src);
-            if image_configuration == ImageConfiguration::Rgba {
-                r_f32 = rgba_pixels.0;
-                g_f32 = rgba_pixels.1;
-                b_f32 = rgba_pixels.2;
-            } else {
-                r_f32 = rgba_pixels.2;
-                g_f32 = rgba_pixels.1;
-                b_f32 = rgba_pixels.0;
-            }
-            a_f32 = rgba_pixels.3;
-        }
-        ImageConfiguration::Bgr | ImageConfiguration::Rgb => {
-            let rgb_pixels = vld3q_f32(src);
-            if image_configuration == ImageConfiguration::Rgb {
-                r_f32 = rgb_pixels.0;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.2;
-            } else {
-                r_f32 = rgb_pixels.2;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.0;
-            }
-            a_f32 = d_alpha;
-        }
-    }
+    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
+        load_f32_and_deinterleave!(src, image_configuration);
 
     r_f32 = transfer(r_f32);
     g_f32 = transfer(g_f32);

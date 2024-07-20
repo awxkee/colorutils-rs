@@ -6,6 +6,7 @@
  */
 use crate::{
     srgb_from_linear, srgb_to_linear, EuclideanDistance, Rgb, TaxicabDistance, TransferFunction,
+    Xyz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65,
 };
 use erydanos::ehypot3f;
 
@@ -77,9 +78,11 @@ impl Oklab {
 
     #[inline]
     fn linear_rgb_to_oklab(rgb: Rgb<f32>) -> Oklab {
-        let l = 0.4122214708f32 * rgb.r + 0.5363325363f32 * rgb.g + 0.0514459929f32 * rgb.b;
-        let m = 0.2119034982f32 * rgb.r + 0.6806995451f32 * rgb.g + 0.1073969566f32 * rgb.b;
-        let s = 0.0883024619f32 * rgb.r + 0.2817188376f32 * rgb.g + 0.6299787005f32 * rgb.b;
+        let xyz = Xyz::from_linear_rgb(&rgb, &SRGB_TO_XYZ_D65);
+
+        let l = 0.4122214708f32 * xyz.x + 0.5363325363f32 * xyz.y + 0.0514459929f32 * xyz.z;
+        let m = 0.2119034982f32 * xyz.x + 0.6806995451f32 * xyz.y + 0.1073969566f32 * xyz.z;
+        let s = 0.0883024619f32 * xyz.x + 0.2817188376f32 * xyz.y + 0.6299787005f32 * xyz.z;
 
         let l_ = l.cbrt();
         let m_ = m.cbrt();
@@ -103,11 +106,12 @@ impl Oklab {
         let m = m_ * m_ * m_;
         let s = s_ * s_ * s_;
 
-        return Rgb::<f32>::new(
+        let xyz = Xyz::new(
             4.0767416621f32 * l - 3.3077115913f32 * m + 0.2309699292f32 * s,
             -1.2684380046f32 * l + 2.6097574011f32 * m - 0.3413193965f32 * s,
             -0.0041960863f32 * l - 0.7034186147f32 * m + 1.7076147010f32 * s,
         );
+        xyz.to_linear_rgb(&XYZ_TO_SRGB_D65)
     }
 }
 
