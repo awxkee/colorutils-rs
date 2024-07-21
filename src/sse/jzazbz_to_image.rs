@@ -45,7 +45,7 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let (mut jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
 
     if target == JzazbzTarget::JZCZHZ {
         let cz = az;
