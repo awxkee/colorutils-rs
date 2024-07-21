@@ -31,8 +31,11 @@ fn perceptual_quantizer_inverse(x: f32) -> f32 {
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Represents Jzazbz
 pub struct Jzazbz {
+    /// Jz(lightness) generally expects to be between [0;1]
     pub jz: f32,
+    /// Az generally expects to be between [-1;1]
     pub az: f32,
+    /// Bz generally expects to be between [-1;1]
     pub bz: f32,
 }
 
@@ -70,7 +73,7 @@ impl Jzazbz {
     pub fn to_xyz(&self) -> Xyz {
         let jz = self.jz + 1.6295499532821566e-11;
 
-        let iz = jz / (0.44 + 0.56 * jz);
+        let iz = jz / (0.44f32 + 0.56f32 * jz);
         let l = perceptual_quantizer_inverse(
             iz + 1.386050432715393e-1 * self.az + 5.804731615611869e-2 * self.bz,
         );

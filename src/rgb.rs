@@ -30,6 +30,9 @@ impl Rgb<u8> {
     }
 
     /// Converts rgb to XYZ
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert RGB into linear RGB
     #[inline]
     pub fn to_xyz(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Xyz {
         Xyz::from_rgb(*self, matrix, transfer_function)

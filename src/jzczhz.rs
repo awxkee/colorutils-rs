@@ -5,13 +5,16 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::{EuclideanDistance, Jzazbz, Rgb, TransferFunction, Xyz};
-use erydanos::{ehypot3f, ehypotf, Cosine, Euclidean2DDistance, Sine};
+use erydanos::{eatan2f, ehypot3f, ehypotf, Cosine, Sine};
 
 /// Represents Jzazbz in polar coordinates as Jzczhz
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Jzczhz {
+    /// Jz(lightness) generally expects to be between [0;1]
     pub jz: f32,
+    /// Cz generally expects to be between [-1;1]
     pub cz: f32,
+    /// Hz generally expects to be between [-1;1]
     pub hz: f32,
 }
 
@@ -36,7 +39,7 @@ impl Jzczhz {
     #[inline]
     pub fn from_jzazbz(jzazbz: Jzazbz) -> Jzczhz {
         let cz = ehypotf(jzazbz.az, jzazbz.bz);
-        let hz = jzazbz.bz.ehypot(jzazbz.az);
+        let hz = eatan2f(jzazbz.bz, jzazbz.az);
         Jzczhz::new(jzazbz.jz, cz, hz)
     }
 
