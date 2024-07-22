@@ -4,7 +4,6 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-use crate::sse::{sse_interleave_rgb_epi16, sse_interleave_rgba_epi16};
 
 #[macro_export]
 macro_rules! load_u8_and_deinterleave {

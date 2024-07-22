@@ -35,26 +35,6 @@ pub unsafe fn sse_interleave_rgba(
 }
 
 #[inline(always)]
-pub unsafe fn sse_transpose_x4(
-    r: __m128,
-    g: __m128,
-    b: __m128,
-    a: __m128,
-) -> (__m128, __m128, __m128, __m128) {
-    let t0 = _mm_castps_si128(_mm_unpacklo_ps(r, g));
-    let t1 = _mm_castps_si128(_mm_unpacklo_ps(b, a));
-    let t2 = _mm_castps_si128(_mm_unpackhi_ps(r, g));
-    let t3 = _mm_castps_si128(_mm_unpackhi_ps(b, a));
-
-    let row1 = _mm_castsi128_ps(_mm_unpacklo_epi64(t0, t1));
-    let row2 = _mm_castsi128_ps(_mm_unpackhi_epi64(t0, t1));
-    let row3 = _mm_castsi128_ps(_mm_unpacklo_epi64(t2, t3));
-    let row4 = _mm_castsi128_ps(_mm_unpackhi_epi64(t2, t3));
-
-    (row1, row2, row3, row4)
-}
-
-#[inline(always)]
 pub unsafe fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128, __m128, __m128) {
     const MASK_U0: i32 = shuffle(0, 0, 0, 0);
     let u0 = _mm_shuffle_ps::<MASK_U0>(a, b);
@@ -93,15 +73,6 @@ pub unsafe fn sse_interleave_ps_rgba(
     let v1 = _mm_unpackhi_ps(u0, u1);
     let v3 = _mm_unpackhi_ps(u2, u3);
     (v0, v1, v2, v3)
-}
-
-#[inline(always)]
-pub unsafe fn sse_store_rgba(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i, a: __m128i) {
-    let (row1, row2, row3, row4) = sse_interleave_rgba(r, g, b, a);
-    _mm_storeu_si128(ptr as *mut __m128i, row1);
-    _mm_storeu_si128(ptr.add(16) as *mut __m128i, row2);
-    _mm_storeu_si128(ptr.add(32) as *mut __m128i, row3);
-    _mm_storeu_si128(ptr.add(48) as *mut __m128i, row4);
 }
 
 #[inline(always)]
@@ -306,14 +277,6 @@ pub unsafe fn sse_deinterleave_rgb_epi16(
     let b0 = _mm_shuffle_epi8(b0, sh_b);
     let c0 = _mm_shuffle_epi8(c0, sh_c);
     (a0, b0, c0)
-}
-
-#[inline(always)]
-pub unsafe fn sse_store_rgb_u8(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i) {
-    let (v0, v1, v2) = sse_interleave_rgb(r, g, b);
-    _mm_storeu_si128(ptr as *mut __m128i, v0);
-    _mm_storeu_si128(ptr.add(16) as *mut __m128i, v1);
-    _mm_storeu_si128(ptr.add(32) as *mut __m128i, v2);
 }
 
 #[inline(always)]

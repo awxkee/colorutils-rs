@@ -8,7 +8,7 @@ use crate::euclidean::EuclideanDistance;
 use crate::hsv::Hsv;
 use crate::lab::Lab;
 use crate::luv::Luv;
-use crate::{Hsl, Jzazbz, LCh, Sigmoidal, TransferFunction, Xyz};
+use crate::{Hsl, Jzazbz, LCh, Oklab, Sigmoidal, TransferFunction, Xyz};
 use erydanos::Euclidean3DDistance;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
@@ -96,6 +96,15 @@ impl Rgb<u8> {
             self.g as f32 * SCALE,
             self.b as f32 * SCALE,
         )
+    }
+
+    /// Converts rgb to *Oklab*
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
+    #[inline]
+    pub fn to_oklab(&self, transfer_function: TransferFunction) -> Oklab {
+        Oklab::from_rgb(*self, transfer_function)
     }
 
     /// Converts rgb to S-shaped sigmoidized components

@@ -7,7 +7,7 @@
 
 use std::arch::aarch64::*;
 
-use erydanos::{vcosq_f32, vmlafq_f32, vsinq_f32};
+use erydanos::{vcosq_f32, visnanq_f32, vmlafq_f32, vpowq_f32, vsinq_f32};
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
@@ -21,10 +21,13 @@ macro_rules! perceptual_quantizer_inverse {
         let xx = vpowq_n_f32($color, 7.460772656268214e-03);
         let num = vsubq_f32(vdupq_n_f32(0.8359375), xx);
         let den = vmlafq_f32(xx, vdupq_n_f32(18.6875), vdupq_n_f32(-18.8515625));
-        let den_is_zero = vceqzq_f32(den);
-        let rs = vmulq_n_f32(vpowq_n_f32(vdivq_f32(num, den), 6.277394636015326), 1e4);
+        let rs = vmulq_n_f32(
+            vpowq_f32(vdivq_f32(num, den), vdupq_n_f32(6.277394636015326)),
+            1e4,
+        );
+        let flush_nan_mask = visnanq_f32(rs);
         vbslq_f32(
-            vorrq_u32(flush_to_zero_mask, den_is_zero),
+            vorrq_u32(flush_to_zero_mask, flush_nan_mask),
             vdupq_n_f32(0.),
             rs,
         )

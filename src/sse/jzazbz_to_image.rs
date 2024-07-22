@@ -10,7 +10,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use erydanos::{_mm_cos_ps, _mm_mlaf_ps, _mm_sin_ps};
+use erydanos::{_mm_cos_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_pow_ps, _mm_sin_ps};
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
@@ -30,12 +30,16 @@ macro_rules! perceptual_quantizer_inverse {
         let xx = _mm_pow_n_ps($color, 7.460772656268214e-03);
         let num = _mm_sub_ps(_mm_set1_ps(0.8359375), xx);
         let den = _mm_mlaf_ps(xx, _mm_set1_ps(18.6875), _mm_set1_ps(-18.8515625));
-        let den_is_zero = _mm_cmpeq_ps(den, zeros);
         let rs = _mm_mul_ps(
-            _mm_pow_n_ps(_mm_div_ps(num, den), 6.277394636015326),
+            _mm_pow_ps(_mm_div_ps(num, den), _mm_set1_ps(6.277394636015326)),
             _mm_set1_ps(1e4),
         );
-        _mm_select_ps(_mm_or_ps(flush_to_zero_mask, den_is_zero), zeros, rs)
+        let flush_nan_to_zero_mask = _mm_isnan_ps(rs);
+        _mm_select_ps(
+            _mm_or_ps(flush_to_zero_mask, flush_nan_to_zero_mask),
+            zeros,
+            rs,
+        )
     }};
 }
 
