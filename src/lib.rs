@@ -164,6 +164,7 @@ pub use oklab_to_image::oklch_to_bgr;
 pub use oklab_to_image::oklch_to_bgra;
 pub use oklab_to_image::oklch_to_rgb;
 pub use oklab_to_image::oklch_to_rgba;
+pub use oklch::Oklch;
 pub use rgb_expand::*;
 pub use sigmoidal::Sigmoidal;
 pub use sigmoidal_to_image::sigmoidal_to_bgra;
