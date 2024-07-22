@@ -66,14 +66,13 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0f32);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_jzazbz(
+        rgb_to_oklch(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            200f32,
             TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
@@ -102,14 +101,13 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        jzazbz_to_rgb(
+        oklch_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            200f32,
             TransferFunction::Srgb,
         );
 

@@ -5,6 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
+use crate::image_to_oklab::OklabTarget;
 use crate::sse::{
     _mm_color_matrix_ps, _mm_cube_ps, get_sse_gamma_transfer, sse_deinterleave_rgb_ps,
     sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
@@ -13,6 +14,7 @@ use crate::{
     load_f32_and_deinterleave, store_and_interleave_v3_u8, store_and_interleave_v4_u8,
     TransferFunction, XYZ_TO_SRGB_D65,
 };
+use erydanos::{_mm_cos_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -22,6 +24,7 @@ use std::arch::x86_64::*;
 unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
     transfer_function: TransferFunction,
+    oklab_target: OklabTarget,
     m0: __m128,
     m1: __m128,
     m2: __m128,
@@ -54,11 +57,17 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
-        load_f32_and_deinterleave!(src, image_configuration);
+    let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+
+    if oklab_target == OklabTarget::OKLCH {
+        let a0 = _mm_mul_ps(a, _mm_cos_ps(b));
+        let b0 = _mm_mul_ps(a, _mm_sin_ps(b));
+        a = a0;
+        b = b0;
+    }
 
     let (mut l_l, mut l_m, mut l_s) =
-        _mm_color_matrix_ps(r_f32, g_f32, b_f32, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+        _mm_color_matrix_ps(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
 
     l_l = _mm_cube_ps(l_l);
     l_m = _mm_cube_ps(l_m);
@@ -68,9 +77,9 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 
     let (r_l, g_l, b_l) = _mm_color_matrix_ps(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
-    r_f32 = transfer(r_l);
-    g_f32 = transfer(g_l);
-    b_f32 = transfer(b_l);
+    let mut r_f32 = transfer(r_l);
+    let mut g_f32 = transfer(g_l);
+    let mut b_f32 = transfer(b_l);
 
     r_f32 = _mm_mul_ps(r_f32, v_scale_alpha);
     g_f32 = _mm_mul_ps(g_f32, v_scale_alpha);
@@ -98,7 +107,7 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 }
 
 #[inline(always)]
-pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
+pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
@@ -107,6 +116,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
     width: u32,
     transfer_function: TransferFunction,
 ) -> usize {
+    let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
@@ -157,6 +167,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_0,
             transfer_function,
+            target,
             m0,
             m1,
             m2,
@@ -191,6 +202,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_1,
             transfer_function,
+            target,
             m0,
             m1,
             m2,
@@ -225,6 +237,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         let (r_row2_, g_row2_, b_row2_, a_row2_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_2,
             transfer_function,
+            target,
             m0,
             m1,
             m2,
@@ -259,6 +272,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         let (r_row3_, g_row3_, b_row3_, a_row3_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_3,
             transfer_function,
+            target,
             m0,
             m1,
             m2,

@@ -9,9 +9,11 @@ use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
 use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
 use std::arch::aarch64::*;
+use erydanos::{vcosq_f32, vsinq_f32};
+use crate::image_to_oklab::OklabTarget;
 
 #[inline(always)]
-unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
+unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
     transfer_function: TransferFunction,
     m0: float32x4_t,
@@ -42,13 +44,21 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     x7: float32x4_t,
     x8: float32x4_t,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
+    let target: OklabTarget = TARGET.into();
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
-        load_f32_and_deinterleave!(src, image_configuration);
+    let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+
+    if target == OklabTarget::OKLCH {
+        let a0 = vmulq_f32(a, vcosq_f32(b));
+        let b0 = vmulq_f32(a, vsinq_f32(b));
+        a = a0;
+        b = b0;
+    }
+
     let (mut l_l, mut l_m, mut l_s) =
-        vcolorq_matrix_f32(r_f32, g_f32, b_f32, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+        vcolorq_matrix_f32(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
 
     l_l = vmulq_f32(vmulq_f32(l_l, l_l), l_l);
     l_m = vmulq_f32(vmulq_f32(l_m, l_m), l_m);
@@ -58,9 +68,9 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
 
     let (r_l, g_l, b_l) = vcolorq_matrix_f32(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
-    r_f32 = transfer(r_l);
-    g_f32 = transfer(g_l);
-    b_f32 = transfer(b_l);
+    let mut r_f32 = transfer(r_l);
+    let mut g_f32 = transfer(g_l);
+    let mut b_f32 = transfer(b_l);
     r_f32 = vmulq_f32(r_f32, v_scale_alpha);
     g_f32 = vmulq_f32(g_f32, v_scale_alpha);
     b_f32 = vmulq_f32(b_f32, v_scale_alpha);
@@ -76,7 +86,7 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
 }
 
 #[inline(always)]
-pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
+pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
@@ -132,139 +142,143 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
 
         let src_ptr_0 = offset_src_ptr;
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) = neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0,
-            transfer_function,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
-        );
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_0,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
 
-        let (r_row1_, g_row1_, b_row1_, a_row1_) = neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_1,
-            transfer_function,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
-        );
+        let (r_row1_, g_row1_, b_row1_, a_row1_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_1,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
 
-        let (r_row2_, g_row2_, b_row2_, a_row2_) = neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_2,
-            transfer_function,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
-        );
+        let (r_row2_, g_row2_, b_row2_, a_row2_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_2,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
 
-        let (r_row3_, g_row3_, b_row3_, a_row3_) = neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_3,
-            transfer_function,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
-        );
+        let (r_row3_, g_row3_, b_row3_, a_row3_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_3,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
         let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));

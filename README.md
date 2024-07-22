@@ -11,6 +11,7 @@ Allows conversion between
 - [x] XYZ
 - [x] Sigmoidal
 - [x] Oklab
+- [x] Oklch
 - [x] Jzazbz
 - [x] Jzczhz
 

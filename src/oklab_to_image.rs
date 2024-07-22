@@ -16,8 +16,10 @@ use crate::neon::neon_oklab_to_image;
 ))]
 use crate::sse::sse_oklab_to_image;
 use crate::{Oklab, TransferFunction};
+use crate::image_to_oklab::OklabTarget;
+use crate::oklch::Oklch;
 
-fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
+fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
     src_stride: u32,
     dst: &mut [u8],
@@ -26,6 +28,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
     height: u32,
     transfer_function: TransferFunction,
 ) {
+    let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
     let mut src_offset = 0usize;
@@ -40,7 +43,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _wide_row_handle = Some(sse_oklab_to_image::<CHANNELS_CONFIGURATION>);
+        _wide_row_handle = Some(sse_oklab_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(all(
@@ -48,7 +51,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         target_feature = "neon"
     ))]
     {
-        _wide_row_handle = Some(neon_oklab_to_image::<CHANNELS_CONFIGURATION>);
+        _wide_row_handle = Some(neon_oklab_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let channels = image_configuration.get_channels_count();
@@ -79,8 +82,16 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
             let l_y = unsafe { src_ptr.add(px + 1).read_unaligned() };
             let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
             let rgb;
-            let oklab = Oklab::new(l_x, l_y, l_z);
-            rgb = oklab.to_rgb(transfer_function);
+            match target {
+                OklabTarget::OKLAB => {
+                    let oklab = Oklab::new(l_x, l_y, l_z);
+                    rgb = oklab.to_rgb(transfer_function);
+                }
+                OklabTarget::OKLCH => {
+                    let oklch = Oklch::new(l_x, l_y, l_z);
+                    rgb = oklch.to_rgb(transfer_function);
+                }
+            }
 
             unsafe {
                 let dst = dst_ptr.add(x * channels);
@@ -123,7 +134,7 @@ pub fn oklab_to_rgba(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }>(
+    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, {OklabTarget::OKLAB as u8}>(
         src,
         src_stride,
         dst,
@@ -153,7 +164,7 @@ pub fn oklab_to_rgb(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }>(
+    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, {OklabTarget::OKLAB as u8}>(
         src,
         src_stride,
         dst,
@@ -183,7 +194,7 @@ pub fn oklab_to_bgr(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }>(
+    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, {OklabTarget::OKLAB as u8}>(
         src,
         src_stride,
         dst,
@@ -213,7 +224,127 @@ pub fn oklab_to_bgra(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }>(
+    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, {OklabTarget::OKLAB as u8}>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts *Oklch* with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCH data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive RGBA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `transfer_function` - Transfer function from linear colorspace to gamma
+pub fn oklch_to_rgba(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, {OklabTarget::OKLCH as u8}>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts *Oklch* to RGB. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCH data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive RGB data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `transfer_function` - Transfer function from linear colorspace to gamma
+pub fn oklch_to_rgb(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, {OklabTarget::OKLCH as u8}>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts *Oklch* to BGR. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCH data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive BGR data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `transfer_function` - Transfer function from linear colorspace to gamma
+pub fn oklch_to_bgr(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, {OklabTarget::OKLCH as u8}>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts *Oklch* with interleaved alpha channel to BGRA. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains LCH data
+/// * `src_stride` - Bytes per row for src data.
+/// * `dst` - A mutable slice to receive BGRA data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `transfer_function` - Transfer function from linear colorspace to gamma
+pub fn oklch_to_bgra(
+    src: &[f32],
+    src_stride: u32,
+    dst: &mut [u8],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, {OklabTarget::OKLCH as u8}>(
         src,
         src_stride,
         dst,

@@ -10,6 +10,7 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_image_to_oklab;
+use crate::oklch::Oklch;
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "sse4.1"
@@ -17,8 +18,26 @@ use crate::neon::neon_image_to_oklab;
 use crate::sse::sse_image_to_oklab;
 use crate::{Oklab, Rgb, TransferFunction};
 
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub(crate) enum OklabTarget {
+    OKLAB = 0,
+    OKLCH = 1,
+}
+
+impl From<u8> for OklabTarget {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => OklabTarget::OKLAB,
+            1 => OklabTarget::OKLCH,
+            _ => {
+                panic!("Not implemented")
+            }
+        }
+    }
+}
+
 #[inline(always)]
-fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
+fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[u8],
     src_stride: u32,
     dst: &mut [f32],
@@ -27,6 +46,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
     height: u32,
     transfer_function: TransferFunction,
 ) {
+    let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
     let channels = image_configuration.get_channels_count();
@@ -40,7 +60,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         target_feature = "neon"
     ))]
     {
-        _wide_row_handle = Some(neon_image_to_oklab::<CHANNELS_CONFIGURATION>);
+        _wide_row_handle = Some(neon_image_to_oklab::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(all(
@@ -48,7 +68,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _wide_row_handle = Some(sse_image_to_oklab::<CHANNELS_CONFIGURATION>);
+        _wide_row_handle = Some(sse_image_to_oklab::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let mut src_offset = 0usize;
@@ -92,14 +112,25 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
             };
 
             let rgb = Rgb::<u8>::new(r, g, b);
-            let oklab = Oklab::from_rgb(rgb, transfer_function);
-
             let dst_store = unsafe { dst_ptr.add(px) };
 
-            unsafe {
-                dst_store.write_unaligned(oklab.l);
-                dst_store.add(1).write_unaligned(oklab.a);
-                dst_store.add(2).write_unaligned(oklab.b);
+            match target {
+                OklabTarget::OKLAB => {
+                    let oklab = Oklab::from_rgb(rgb, transfer_function);
+                    unsafe {
+                        dst_store.write_unaligned(oklab.l);
+                        dst_store.add(1).write_unaligned(oklab.a);
+                        dst_store.add(2).write_unaligned(oklab.b);
+                    }
+                }
+                OklabTarget::OKLCH => {
+                    let oklch = Oklch::from_rgb(rgb, transfer_function);
+                    unsafe {
+                        dst_store.write_unaligned(oklch.l);
+                        dst_store.add(1).write_unaligned(oklch.c);
+                        dst_store.add(2).write_unaligned(oklch.h);
+                    }
+                }
             }
 
             if image_configuration.has_alpha() {
@@ -138,7 +169,7 @@ pub fn rgb_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -168,7 +199,7 @@ pub fn rgba_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -198,7 +229,7 @@ pub fn bgra_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -228,7 +259,127 @@ pub fn bgr_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLAB as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts RGB to Oklch against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGB data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LCH(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `transfer_function` - transfer function to linear colorspace
+pub fn rgb_to_oklch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLCH as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts RGBA to Oklch against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains RGBA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LCH(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `transfer_function` - transfer function to linear colorspace
+pub fn rgba_to_oklch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLCH as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts BGRA to Oklch against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGRA data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LCH(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `transfer_function` - transfer function to linear colorspace
+pub fn bgra_to_oklch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLCH as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+}
+
+/// This function converts BGR to Oklch against D65 white point. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGR data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive LCH(a) data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `transfer_function` - transfer function to linear colorspace
+pub fn bgr_to_oklch(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    transfer_function: TransferFunction,
+) {
+    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLCH as u8 }>(
         src,
         src_stride,
         dst,

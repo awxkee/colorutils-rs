@@ -5,6 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
+use crate::image_to_oklab::OklabTarget;
 use crate::sse::{
     _mm_color_matrix_ps, get_sse_linear_transfer, sse_deinterleave_rgb, sse_deinterleave_rgba,
     sse_interleave_ps_rgb, sse_interleave_ps_rgba,
@@ -13,14 +14,14 @@ use crate::{
     load_u8_and_deinterleave, store_and_interleave_v3_f32, store_and_interleave_v4_f32,
     TransferFunction, SRGB_TO_XYZ_D65,
 };
-use erydanos::_mm_cbrt_fast_ps;
+use erydanos::{_mm_atan2_ps, _mm_cbrt_fast_ps, _mm_hypot_fast_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
 macro_rules! triple_to_oklab {
-    ($r: expr, $g: expr, $b: expr, $transfer: expr,
+    ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr,
         $x0: expr, $x1: expr, $x2: expr, $x3: expr, $x4: expr, $x5: expr, $x6: expr, $x7: expr, $x8: expr,
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
@@ -44,14 +45,22 @@ macro_rules! triple_to_oklab {
         let m_ = _mm_cbrt_fast_ps(l_m);
         let s_ = _mm_cbrt_fast_ps(l_s);
 
-        let (l, m, s) =
+        let (l, mut a, mut b) =
             _mm_color_matrix_ps(l_, m_, s_, $m0, $m1, $m2, $m3, $m4, $m5, $m6, $m7, $m8);
-        (l, m, s)
+
+        if $target == OklabTarget::OKLCH {
+            let c = _mm_hypot_fast_ps(a, b);
+            let h = _mm_atan2_ps(a, b);
+            a = c;
+            b = h;
+        }
+
+        (l, a, b)
     }};
 }
 
 #[inline(always)]
-pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
+pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -60,6 +69,7 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
     dst_offset: usize,
     transfer_function: TransferFunction,
 ) -> usize {
+    let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
@@ -119,8 +129,8 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low, g_low_low, b_low_low, &transfer, x0, x1, x2, x3, x4, x5, x6, x7, x8, c0, c1,
-            c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_low, g_low_low, b_low_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
         );
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
@@ -141,8 +151,8 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
-            r_low_high, g_low_high, b_low_high, &transfer, x0, x1, x2, x3, x4, x5, x6, x7, x8, c0,
-            c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
+            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
         );
 
         if image_configuration.has_alpha() {
@@ -167,8 +177,8 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
         let (x_high_low, y_high_low, z_high_low) = triple_to_oklab!(
-            r_high_low, g_high_low, b_high_low, &transfer, x0, x1, x2, x3, x4, x5, x6, x7, x8, c0,
-            c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_high_low, g_high_low, b_high_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
+            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
         );
 
         let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
@@ -191,6 +201,7 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
             g_high_high,
             b_high_high,
             &transfer,
+            target,
             x0,
             x1,
             x2,
