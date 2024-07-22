@@ -4,6 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+use crate::sse::{sse_interleave_rgb_epi16, sse_interleave_rgba_epi16};
 
 #[macro_export]
 macro_rules! load_u8_and_deinterleave {
@@ -129,5 +130,26 @@ macro_rules! store_and_interleave_v3_u8 {
         _mm_storeu_si128($ptr as *mut __m128i, rgba0);
         _mm_storeu_si128($ptr.add(16) as *mut __m128i, rgba1);
         _mm_storeu_si128($ptr.add(32) as *mut __m128i, rgba2);
+    }};
+}
+
+#[macro_export]
+macro_rules! store_and_interleave_v4_u16 {
+    ($ptr: expr, $j0: expr, $j1: expr, $j2: expr, $j3: expr) => {{
+        let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba_epi16($j0, $j1, $j2, $j3);
+        _mm_storeu_si128($ptr as *mut __m128i, rgba0);
+        _mm_storeu_si128($ptr.add(8) as *mut __m128i, rgba1);
+        _mm_storeu_si128($ptr.add(16) as *mut __m128i, rgba2);
+        _mm_storeu_si128($ptr.add(224) as *mut __m128i, rgba3);
+    }};
+}
+
+#[macro_export]
+macro_rules! store_and_interleave_v3_u16 {
+    ($ptr: expr, $j0: expr, $j1: expr, $j2: expr) => {{
+        let (rgba0, rgba1, rgba2) = sse_interleave_rgb_epi16($j0, $j1, $j2);
+        _mm_storeu_si128($ptr as *mut __m128i, rgba0);
+        _mm_storeu_si128($ptr.add(8) as *mut __m128i, rgba1);
+        _mm_storeu_si128($ptr.add(16) as *mut __m128i, rgba2);
     }};
 }

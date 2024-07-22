@@ -108,15 +108,15 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
     let mut cx = start_cx;
 
-    let c1 = _mm256_set1_ps(matrix[0][0]);
-    let c2 = _mm256_set1_ps(matrix[0][1]);
-    let c3 = _mm256_set1_ps(matrix[0][2]);
-    let c4 = _mm256_set1_ps(matrix[1][0]);
-    let c5 = _mm256_set1_ps(matrix[1][1]);
-    let c6 = _mm256_set1_ps(matrix[1][2]);
-    let c7 = _mm256_set1_ps(matrix[2][0]);
-    let c8 = _mm256_set1_ps(matrix[2][1]);
-    let c9 = _mm256_set1_ps(matrix[2][2]);
+    let c1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
+    let c2 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
+    let c3 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
+    let c4 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
+    let c5 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
+    let c6 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
+    let c7 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
+    let c8 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
+    let c9 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
 
     const CHANNELS: usize = 4usize;
 

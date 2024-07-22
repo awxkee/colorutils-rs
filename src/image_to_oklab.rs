@@ -31,18 +31,24 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
 
     let channels = image_configuration.get_channels_count();
 
+    let mut _wide_row_handle: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
+    > = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handle = Some(neon_image_to_oklab::<CHANNELS_CONFIGURATION>);
+    }
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handle = Some(sse_image_to_oklab::<CHANNELS_CONFIGURATION>);
     }
 
     let mut src_offset = 0usize;
@@ -54,29 +60,9 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8>(
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_image_to_oklab::<CHANNELS_CONFIGURATION>(
-                _cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                transfer_function,
-            )
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_image_to_oklab::<CHANNELS_CONFIGURATION>(
+        if let Some(dispatcher) = _wide_row_handle {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset,

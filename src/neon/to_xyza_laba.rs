@@ -7,6 +7,7 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
+use crate::load_u8_and_deinterleave;
 use crate::neon::cie::{
     neon_triple_to_lab, neon_triple_to_lch, neon_triple_to_luv, neon_triple_to_xyz,
 };
@@ -32,50 +33,22 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
 
     let transfer = get_neon_linear_transfer(transfer_function);
 
-    let cq1 = vdupq_n_f32(matrix[0][0]);
-    let cq2 = vdupq_n_f32(matrix[0][1]);
-    let cq3 = vdupq_n_f32(matrix[0][2]);
-    let cq4 = vdupq_n_f32(matrix[1][0]);
-    let cq5 = vdupq_n_f32(matrix[1][1]);
-    let cq6 = vdupq_n_f32(matrix[1][2]);
-    let cq7 = vdupq_n_f32(matrix[2][0]);
-    let cq8 = vdupq_n_f32(matrix[2][1]);
-    let cq9 = vdupq_n_f32(matrix[2][2]);
+    let cq1 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(0));
+    let cq2 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(1));
+    let cq3 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(2));
+    let cq4 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(0));
+    let cq5 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(1));
+    let cq6 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(2));
+    let cq7 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(0));
+    let cq8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
+    let cq9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let ldr = vld3q_u8(src_ptr);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = ldr.0;
-                    g_chan = ldr.1;
-                    b_chan = ldr.2;
-                } else {
-                    r_chan = ldr.2;
-                    g_chan = ldr.1;
-                    b_chan = ldr.0;
-                }
-                a_chan = vdupq_n_u8(0);
-            }
-            ImageConfiguration::Rgba => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.0;
-                g_chan = ldr.1;
-                b_chan = ldr.2;
-                a_chan = ldr.3;
-            }
-            ImageConfiguration::Bgra => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.2;
-                g_chan = ldr.1;
-                b_chan = ldr.0;
-                a_chan = ldr.3;
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));

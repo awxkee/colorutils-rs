@@ -12,26 +12,30 @@ use std::arch::x86_64::*;
 
 use erydanos::{_mm_cos_ps, _mm_mlaf_ps, _mm_sin_ps};
 
+use crate::image::ImageConfiguration;
+use crate::image_to_jzazbz::JzazbzTarget;
+use crate::sse::{
+    _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, get_sse_gamma_transfer,
+    sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
+};
 use crate::{
     load_f32_and_deinterleave, store_and_interleave_v3_u8, store_and_interleave_v4_u8,
     TransferFunction, XYZ_TO_SRGB_D65,
 };
-use crate::image::ImageConfiguration;
-use crate::image_to_jzazbz::JzazbzTarget;
-use crate::sse::{
-    _mm_color_matrix_ps, _mm_pow_n_ps, get_sse_gamma_transfer,
-    sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
-};
 
 macro_rules! perceptual_quantizer_inverse {
     ($color: expr) => {{
+        let zeros = _mm_setzero_ps();
+        let flush_to_zero_mask = _mm_cmple_ps($color, zeros);
         let xx = _mm_pow_n_ps($color, 7.460772656268214e-03);
         let num = _mm_sub_ps(_mm_set1_ps(0.8359375), xx);
         let den = _mm_mlaf_ps(xx, _mm_set1_ps(18.6875), _mm_set1_ps(-18.8515625));
-        _mm_mul_ps(
+        let den_is_zero = _mm_cmpeq_ps(den, zeros);
+        let rs = _mm_mul_ps(
             _mm_pow_n_ps(_mm_div_ps(num, den), 6.277394636015326),
             _mm_set1_ps(1e4),
-        )
+        );
+        _mm_select_ps(_mm_or_ps(flush_to_zero_mask, den_is_zero), zeros, rs)
     }};
 }
 
@@ -39,6 +43,7 @@ macro_rules! perceptual_quantizer_inverse {
 unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
     transfer_function: TransferFunction,
+    luminance_scale: __m128,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
     let target: JzazbzTarget = TARGET.into();
     let transfer = get_sse_gamma_transfer(transfer_function);
@@ -91,7 +96,12 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         _mm_set1_ps(1.522766561305260e+00),
     );
 
-    let (x, y, z) = _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+    let (mut x, mut y, mut z) =
+        _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+
+    x = _mm_mul_ps(x, luminance_scale);
+    y = _mm_mul_ps(y, luminance_scale);
+    z = _mm_mul_ps(z, luminance_scale);
 
     let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
         _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
@@ -144,11 +154,14 @@ pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
+
+    let luminance_scale = _mm_set1_ps(1. / display_luminance);
 
     while cx + 16 < width as usize {
         let offset_src_ptr =
@@ -156,23 +169,35 @@ pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
 
         let src_ptr_0 = offset_src_ptr;
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_0, transfer_function);
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_0,
+            transfer_function,
+            luminance_scale,
+        );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
 
-        let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_1, transfer_function);
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_1,
+            transfer_function,
+            luminance_scale,
+        );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
 
-        let (r_row2_, g_row2_, b_row2_, a_row2_) =
-            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_2, transfer_function);
+        let (r_row2_, g_row2_, b_row2_, a_row2_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_2,
+            transfer_function,
+            luminance_scale,
+        );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
 
-        let (r_row3_, g_row3_, b_row3_, a_row3_) =
-            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_3, transfer_function);
+        let (r_row3_, g_row3_, b_row3_, a_row3_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_3,
+            transfer_function,
+            luminance_scale,
+        );
 
         let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);
         let g_row01 = _mm_packus_epi32(g_row0_, g_row1_);

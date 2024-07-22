@@ -24,9 +24,28 @@ pub struct Rgb<T> {
 
 impl Rgb<u8> {
     /// Converts rgb to Jzazbz
+    /// Here is luminance always considered 200 nits
+    ///
+    /// # Arguments
+    /// `display_luminance` - display luminance
+    /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
     #[inline]
     pub fn to_jzazbz(&self, transfer_function: TransferFunction) -> Jzazbz {
         Jzazbz::from_rgb(*self, transfer_function)
+    }
+
+    /// Converts rgb to Jzazbz
+    ///
+    /// # Arguments
+    /// `display_luminance` - display luminance
+    /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
+    #[inline]
+    pub fn to_jzazbz_with_luminance(
+        &self,
+        display_luminance: f32,
+        transfer_function: TransferFunction,
+    ) -> Jzazbz {
+        Jzazbz::from_rgb_with_luminance(*self, display_luminance, transfer_function)
     }
 
     /// Converts rgb to XYZ

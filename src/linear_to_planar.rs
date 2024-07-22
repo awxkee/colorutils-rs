@@ -32,46 +32,32 @@ fn linear_to_gamma_channels(
 
     let transfer = transfer_function.get_gamma_function();
 
+    let mut _wide_row_handler: Option<
+        unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
+    > = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handler = Some(neon_linear_plane_to_gamma);
+    }
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handler = Some(sse_linear_plane_to_gamma);
     }
 
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_linear_plane_to_gamma(
-                _cx,
-                src.as_ptr(),
-                src_offset as u32,
-                dst.as_mut_ptr(),
-                dst_offset as u32,
-                width,
-                transfer_function,
-            );
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_linear_plane_to_gamma(
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset as u32,

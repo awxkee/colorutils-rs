@@ -45,78 +45,45 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
+    let mut _wide_row_handler: Option<unsafe fn(usize, *const u8, u32, *mut f32) -> usize> = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handler = Some(neon_image_to_sigmoidal::<CHANNELS_CONFIGURATION, USE_ALPHA>);
+    }
+
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handler = Some(sse_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
-
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    let mut _has_avx2 = false;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "avx2"
     ))]
     if is_x86_feature_detected!("avx2") {
-        _has_avx2 = true;
+        _wide_row_handler = Some(avx_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     const COLOR_SCALE: f32 = 1f32 / 255f32;
 
     for _ in 0..height as usize {
-        #[allow(unused_mut)]
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
 
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            cx = avx_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                cx, src_ptr, width, dst_ptr,
-            );
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe { _cx = dispatcher(_cx, src_ptr, width, dst_ptr) }
         }
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            cx = sse_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                cx, src_ptr, width, dst_ptr,
-            );
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            cx = neon_image_to_sigmoidal::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-            )
-        }
-
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let src = unsafe { src_ptr.add(px) };
             let r = unsafe {

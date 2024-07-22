@@ -7,6 +7,8 @@
 
 pub mod neon_image_linear_to_u8 {
     use crate::image::ImageConfiguration;
+    use crate::neon::get_neon_linear_transfer;
+    use crate::TransferFunction;
     use std::arch::aarch64::*;
 
     #[inline(always)]
@@ -41,13 +43,15 @@ pub mod neon_image_linear_to_u8 {
         width: u32,
         dst: *mut u8,
         dst_offset: usize,
-        transfer: &unsafe fn(float32x4_t) -> float32x4_t,
+        transfer_function: TransferFunction,
     ) -> usize {
         let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
         let channels = image_configuration.get_channels_count();
         let mut cx = start_cx;
 
         let dst_ptr = dst.add(dst_offset);
+
+        let transfer = get_neon_linear_transfer(transfer_function);
 
         while cx + 16 < width as usize {
             let (r_chan, g_chan, b_chan, a_chan);

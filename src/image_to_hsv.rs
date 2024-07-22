@@ -41,18 +41,26 @@ fn channels_to_hsv_u16<
         }
     }
 
+    let mut _wide_row_handler: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut u16, usize, f32) -> usize,
+    > = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handler =
+            Some(neon_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
+    }
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handler =
+            Some(sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
     let mut src_offset = 0usize;
@@ -61,17 +69,12 @@ fn channels_to_hsv_u16<
     let channels = image_configuration.get_channels_count();
 
     for _ in 0..height as usize {
-        #[allow(unused_mut)]
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                cx = sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                    cx,
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe {
+                _cx = dispatcher(
+                    _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
@@ -82,26 +85,10 @@ fn channels_to_hsv_u16<
             }
         }
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            cx = neon_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                scale,
-            )
-        }
-
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
 
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let src = unsafe { src_ptr.add(px) };
             let r = unsafe {

@@ -15,6 +15,7 @@ use crate::sse::sigmoidal::sse_sigmoidal_to_rgb;
 use crate::sse::{
     sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
 };
+use crate::{store_and_interleave_v3_u8, store_and_interleave_v4_u8};
 
 #[inline(always)]
 unsafe fn vld_sigmoidal<const CHANNELS_CONFIGURATION: u8>(
@@ -101,30 +102,16 @@ pub unsafe fn sse_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
 
         match image_configuration {
             ImageConfiguration::Rgb => {
-                let (rgb0, rgb1, rgb2) = sse_interleave_rgb(r_row, g_row, b_row);
-                _mm_storeu_si128(dst_ptr as *mut __m128i, rgb0);
-                _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgb1);
-                _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, rgb2);
+                store_and_interleave_v3_u8!(dst_ptr, r_row, g_row, b_row);
             }
             ImageConfiguration::Rgba => {
-                let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba(r_row, g_row, b_row, a_row);
-                _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
-                _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
-                _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, rgba2);
-                _mm_storeu_si128(dst_ptr.add(48) as *mut __m128i, rgba3);
+                store_and_interleave_v4_u8!(dst_ptr, r_row, g_row, b_row, a_row);
             }
             ImageConfiguration::Bgra => {
-                let (bgra0, bgra1, bgra2, bgra3) = sse_interleave_rgba(b_row, g_row, r_row, a_row);
-                _mm_storeu_si128(dst_ptr as *mut __m128i, bgra0);
-                _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, bgra1);
-                _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, bgra2);
-                _mm_storeu_si128(dst_ptr.add(48) as *mut __m128i, bgra3);
+                store_and_interleave_v4_u8!(dst_ptr, b_row, g_row, r_row, a_row);
             }
             ImageConfiguration::Bgr => {
-                let (bgr0, bgr1, bgr2) = sse_interleave_rgb(b_row, g_row, r_row);
-                _mm_storeu_si128(dst_ptr as *mut __m128i, bgr0);
-                _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, bgr1);
-                _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, bgr2);
+                store_and_interleave_v3_u8!(dst_ptr, b_row, g_row, r_row);
             }
         }
         cx += 16;

@@ -45,6 +45,7 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     let target: JzazbzTarget = TARGET.into();
@@ -52,18 +53,24 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 
     let channels = image_configuration.get_channels_count();
 
+    let mut _wide_row_handle: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, f32, TransferFunction) -> usize,
+    > = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handle = Some(neon_image_to_jzazbz::<CHANNELS_CONFIGURATION, TARGET>);
+    }
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handle = Some(sse_image_to_jzazbz::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let mut src_offset = 0usize;
@@ -75,37 +82,18 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_image_to_jzazbz::<CHANNELS_CONFIGURATION, TARGET>(
-                _cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                transfer_function,
-            )
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_image_to_jzazbz::<CHANNELS_CONFIGURATION, TARGET>(
+        if let Some(dispatcher) = _wide_row_handle {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
                     dst.as_mut_ptr(),
                     dst_offset,
+                    display_luminance,
                     transfer_function,
-                )
+                );
             }
         }
 
@@ -132,7 +120,8 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 
             match target {
                 JZAZBZ => {
-                    let jzazbz = Jzazbz::from_rgb(rgb, transfer_function);
+                    let jzazbz =
+                        Jzazbz::from_rgb_with_luminance(rgb, display_luminance, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(jzazbz.jz);
                         dst_store.add(1).write_unaligned(jzazbz.az);
@@ -140,7 +129,8 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     }
                 }
                 JZCZHZ => {
-                    let jzczhz = Jzczhz::from_rgb(rgb, transfer_function);
+                    let jzczhz =
+                        Jzczhz::from_rgb_with_luminance(rgb, display_luminance, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(jzczhz.jz);
                         dst_store.add(1).write_unaligned(jzczhz.cz);
@@ -175,6 +165,7 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzazbz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgb_to_jzazbz(
     src: &[u8],
@@ -183,6 +174,7 @@ pub fn rgb_to_jzazbz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Rgb as u8 }, { JZAZBZ as u8 }>(
@@ -192,6 +184,7 @@ pub fn rgb_to_jzazbz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -205,6 +198,7 @@ pub fn rgb_to_jzazbz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzazbz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgba_to_jzazbz(
     src: &[u8],
@@ -213,6 +207,7 @@ pub fn rgba_to_jzazbz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Rgba as u8 }, { JZAZBZ as u8 }>(
@@ -222,6 +217,7 @@ pub fn rgba_to_jzazbz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -235,6 +231,7 @@ pub fn rgba_to_jzazbz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzazbz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgra_to_jzazbz(
     src: &[u8],
@@ -243,6 +240,7 @@ pub fn bgra_to_jzazbz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Bgra as u8 }, { JZAZBZ as u8 }>(
@@ -252,6 +250,7 @@ pub fn bgra_to_jzazbz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -265,6 +264,7 @@ pub fn bgra_to_jzazbz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzazbz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgr_to_jzazbz(
     src: &[u8],
@@ -273,6 +273,7 @@ pub fn bgr_to_jzazbz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Bgr as u8 }, { JZAZBZ as u8 }>(
@@ -282,6 +283,7 @@ pub fn bgr_to_jzazbz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -295,6 +297,7 @@ pub fn bgr_to_jzazbz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzczhz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgb_to_jzczhz(
     src: &[u8],
@@ -303,6 +306,7 @@ pub fn rgb_to_jzczhz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Rgb as u8 }, { JZCZHZ as u8 }>(
@@ -312,6 +316,7 @@ pub fn rgb_to_jzczhz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -325,6 +330,7 @@ pub fn rgb_to_jzczhz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzczhz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgba_to_jzczhz(
     src: &[u8],
@@ -333,6 +339,7 @@ pub fn rgba_to_jzczhz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Rgba as u8 }, { JZCZHZ as u8 }>(
@@ -342,6 +349,7 @@ pub fn rgba_to_jzczhz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -355,6 +363,7 @@ pub fn rgba_to_jzczhz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzczhz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgra_to_jzczhz(
     src: &[u8],
@@ -363,6 +372,7 @@ pub fn bgra_to_jzczhz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Bgra as u8 }, { JZCZHZ as u8 }>(
@@ -372,6 +382,7 @@ pub fn bgra_to_jzczhz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }
@@ -385,6 +396,7 @@ pub fn bgra_to_jzczhz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive Jzczhz(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `display_luminance` - Target display luminance
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgr_to_jzczhz(
     src: &[u8],
@@ -393,6 +405,7 @@ pub fn bgr_to_jzczhz(
     dst_stride: u32,
     width: u32,
     height: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
     channels_to_jzaz::<{ ImageConfiguration::Bgr as u8 }, { JZCZHZ as u8 }>(
@@ -402,6 +415,7 @@ pub fn bgr_to_jzczhz(
         dst_stride,
         width,
         height,
+        display_luminance,
         transfer_function,
     );
 }

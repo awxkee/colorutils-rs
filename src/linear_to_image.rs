@@ -41,6 +41,18 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         }
     }
 
+    let mut _wide_row_handle: Option<
+        unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
+    > = None;
+
+    #[cfg(all(
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
+    ))]
+    {
+        _wide_row_handle = Some(neon_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
+    }
+
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
@@ -52,40 +64,24 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
-    let mut _has_sse = false;
-
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handle = Some(sse_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
-
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    let mut _has_avx2 = false;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "avx2"
     ))]
     if is_x86_feature_detected!("avx2") {
-        _has_avx2 = true;
+        _wide_row_handle = Some(avx_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            if _has_avx2 {
-                _cx = avx_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+        if let Some(dispatcher) = _wide_row_handle {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset as u32,
@@ -93,42 +89,8 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                     dst_offset as u32,
                     width,
                     transfer_function,
-                )
+                );
             }
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                    _cx,
-                    src.as_ptr(),
-                    src_offset as u32,
-                    dst.as_mut_ptr(),
-                    dst_offset as u32,
-                    width,
-                    transfer_function,
-                )
-            }
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                _cx,
-                src.as_ptr(),
-                src_offset as u32,
-                dst.as_mut_ptr(),
-                dst_offset as u32,
-                width,
-                transfer_function,
-            );
         }
 
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };

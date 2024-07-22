@@ -7,6 +7,7 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
+use crate::load_u8_and_deinterleave;
 use crate::sse::cie::{sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
 use crate::sse::*;
 use crate::xyz_target::XyzTarget;
@@ -37,54 +38,22 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
 
     let transfer = get_sse_linear_transfer(transfer_function);
 
-    let cq1 = _mm_set1_ps(matrix[0][0]);
-    let cq2 = _mm_set1_ps(matrix[0][1]);
-    let cq3 = _mm_set1_ps(matrix[0][2]);
-    let cq4 = _mm_set1_ps(matrix[1][0]);
-    let cq5 = _mm_set1_ps(matrix[1][1]);
-    let cq6 = _mm_set1_ps(matrix[1][2]);
-    let cq7 = _mm_set1_ps(matrix[2][0]);
-    let cq8 = _mm_set1_ps(matrix[2][1]);
-    let cq9 = _mm_set1_ps(matrix[2][2]);
+    let cq1 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
+    let cq2 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
+    let cq3 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
+    let cq4 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
+    let cq5 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
+    let cq6 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
+    let cq7 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
+    let cq8 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
+    let cq9 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        let row1 = _mm_loadu_si128(src_ptr as *const __m128i);
-        let row2 = _mm_loadu_si128(src_ptr.add(16) as *const __m128i);
-        let row3 = _mm_loadu_si128(src_ptr.add(32) as *const __m128i);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let (c1, c2, c3) = sse_deinterleave_rgb(row1, row2, row3);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = c1;
-                    g_chan = c2;
-                    b_chan = c3;
-                } else {
-                    r_chan = c3;
-                    g_chan = c2;
-                    b_chan = c1;
-                }
-                a_chan = _mm_setzero_si128();
-            }
-            ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-                let row4 = _mm_loadu_si128(src_ptr.add(48) as *const __m128i);
-                let (c1, c2, c3, c4) = sse_deinterleave_rgba(row1, row2, row3, row4);
-                if image_configuration == ImageConfiguration::Rgba {
-                    r_chan = c1;
-                    g_chan = c2;
-                    b_chan = c3;
-                    a_chan = c4;
-                } else {
-                    r_chan = c3;
-                    g_chan = c2;
-                    b_chan = c1;
-                    a_chan = c4;
-                }
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let r_low = _mm_cvtepu8_epi16(r_chan);
         let g_low = _mm_cvtepu8_epi16(g_chan);

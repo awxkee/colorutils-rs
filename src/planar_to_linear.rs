@@ -30,18 +30,24 @@ fn channels_to_linear(
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    let mut _has_sse = false;
+    let mut _wide_row_handler: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
+    > = None;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handler = Some(sse_plane_to_linear);
+    }
+
+    #[cfg(all(
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
+    ))]
+    {
+        _wide_row_handler = Some(neon_plane_to_linear);
     }
 
     let transfer = transfer_function.get_linearize_function();
@@ -51,13 +57,9 @@ fn channels_to_linear(
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_plane_to_linear(
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset,
@@ -67,22 +69,6 @@ fn channels_to_linear(
                     transfer_function,
                 );
             }
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_plane_to_linear(
-                _cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                transfer_function,
-            )
         }
 
         for x in _cx..width as usize {

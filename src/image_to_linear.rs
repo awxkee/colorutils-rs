@@ -48,44 +48,40 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    let mut _has_sse = false;
+    let mut _wide_row_handle: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
+    > = None;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handle = Some(sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
-
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    let mut _has_avx2 = false;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "avx2"
     ))]
     if is_x86_feature_detected!("avx2") {
-        _has_avx2 = true;
+        _wide_row_handle = Some(avx_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
+    }
+
+    #[cfg(all(
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
+    ))]
+    {
+        _wide_row_handle = Some(neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "avx2"
-        ))]
-        unsafe {
-            if _has_avx2 {
-                _cx = avx_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+        if let Some(dispatcher) = _wide_row_handle {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset,
@@ -95,40 +91,6 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
                     transfer_function,
                 )
             }
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                    _cx,
-                    src.as_ptr(),
-                    src_offset,
-                    width,
-                    dst.as_mut_ptr(),
-                    dst_offset,
-                    transfer_function,
-                )
-            }
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>(
-                _cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                transfer_function,
-            )
         }
 
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };

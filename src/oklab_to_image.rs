@@ -31,18 +31,24 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    let mut _has_sse = false;
+    let mut _wide_row_handle: Option<
+        unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
+    > = None;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handle = Some(sse_oklab_to_image::<CHANNELS_CONFIGURATION>);
+    }
+
+    #[cfg(all(
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
+    ))]
+    {
+        _wide_row_handle = Some(neon_oklab_to_image::<CHANNELS_CONFIGURATION>);
     }
 
     let channels = image_configuration.get_channels_count();
@@ -53,29 +59,9 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8>(
         let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
         let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            _cx = neon_oklab_to_image::<CHANNELS_CONFIGURATION>(
-                _cx,
-                src.as_ptr(),
-                src_offset as u32,
-                dst.as_mut_ptr(),
-                dst_offset as u32,
-                width,
-                transfer_function,
-            );
-        }
-
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                _cx = sse_oklab_to_image::<CHANNELS_CONFIGURATION>(
+        if let Some(dispatcher) = _wide_row_handle {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset as u32,

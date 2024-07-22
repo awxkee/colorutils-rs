@@ -39,11 +39,18 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    let mut _has_sse = false;
+    let mut _wide_row_handler: Option<
+        unsafe fn(
+            usize,
+            *const u8,
+            usize,
+            u32,
+            *mut f32,
+            usize,
+            &[[f32; 3]; 3],
+            TransferFunction,
+        ) -> usize,
+    > = None;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
@@ -51,24 +58,27 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     ))]
     {
         if is_x86_feature_detected!("sse4.1") {
-            _has_sse = true;
+            _wide_row_handler = Some(sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>);
         }
+    }
+
+    #[cfg(all(
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
+    ))]
+    {
+        _wide_row_handler = Some(neon_channels_to_xyza_or_laba::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let channels = image_configuration.get_channels_count();
 
     for _ in 0..height as usize {
-        #[allow(unused_mut)]
-        let mut cx = 0usize;
+        let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                cx = sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>(
-                    cx,
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe {
+                _cx = dispatcher(
+                    _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
@@ -80,27 +90,10 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             }
         }
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            cx = neon_channels_to_xyza_or_laba::<CHANNELS_CONFIGURATION, TARGET>(
-                cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                &matrix,
-                transfer_function,
-            )
-        }
-
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };
         let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
 
-        for x in cx..width as usize {
+        for x in _cx..width as usize {
             let px = x * channels;
             let src = unsafe { src_ptr.add(px) };
             let r = unsafe {

@@ -21,15 +21,19 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 126;
-    let g = 126;
-    let b = 126;
+    let r = 0;
+    let g = 127;
+    let b = 255;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let jzazbz = Jzczhz::from_rgb(rgb, TransferFunction::Srgb);
-    println!("Jzczhz {:?}", jzazbz);
-    println!("Rgb {:?}", rgb);
-    let restored = jzazbz.to_rgb(TransferFunction::Srgb);
-    println!("Restored RGB {:?}", restored);
+    // let jzazbz = Jzazbz::from_rgb(rgb, TransferFunction::Srgb);
+    // println!("Jzczhz {:?}", jzazbz);
+    // println!("Rgb {:?}", rgb);
+    // let restored = jzazbz.to_rgb(TransferFunction::Srgb);
+    // println!("Restored RGB {:?}", restored);
+    println!(
+        "Restored RGB {:?}",
+        Jzazbz::new(0.1f32, 0.0, -0.2f32).to_rgb(TransferFunction::Srgb)
+    );
 
     let img = ImageReader::open("./assets/beach_horizon.jpg")
         .unwrap()
@@ -73,6 +77,7 @@ fn main() {
             store_stride as u32,
             width,
             height,
+            200f32,
             TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
@@ -108,6 +113,7 @@ fn main() {
             src_stride,
             width,
             height,
+            200f32,
             TransferFunction::Srgb,
         );
 

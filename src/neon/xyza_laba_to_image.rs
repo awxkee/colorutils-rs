@@ -101,15 +101,15 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
     let mut cx = start_cx;
 
-    let c1 = vdupq_n_f32(matrix[0][0]);
-    let c2 = vdupq_n_f32(matrix[0][1]);
-    let c3 = vdupq_n_f32(matrix[0][2]);
-    let c4 = vdupq_n_f32(matrix[1][0]);
-    let c5 = vdupq_n_f32(matrix[1][1]);
-    let c6 = vdupq_n_f32(matrix[1][2]);
-    let c7 = vdupq_n_f32(matrix[2][0]);
-    let c8 = vdupq_n_f32(matrix[2][1]);
-    let c9 = vdupq_n_f32(matrix[2][2]);
+    let c1 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(0));
+    let c2 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(1));
+    let c3 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(2));
+    let c4 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(0));
+    let c5 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(1));
+    let c6 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(2));
+    let c7 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(0));
+    let c8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
+    let c9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
 
     const CHANNELS: usize = 4usize;
 

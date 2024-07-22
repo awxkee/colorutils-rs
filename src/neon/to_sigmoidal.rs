@@ -6,6 +6,7 @@
  */
 
 use crate::image::ImageConfiguration;
+use crate::load_u8_and_deinterleave;
 use crate::neon::sigmoidal::neon_rgb_to_sigmoidal;
 use std::arch::aarch64::*;
 
@@ -13,10 +14,8 @@ use std::arch::aarch64::*;
 pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const u8,
-    src_offset: usize,
     width: u32,
     dst: *mut f32,
-    dst_offset: usize,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
@@ -28,40 +27,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
 
     let channels = image_configuration.get_channels_count();
 
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
+    let dst_ptr = dst;
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
-        let src_ptr = src.add(src_offset + cx * channels);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let ldr = vld3q_u8(src_ptr);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = ldr.0;
-                    g_chan = ldr.1;
-                    b_chan = ldr.2;
-                } else {
-                    r_chan = ldr.2;
-                    g_chan = ldr.1;
-                    b_chan = ldr.0;
-                }
-                a_chan = vdupq_n_u8(0);
-            }
-            ImageConfiguration::Rgba => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.0;
-                g_chan = ldr.1;
-                b_chan = ldr.2;
-                a_chan = ldr.3;
-            }
-            ImageConfiguration::Bgra => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.2;
-                g_chan = ldr.1;
-                b_chan = ldr.0;
-                a_chan = ldr.3;
-            }
-        }
+        let src_ptr = src.add(cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));

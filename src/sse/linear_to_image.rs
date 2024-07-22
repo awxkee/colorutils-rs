@@ -7,7 +7,7 @@
 
 use crate::image::ImageConfiguration;
 use crate::sse::*;
-use crate::TransferFunction;
+use crate::{load_f32_and_deinterleave, TransferFunction};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -18,45 +18,12 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
     src: *const f32,
     transfer_function: TransferFunction,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
-    let d_alpha = _mm_set1_ps(1f32);
     let transfer = get_sse_gamma_transfer(transfer_function);
     let v_scale_alpha = _mm_set1_ps(255f32);
-    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let row0 = _mm_loadu_ps(src);
-    let row1 = _mm_loadu_ps(src.add(4));
-    let row2 = _mm_loadu_ps(src.add(8));
-
-    match image_configuration {
-        ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-            let row3 = _mm_loadu_ps(src.add(12));
-            let (v0, v1, v2, v3) = sse_deinterleave_rgba_ps(row0, row1, row2, row3);
-            if image_configuration == ImageConfiguration::Rgba {
-                r_f32 = v0;
-                g_f32 = v1;
-                b_f32 = v2;
-            } else {
-                r_f32 = v2;
-                g_f32 = v1;
-                b_f32 = v0;
-            }
-            a_f32 = v3;
-        }
-        ImageConfiguration::Bgr | ImageConfiguration::Rgb => {
-            let rgb_pixels = sse_deinterleave_rgb_ps(row0, row1, row2);
-            if image_configuration == ImageConfiguration::Rgb {
-                r_f32 = rgb_pixels.0;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.2;
-            } else {
-                r_f32 = rgb_pixels.2;
-                g_f32 = rgb_pixels.1;
-                b_f32 = rgb_pixels.0;
-            }
-            a_f32 = d_alpha;
-        }
-    }
+    let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
+        load_f32_and_deinterleave!(src, image_configuration);
 
     r_f32 = transfer(r_f32);
     g_f32 = transfer(g_f32);
@@ -69,12 +36,21 @@ unsafe fn sse_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>
     }
     const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
 
-    (
-        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(r_f32)),
-        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(g_f32)),
-        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(b_f32)),
-        _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(a_f32)),
-    )
+    if USE_ALPHA {
+        (
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(r_f32)),
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(g_f32)),
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(b_f32)),
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(a_f32)),
+        )
+    } else {
+        (
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(r_f32)),
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(g_f32)),
+            _mm_cvtps_epi32(_mm_round_ps::<ROUNDING_FLAGS>(b_f32)),
+            _mm_set1_epi32(255),
+        )
+    }
 }
 
 #[inline(always)]

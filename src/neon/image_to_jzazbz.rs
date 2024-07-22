@@ -7,22 +7,24 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::neon::get_neon_linear_transfer;
-use crate::neon::math::{vcolorq_matrix_f32, vmlafq_f32, vpowq_n_f32};
-use crate::{TransferFunction, SRGB_TO_XYZ_D65};
-use erydanos::{vatan2q_f32, vhypotq_fast_f32};
+use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
+use crate::{load_u8_and_deinterleave, TransferFunction, SRGB_TO_XYZ_D65};
+use erydanos::{vatan2q_f32, vhypotq_fast_f32, vmlafq_f32};
 use std::arch::aarch64::*;
 
 macro_rules! perceptual_quantizer {
     ($color: expr) => {{
+        let flush_to_zero_mask = vclezq_f32($color);
         let xx = vpowq_n_f32(vmulq_n_f32($color, 1e-4), 0.1593017578125);
         let jx = vmlafq_f32(vdupq_n_f32(18.8515625), xx, vdupq_n_f32(0.8359375));
         let den_jx = vmlafq_f32(xx, vdupq_n_f32(18.6875), vdupq_n_f32(1.));
-        vpowq_n_f32(vdivq_f32(jx, den_jx), 134.034375)
+        let rs = vpowq_n_f32(vdivq_f32(jx, den_jx), 134.034375);
+        vbslq_f32(flush_to_zero_mask, vdupq_n_f32(0.), rs)
     }};
 }
 
 macro_rules! triple_to_jzazbz {
-    ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr
+    ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr, $luminance: expr
     ) => {{
         let r_f = vmulq_n_f32(vcvtq_f32_u32($r), 1f32 / 255f32);
         let g_f = vmulq_n_f32(vcvtq_f32_u32($g), 1f32 / 255f32);
@@ -43,7 +45,11 @@ macro_rules! triple_to_jzazbz {
             vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(2)),
         );
 
-        let (x, y, z) = vcolorq_matrix_f32(dl_l, dl_m, dl_s, x0, x1, x2, x3, x4, x5, x6, x7, x8);
+        let (mut x, mut y, mut z) = vcolorq_matrix_f32(dl_l, dl_m, dl_s, x0, x1, x2, x3, x4, x5, x6, x7, x8);
+
+        x = vmulq_n_f32(x, $luminance);
+        y = vmulq_n_f32(y, $luminance);
+        z = vmulq_n_f32(z, $luminance);
 
         let (l0, l1, l2, l3, l4, l5, l6, l7, l8) = (
             vdupq_n_f32(0.674207838),
@@ -102,6 +108,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
@@ -114,37 +121,9 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let ldr = vld3q_u8(src_ptr);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = ldr.0;
-                    g_chan = ldr.1;
-                    b_chan = ldr.2;
-                } else {
-                    r_chan = ldr.2;
-                    g_chan = ldr.1;
-                    b_chan = ldr.0;
-                }
-                a_chan = vdupq_n_u8(255);
-            }
-            ImageConfiguration::Rgba => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.0;
-                g_chan = ldr.1;
-                b_chan = ldr.2;
-                a_chan = ldr.3;
-            }
-            ImageConfiguration::Bgra => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.2;
-                g_chan = ldr.1;
-                b_chan = ldr.0;
-                a_chan = ldr.3;
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));
@@ -154,8 +133,14 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
         let g_low_low = vmovl_u16(vget_low_u16(g_low));
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
-        let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, &transfer, target);
+        let (x_low_low, y_low_low, z_low_low) = triple_to_jzazbz!(
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            &transfer,
+            target,
+            display_luminance
+        );
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
 
@@ -173,8 +158,14 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
         let g_low_high = vmovl_high_u16(g_low);
         let b_low_high = vmovl_high_u16(b_low);
 
-        let (x_low_high, y_low_high, z_low_high) =
-            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, &transfer, target);
+        let (x_low_high, y_low_high, z_low_high) = triple_to_jzazbz!(
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            &transfer,
+            target,
+            display_luminance
+        );
 
         if image_configuration.has_alpha() {
             let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -193,8 +184,14 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
         let g_high_low = vmovl_u16(vget_low_u16(g_high));
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
-        let (x_high_low, y_high_low, z_high_low) =
-            triple_to_jzazbz!(r_high_low, g_high_low, b_high_low, &transfer, target);
+        let (x_high_low, y_high_low, z_high_low) = triple_to_jzazbz!(
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            &transfer,
+            target,
+            display_luminance
+        );
 
         let a_high = vmovl_high_u8(a_chan);
 
@@ -215,8 +212,14 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
         let g_high_high = vmovl_high_u16(g_high);
         let b_high_high = vmovl_high_u16(b_high);
 
-        let (x_high_high, y_high_high, z_high_high) =
-            triple_to_jzazbz!(r_high_high, g_high_high, b_high_high, &transfer, target);
+        let (x_high_high, y_high_high, z_high_high) = triple_to_jzazbz!(
+            r_high_high,
+            g_high_high,
+            b_high_high,
+            &transfer,
+            target,
+            display_luminance
+        );
 
         if image_configuration.has_alpha() {
             let a_high_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_high)), 1f32 / 255f32);

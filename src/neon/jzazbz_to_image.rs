@@ -7,20 +7,27 @@
 
 use std::arch::aarch64::*;
 
-use erydanos::{vcosq_f32, vsinq_f32};
+use erydanos::{vcosq_f32, vmlafq_f32, vsinq_f32};
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::neon::get_neon_gamma_transfer;
-use crate::neon::math::{vcolorq_matrix_f32, vmlafq_f32, vpowq_n_f32};
+use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
 use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
 
 macro_rules! perceptual_quantizer_inverse {
     ($color: expr) => {{
+        let flush_to_zero_mask = vclezq_f32($color);
         let xx = vpowq_n_f32($color, 7.460772656268214e-03);
         let num = vsubq_f32(vdupq_n_f32(0.8359375), xx);
         let den = vmlafq_f32(xx, vdupq_n_f32(18.6875), vdupq_n_f32(-18.8515625));
-        vmulq_n_f32(vpowq_n_f32(vdivq_f32(num, den), 6.277394636015326), 1e4)
+        let den_is_zero = vceqzq_f32(den);
+        let rs = vmulq_n_f32(vpowq_n_f32(vdivq_f32(num, den), 6.277394636015326), 1e4);
+        vbslq_f32(
+            vorrq_u32(flush_to_zero_mask, den_is_zero),
+            vdupq_n_f32(0.),
+            rs,
+        )
     }};
 }
 
@@ -29,6 +36,7 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
     transfer_function: TransferFunction,
     target: JzazbzTarget,
+    luminance: f32,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
@@ -79,7 +87,12 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
         vdupq_n_f32(1.522766561305260e+00),
     );
 
-    let (x, y, z) = vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+    let (mut x, mut y, mut z) =
+        vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+
+    x = vmulq_n_f32(x, luminance);
+    y = vmulq_n_f32(y, luminance);
+    z = vmulq_n_f32(z, luminance);
 
     let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
         vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
@@ -120,6 +133,7 @@ pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGE
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
+    display_luminance: f32,
     transfer_function: TransferFunction,
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
@@ -127,29 +141,47 @@ pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGE
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
 
+    let luminance_scale: f32 = 1. / display_luminance;
+
     while cx + 16 < width as usize {
         let offset_src_ptr =
             ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
 
         let src_ptr_0 = offset_src_ptr;
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(src_ptr_0, transfer_function, target);
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_0,
+            transfer_function,
+            target,
+            luminance_scale,
+        );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
 
-        let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(src_ptr_1, transfer_function, target);
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_1,
+            transfer_function,
+            target,
+            luminance_scale,
+        );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
 
-        let (r_row2_, g_row2_, b_row2_, a_row2_) =
-            neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(src_ptr_2, transfer_function, target);
+        let (r_row2_, g_row2_, b_row2_, a_row2_) = neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_2,
+            transfer_function,
+            target,
+            luminance_scale,
+        );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
 
-        let (r_row3_, g_row3_, b_row3_, a_row3_) =
-            neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(src_ptr_3, transfer_function, target);
+        let (r_row3_, g_row3_, b_row3_, a_row3_) = neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_3,
+            transfer_function,
+            target,
+            luminance_scale,
+        );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
         let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));

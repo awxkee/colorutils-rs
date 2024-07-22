@@ -7,7 +7,7 @@
 use crate::image::ImageConfiguration;
 use crate::neon::get_neon_linear_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
-use crate::{TransferFunction, SRGB_TO_XYZ_D65};
+use crate::{load_u8_and_deinterleave, TransferFunction, SRGB_TO_XYZ_D65};
 use erydanos::vcbrtq_fast_f32;
 use std::arch::aarch64::*;
 
@@ -96,37 +96,9 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8>(
     );
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let ldr = vld3q_u8(src_ptr);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = ldr.0;
-                    g_chan = ldr.1;
-                    b_chan = ldr.2;
-                } else {
-                    r_chan = ldr.2;
-                    g_chan = ldr.1;
-                    b_chan = ldr.0;
-                }
-                a_chan = vdupq_n_u8(255);
-            }
-            ImageConfiguration::Rgba => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.0;
-                g_chan = ldr.1;
-                b_chan = ldr.2;
-                a_chan = ldr.3;
-            }
-            ImageConfiguration::Bgra => {
-                let ldr = vld4q_u8(src_ptr);
-                r_chan = ldr.2;
-                g_chan = ldr.1;
-                b_chan = ldr.0;
-                a_chan = ldr.3;
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));

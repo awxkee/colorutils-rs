@@ -37,6 +37,37 @@ impl Xyz {
     pub fn saturate_z(z: f32) -> f32 {
         z.max(0f32).min(108.883f32)
     }
+
+    #[inline]
+    pub fn scale(&self, by: f32) -> Xyz {
+        Xyz {
+            x: self.x * by,
+            y: self.y * by,
+            z: self.z * by,
+        }
+    }
+
+    /// Scales XYZ to absolute luminance against display
+    #[inline]
+    pub fn to_absolute_luminance(&self, display_nits: f32) -> Xyz {
+        let multiplier = display_nits;
+        return Xyz::new(
+            multiplier * self.x,
+            multiplier * self.y,
+            multiplier * self.z,
+        );
+    }
+
+    /// Scales XYZ to absolute luminance against display
+    #[inline]
+    pub fn to_relative_luminance(&self, display_nits: f32) -> Xyz {
+        let multiplier = 1. / display_nits;
+        return Xyz::new(
+            multiplier * self.x,
+            multiplier * self.y,
+            multiplier * self.z,
+        );
+    }
 }
 
 static XYZ_SCALE_U8: f32 = 1f32 / 255f32;

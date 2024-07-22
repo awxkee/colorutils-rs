@@ -12,10 +12,12 @@ use crate::sse::{
     sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_rgb_epi16,
     sse_interleave_rgba_epi16,
 };
+use crate::{load_u8_and_deinterleave, store_and_interleave_v3_u16, store_and_interleave_v4_u16};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
 #[inline]
 pub unsafe fn sse_channels_to_hsv_u16<
     const CHANNELS_CONFIGURATION: u8,
@@ -46,42 +48,9 @@ pub unsafe fn sse_channels_to_hsv_u16<
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut u16;
 
     while cx + 16 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        let row1 = _mm_loadu_si128(src_ptr as *const __m128i);
-        let row2 = _mm_loadu_si128(src_ptr.add(16) as *const __m128i);
-        let row3 = _mm_loadu_si128(src_ptr.add(32) as *const __m128i);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let (rgb0_, rgb1_, rgb2_) = sse_deinterleave_rgb(row1, row2, row3);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = rgb0_;
-                    g_chan = rgb1_;
-                    b_chan = rgb2_;
-                } else {
-                    r_chan = rgb2_;
-                    g_chan = rgb1_;
-                    b_chan = rgb0_;
-                }
-                a_chan = _mm_setzero_si128();
-            }
-            ImageConfiguration::Rgba => {
-                let row4 = _mm_loadu_si128(src_ptr.add(48) as *const __m128i);
-                let (rgb0_, rgb1_, rgb2_, rgb3_) = sse_deinterleave_rgba(row1, row2, row3, row4);
-                r_chan = rgb0_;
-                g_chan = rgb1_;
-                b_chan = rgb2_;
-                a_chan = rgb3_;
-            }
-            ImageConfiguration::Bgra => {
-                let row4 = _mm_loadu_si128(src_ptr.add(48) as *const __m128i);
-                let (rgb0_, rgb1_, rgb2_, rgb3_) = sse_deinterleave_rgba(row1, row2, row3, row4);
-                r_chan = rgb2_;
-                g_chan = rgb1_;
-                b_chan = rgb0_;
-                a_chan = rgb3_;
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave!(src_ptr, image_configuration);
 
         let zeros = _mm_setzero_si128();
 
@@ -124,18 +93,11 @@ pub unsafe fn sse_channels_to_hsv_u16<
         );
 
         if USE_ALPHA {
-            let (row1, row2, row3, row4) = sse_interleave_rgba_epi16(x_low, y_low, z_low, a_low);
             let ptr = dst_ptr.add(cx * channels);
-            _mm_storeu_si128(ptr as *mut __m128i, row1);
-            _mm_storeu_si128(ptr.add(8) as *mut __m128i, row2);
-            _mm_storeu_si128(ptr.add(16) as *mut __m128i, row3);
-            _mm_storeu_si128(ptr.add(24) as *mut __m128i, row4);
+            store_and_interleave_v4_u16!(ptr, x_low, y_low, z_low, a_low);
         } else {
-            let (row1, row2, row3) = sse_interleave_rgb_epi16(x_low, y_low, z_low);
             let ptr = dst_ptr.add(cx * channels);
-            _mm_storeu_si128(ptr as *mut __m128i, row1);
-            _mm_storeu_si128(ptr.add(8) as *mut __m128i, row2);
-            _mm_storeu_si128(ptr.add(16) as *mut __m128i, row3);
+            store_and_interleave_v3_u16!(ptr, x_low, y_low, z_low);
         }
 
         let r_high = _mm_unpackhi_epi8(r_chan, zeros);
@@ -176,19 +138,11 @@ pub unsafe fn sse_channels_to_hsv_u16<
         );
 
         if USE_ALPHA {
-            let (row1, row2, row3, row4) =
-                sse_interleave_rgba_epi16(x_high, y_high, z_high, a_high);
             let ptr = dst_ptr.add(cx * channels + 8 * channels);
-            _mm_storeu_si128(ptr as *mut __m128i, row1);
-            _mm_storeu_si128(ptr.add(8) as *mut __m128i, row2);
-            _mm_storeu_si128(ptr.add(16) as *mut __m128i, row3);
-            _mm_storeu_si128(ptr.add(24) as *mut __m128i, row4);
+            store_and_interleave_v4_u16!(ptr, x_high, y_high, z_high, a_high);
         } else {
-            let (row1, row2, row3) = sse_interleave_rgb_epi16(x_high, y_high, z_high);
             let ptr = dst_ptr.add(cx * channels + 8 * channels);
-            _mm_storeu_si128(ptr as *mut __m128i, row1);
-            _mm_storeu_si128(ptr.add(8) as *mut __m128i, row2);
-            _mm_storeu_si128(ptr.add(16) as *mut __m128i, row3);
+            store_and_interleave_v3_u16!(ptr, x_high, y_high, z_high);
         }
 
         cx += 16;

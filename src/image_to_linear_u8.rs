@@ -18,11 +18,6 @@ use crate::neon::*;
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "sse4.1"
 ))]
-use crate::sse::get_sse_linear_transfer;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
 use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
 use crate::Rgb;
 
@@ -50,60 +45,43 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
+    let mut _wide_row_handler: Option<
+        unsafe fn(usize, *const u8, usize, u32, *mut u8, usize, TransferFunction) -> usize,
+    > = None;
+
     #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
+        any(target_arch = "aarch64", target_arch = "arm"),
+        target_feature = "neon"
     ))]
-    let mut _has_sse = false;
+    {
+        _wide_row_handler = Some(
+            neon_image_linear_to_u8::neon_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA>,
+        );
+    }
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "x86"),
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _has_sse = true;
+        _wide_row_handler = Some(sse_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
-        unsafe {
-            if _has_sse {
-                let transfer = get_sse_linear_transfer(transfer_function);
-                _cx = sse_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA>(
+        if let Some(dispatcher) = _wide_row_handler {
+            unsafe {
+                _cx = dispatcher(
                     _cx,
                     src.as_ptr(),
                     src_offset,
                     width,
                     dst.as_mut_ptr(),
                     dst_offset,
-                    &transfer,
+                    transfer_function,
                 )
             }
-        }
-
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
-        unsafe {
-            let transfer = get_neon_linear_transfer(transfer_function);
-            _cx = neon_image_linear_to_u8::neon_channels_to_linear_u8::<
-                CHANNELS_CONFIGURATION,
-                USE_ALPHA,
-            >(
-                _cx,
-                src.as_ptr(),
-                src_offset,
-                width,
-                dst.as_mut_ptr(),
-                dst_offset,
-                &transfer,
-            )
         }
 
         let src_ptr = unsafe { src.as_ptr().add(src_offset) };

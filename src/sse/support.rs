@@ -34,9 +34,7 @@ pub unsafe fn sse_interleave_rgba(
     (rgba_0_lo, rgba_0_hi, rgba_1_lo, rgba_1_hi)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_transpose_x4(
     r: __m128,
     g: __m128,
@@ -56,9 +54,7 @@ pub unsafe fn sse_transpose_x4(
     (row1, row2, row3, row4)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128, __m128, __m128) {
     const MASK_U0: i32 = shuffle(0, 0, 0, 0);
     let u0 = _mm_shuffle_ps::<MASK_U0>(a, b);
@@ -81,9 +77,7 @@ pub unsafe fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128,
     (v0, v1, v2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_ps_rgba(
     a: __m128,
     b: __m128,
@@ -101,9 +95,7 @@ pub unsafe fn sse_interleave_ps_rgba(
     (v0, v1, v2, v3)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_store_rgba(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i, a: __m128i) {
     let (row1, row2, row3, row4) = sse_interleave_rgba(r, g, b, a);
     _mm_storeu_si128(ptr as *mut __m128i, row1);
@@ -112,9 +104,7 @@ pub unsafe fn sse_store_rgba(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i, a
     _mm_storeu_si128(ptr.add(48) as *mut __m128i, row4);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgba(
     rgba0: __m128i,
     rgba1: __m128i,
@@ -151,9 +141,7 @@ pub unsafe fn sse_deinterleave_rgba(
     (r1, r2, r3, r4)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgb_ps(
     t0: __m128,
     t1: __m128,
@@ -176,9 +164,7 @@ pub unsafe fn sse_deinterleave_rgb_ps(
     (v0, v1, v2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgb(
     rgb0: __m128i,
     rgb1: __m128i,
@@ -220,9 +206,7 @@ pub unsafe fn sse_deinterleave_rgb(
     (r0r1r2, g0g1g2, b0b1b2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_rgb(
     r: __m128i,
     g: __m128i,
@@ -243,9 +227,7 @@ pub unsafe fn sse_interleave_rgb(
     (v0, v1, v2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_rgb_epi16(
     a: __m128i,
     b: __m128i,
@@ -264,9 +246,7 @@ pub unsafe fn sse_interleave_rgb_epi16(
     (v0, v1, v2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_interleave_rgba_epi16(
     a: __m128i,
     b: __m128i,
@@ -285,9 +265,7 @@ pub unsafe fn sse_interleave_rgba_epi16(
     (v0, v1, v2, v3)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgba_epi16(
     u0: __m128i,
     u1: __m128i,
@@ -311,9 +289,7 @@ pub unsafe fn sse_deinterleave_rgba_epi16(
     (a, b, c, d)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgb_epi16(
     v0: __m128i,
     v1: __m128i,
@@ -332,9 +308,7 @@ pub unsafe fn sse_deinterleave_rgb_epi16(
     (a0, b0, c0)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_store_rgb_u8(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i) {
     let (v0, v1, v2) = sse_interleave_rgb(r, g, b);
     _mm_storeu_si128(ptr as *mut __m128i, v0);
@@ -342,9 +316,7 @@ pub unsafe fn sse_store_rgb_u8(ptr: *mut u8, r: __m128i, g: __m128i, b: __m128i)
     _mm_storeu_si128(ptr.add(32) as *mut __m128i, v2);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn sse_deinterleave_rgba_ps(
     t0: __m128,
     t1: __m128,

@@ -48,15 +48,15 @@ pub unsafe fn avx2_image_to_xyz_lab<
 
     let transfer = get_avx2_linear_transfer(transfer_function);
 
-    let cq1 = _mm256_set1_ps(matrix[0][0]);
-    let cq2 = _mm256_set1_ps(matrix[0][1]);
-    let cq3 = _mm256_set1_ps(matrix[0][2]);
-    let cq4 = _mm256_set1_ps(matrix[1][0]);
-    let cq5 = _mm256_set1_ps(matrix[1][1]);
-    let cq6 = _mm256_set1_ps(matrix[1][2]);
-    let cq7 = _mm256_set1_ps(matrix[2][0]);
-    let cq8 = _mm256_set1_ps(matrix[2][1]);
-    let cq9 = _mm256_set1_ps(matrix[2][2]);
+    let cq1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
+    let cq2 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
+    let cq3 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
+    let cq4 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
+    let cq5 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
+    let cq6 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
+    let cq7 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
+    let cq8 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
+    let cq9 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
