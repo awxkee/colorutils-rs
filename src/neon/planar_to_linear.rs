@@ -42,7 +42,6 @@ unsafe fn process_pixels(
     let r_high_high = vmovl_high_u16(r_high);
 
     let x_high_high = neon_to_linear(r_high_high, &transfer);
-
     let storing_row = float32x4x4_t(x_low_low, x_low_high, x_high_low, x_high_high);
     storing_row
 }

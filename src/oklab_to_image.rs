@@ -5,19 +5,19 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
+use crate::image_to_oklab::OklabTarget;
 #[cfg(all(
     any(target_arch = "aarch64", target_arch = "arm"),
     target_feature = "neon"
 ))]
 use crate::neon::neon_oklab_to_image;
+use crate::oklch::Oklch;
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "sse4.1"
 ))]
 use crate::sse::sse_oklab_to_image;
 use crate::{Oklab, TransferFunction};
-use crate::image_to_oklab::OklabTarget;
-use crate::oklch::Oklch;
 
 fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
@@ -134,7 +134,7 @@ pub fn oklab_to_rgba(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, {OklabTarget::OKLAB as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -164,7 +164,7 @@ pub fn oklab_to_rgb(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, {OklabTarget::OKLAB as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -194,7 +194,7 @@ pub fn oklab_to_bgr(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, {OklabTarget::OKLAB as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -224,7 +224,7 @@ pub fn oklab_to_bgra(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, {OklabTarget::OKLAB as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLAB as u8 }>(
         src,
         src_stride,
         dst,
@@ -254,7 +254,7 @@ pub fn oklch_to_rgba(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, {OklabTarget::OKLCH as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLCH as u8 }>(
         src,
         src_stride,
         dst,
@@ -284,7 +284,7 @@ pub fn oklch_to_rgb(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, {OklabTarget::OKLCH as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLCH as u8 }>(
         src,
         src_stride,
         dst,
@@ -314,7 +314,7 @@ pub fn oklch_to_bgr(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, {OklabTarget::OKLCH as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLCH as u8 }>(
         src,
         src_stride,
         dst,
@@ -344,7 +344,7 @@ pub fn oklch_to_bgra(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, {OklabTarget::OKLCH as u8}>(
+    oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLCH as u8 }>(
         src,
         src_stride,
         dst,

@@ -46,6 +46,7 @@ pub mod planar_to_linear;
 mod rgb;
 mod rgb_expand;
 mod rgba;
+mod routines;
 mod sigmoidal;
 mod sigmoidal_to_image;
 #[cfg(all(

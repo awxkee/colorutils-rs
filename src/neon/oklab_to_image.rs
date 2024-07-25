@@ -5,12 +5,12 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
+use crate::image_to_oklab::OklabTarget;
 use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
 use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
-use std::arch::aarch64::*;
 use erydanos::{vcosq_f32, vsinq_f32};
-use crate::image_to_oklab::OklabTarget;
+use std::arch::aarch64::*;
 
 #[inline(always)]
 unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
