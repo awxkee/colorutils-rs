@@ -60,6 +60,7 @@ mod xyz_lab_to_image;
 mod xyz_target;
 mod xyz_transform;
 mod xyza_laba_to_image;
+mod lalphabeta;
 
 pub use concat_alpha::append_alpha;
 pub use gamma_curves::*;
@@ -172,3 +173,4 @@ pub use sigmoidal_to_image::sigmoidal_to_bgra;
 pub use sigmoidal_to_image::sigmoidal_to_rgb;
 pub use sigmoidal_to_image::sigmoidal_to_rgba;
 pub use taxicab::TaxicabDistance;
+pub use lalphabeta::LAlphaBeta;
