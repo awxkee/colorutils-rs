@@ -169,10 +169,7 @@ impl Xyz {
             let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
                 + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
                 + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
-            let r = 255f32 * gamma_function(r);
-            let g = 255f32 * gamma_function(g);
-            let b = 255f32 * gamma_function(b);
-            Rgb::new(r as u8, g as u8, b as u8)
+            Rgb::<f32>::new(gamma_function(r), gamma_function(g), gamma_function(b)).to_u8()
         }
     }
 

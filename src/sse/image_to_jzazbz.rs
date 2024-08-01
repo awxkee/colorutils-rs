@@ -19,8 +19,8 @@ use crate::sse::{
     sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba,
 };
 use crate::{
-    load_u8_and_deinterleave, store_and_interleave_v3_f32, store_and_interleave_v4_f32,
-    TransferFunction, SRGB_TO_XYZ_D65,
+    load_u8_and_deinterleave, store_and_interleave_v3_direct_f32,
+    store_and_interleave_v4_direct_f32, TransferFunction, SRGB_TO_XYZ_D65,
 };
 
 macro_rules! perceptual_quantizer {
@@ -166,10 +166,10 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         if image_configuration.has_alpha() {
             let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
             let ptr = dst_ptr.add(cx * 4);
-            store_and_interleave_v4_f32!(ptr, x_low_low, y_low_low, z_low_low, a_low_low);
+            store_and_interleave_v4_direct_f32!(ptr, x_low_low, y_low_low, z_low_low, a_low_low);
         } else {
             let ptr = dst_ptr.add(cx * 3);
-            store_and_interleave_v3_f32!(ptr, x_low_low, y_low_low, z_low_low);
+            store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
         }
 
         let r_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(r_low));
@@ -186,10 +186,12 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
             );
 
             let ptr = dst_ptr.add(cx * 4 + 16);
-            store_and_interleave_v4_f32!(ptr, x_low_high, y_low_high, z_low_high, a_low_high);
+            store_and_interleave_v4_direct_f32!(
+                ptr, x_low_high, y_low_high, z_low_high, a_low_high
+            );
         } else {
             let ptr = dst_ptr.add(cx * 3 + 4 * 3);
-            store_and_interleave_v3_f32!(ptr, x_low_high, y_low_high, z_low_high);
+            store_and_interleave_v3_direct_f32!(ptr, x_low_high, y_low_high, z_low_high);
         }
 
         let r_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(r_chan));
@@ -208,10 +210,12 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         if image_configuration.has_alpha() {
             let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
             let ptr = dst_ptr.add(cx * 4 + 4 * 4 * 2);
-            store_and_interleave_v4_f32!(ptr, x_high_low, y_high_low, z_high_low, a_high_low);
+            store_and_interleave_v4_direct_f32!(
+                ptr, x_high_low, y_high_low, z_high_low, a_high_low
+            );
         } else {
             let ptr = dst_ptr.add(cx * 3 + 4 * 3 * 2);
-            store_and_interleave_v3_f32!(ptr, x_high_low, y_high_low, z_high_low);
+            store_and_interleave_v3_direct_f32!(ptr, x_high_low, y_high_low, z_high_low);
         }
 
         let r_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(r_high));
@@ -233,10 +237,16 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
                 u8_scale,
             );
             let ptr = dst_ptr.add(cx * 4 + 4 * 4 * 3);
-            store_and_interleave_v4_f32!(ptr, x_high_high, y_high_high, z_high_high, a_high_high);
+            store_and_interleave_v4_direct_f32!(
+                ptr,
+                x_high_high,
+                y_high_high,
+                z_high_high,
+                a_high_high
+            );
         } else {
             let ptr = dst_ptr.add(cx * 3 + 4 * 3 * 3);
-            store_and_interleave_v3_f32!(ptr, x_high_high, y_high_high, z_high_high);
+            store_and_interleave_v3_direct_f32!(ptr, x_high_high, y_high_high, z_high_high);
         }
 
         cx += 16;

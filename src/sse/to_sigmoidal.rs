@@ -63,10 +63,17 @@ pub unsafe fn sse_image_to_sigmoidal_row<
         if USE_ALPHA {
             let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
             let ptr = dst_ptr.add(cx * channels);
-            store_and_interleave_v4_f32!(ptr, x_low_low, y_low_low, z_low_low, a_low_low);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_low_low
+            );
         } else {
             let ptr = dst_ptr.add(cx * channels);
-            store_and_interleave_v3_f32!(ptr, x_low_low, y_low_low, z_low_low);
+            store_and_interleave_v3_f32!(ptr, image_configuration, x_low_low, y_low_low, z_low_low);
         }
 
         let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
@@ -80,10 +87,23 @@ pub unsafe fn sse_image_to_sigmoidal_row<
             let a_low_high =
                 _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
             let ptr = dst_ptr.add(cx * channels + 4 * channels);
-            store_and_interleave_v4_f32!(ptr, x_low_high, y_low_high, z_low_high, a_low_high);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high,
+                a_low_high
+            );
         } else {
             let ptr = dst_ptr.add(cx * channels + 4 * channels);
-            store_and_interleave_v3_f32!(ptr, x_low_high, y_low_high, z_low_high);
+            store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high
+            );
         }
 
         let r_high = _mm_unpackhi_epi8(r_chan, zeros);
@@ -102,10 +122,23 @@ pub unsafe fn sse_image_to_sigmoidal_row<
         if USE_ALPHA {
             let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
             let ptr = dst_ptr.add(cx * channels + 4 * channels * 2);
-            store_and_interleave_v4_f32!(ptr, x_high_low, y_high_low, z_high_low, a_high_low);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_high_low,
+                y_high_low,
+                z_high_low,
+                a_high_low
+            );
         } else {
             let ptr = dst_ptr.add(cx * channels + 4 * channels * 2);
-            store_and_interleave_v3_f32!(ptr, x_high_low, y_high_low, z_high_low);
+            store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_high_low,
+                y_high_low,
+                z_high_low
+            );
         }
 
         let r_high_high = _mm_unpackhi_epi16(r_high, zeros);
@@ -121,10 +154,23 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 u8_scale,
             );
             let ptr = dst_ptr.add(cx * channels + 4 * channels * 3);
-            store_and_interleave_v4_f32!(ptr, x_high_high, y_high_high, z_high_high, a_high_high);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_high_high,
+                y_high_high,
+                z_high_high,
+                a_high_high
+            );
         } else {
             let ptr = dst_ptr.add(cx * channels + 4 * channels * 3);
-            store_and_interleave_v3_f32!(ptr, x_high_high, y_high_high, z_high_high);
+            store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_high_high,
+                y_high_high,
+                z_high_high
+            );
         }
 
         cx += 16;

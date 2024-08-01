@@ -25,13 +25,13 @@ fn main() {
     let g = 127;
     let b = 255;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let lalphabeta = LAlphaBeta::from_rgb(rgb, TransferFunction::Srgb);
-    println!("LAlphaBeta {:?}", lalphabeta);
-    println!("Rgb {:?}", rgb);
-    let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
-    println!("Restored RGB {:?}", restored);
+    let xyb = Oklab::from_rgb(rgb, TransferFunction::Srgb);
+    println!("XYB {:?}", xyb);
+    println!("Rgb {:?}", xyb.to_rgb(TransferFunction::Srgb));
+    // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
+    // println!("Restored RGB {:?}", restored);
 
-    let img = ImageReader::open("./assets/beach_horizon.jpg")
+    let img = ImageReader::open("./assets/asset.jpg")
         .unwrap()
         .decode()
         .unwrap();

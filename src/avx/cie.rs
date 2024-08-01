@@ -5,11 +5,15 @@
  * // license that can be found in the LICENSE file.
  */
 
+use crate::avx::_mm256_cube_ps;
 use crate::avx::math::*;
-use crate::avx::{_mm256_cube_ps, _mm256_prefer_fma_ps, _mm256_select_ps};
 use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
+};
+use erydanos::{
+    _mm256_atan2_ps, _mm256_cbrt_ps, _mm256_cos_ps, _mm256_hypot_ps, _mm256_prefer_fma_ps,
+    _mm256_select_ps, _mm256_sin_ps,
 };
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -147,8 +151,8 @@ pub(crate) unsafe fn avx2_triple_to_luv(
     );
     let u_prime = _mm256_div_ps(_mm256_mul_ps(x, _mm256_set1_ps(4f32)), den);
     let v_prime = _mm256_div_ps(_mm256_mul_ps(y, _mm256_set1_ps(9f32)), den);
-    let sub_u_prime = _mm256_sub_ps(u_prime, _mm256_set1_ps(crate::luv::LUV_WHITE_U_PRIME));
-    let sub_v_prime = _mm256_sub_ps(v_prime, _mm256_set1_ps(crate::luv::LUV_WHITE_V_PRIME));
+    let sub_u_prime = _mm256_sub_ps(u_prime, _mm256_set1_ps(LUV_WHITE_U_PRIME));
+    let sub_v_prime = _mm256_sub_ps(v_prime, _mm256_set1_ps(LUV_WHITE_V_PRIME));
     let l13 = _mm256_mul_ps(l, _mm256_set1_ps(13f32));
     let u = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_u_prime));
     let v = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_v_prime));

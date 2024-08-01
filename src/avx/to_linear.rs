@@ -5,17 +5,20 @@
  * // license that can be found in the LICENSE file.
  */
 
-use crate::avx::gamma_curves::get_avx2_linear_transfer;
-use crate::avx::{
-    avx2_deinterleave_rgb_epi8, avx2_deinterleave_rgba_epi8, avx2_interleave_rgb_ps,
-    avx2_interleave_rgba_ps,
-};
-use crate::gamma_curves::TransferFunction;
-use crate::image::ImageConfiguration;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
+use crate::avx::gamma_curves::get_avx2_linear_transfer;
+use crate::avx::routines::{
+    avx_vld_u8_and_deinterleave, avx_vld_u8_and_deinterleave_half,
+    avx_vld_u8_and_deinterleave_quarter,
+};
+use crate::avx::{avx2_interleave_rgb_ps, avx2_interleave_rgba_ps};
+use crate::gamma_curves::TransferFunction;
+use crate::image::ImageConfiguration;
+use crate::{avx_store_and_interleave_v3_f32, avx_store_and_interleave_v4_f32};
 
 #[inline(always)]
 unsafe fn triple_to_linear(
@@ -52,42 +55,12 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
+    let zeros = _mm256_setzero_si256();
+
     while cx + 32 < width as usize {
-        let (r_chan, g_chan, b_chan, a_chan);
         let src_ptr = src.add(src_offset + cx * channels);
-        let row1 = _mm256_loadu_si256(src_ptr as *const __m256i);
-        let row2 = _mm256_loadu_si256(src_ptr.add(32) as *const __m256i);
-        let row3 = _mm256_loadu_si256(src_ptr.add(64) as *const __m256i);
-        match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let (c1, c2, c3) = avx2_deinterleave_rgb_epi8(row1, row2, row3);
-                if image_configuration == ImageConfiguration::Rgb {
-                    r_chan = c1;
-                    g_chan = c2;
-                    b_chan = c3;
-                } else {
-                    r_chan = c3;
-                    g_chan = c2;
-                    b_chan = c1;
-                }
-                a_chan = _mm256_set1_epi8(-128);
-            }
-            ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-                let row4 = _mm256_loadu_si256(src_ptr.add(96) as *const __m256i);
-                let (c1, c2, c3, c4) = avx2_deinterleave_rgba_epi8(row1, row2, row3, row4);
-                if image_configuration == ImageConfiguration::Rgba {
-                    r_chan = c1;
-                    g_chan = c2;
-                    b_chan = c3;
-                    a_chan = c4;
-                } else {
-                    r_chan = c3;
-                    g_chan = c2;
-                    b_chan = c1;
-                    a_chan = c4;
-                }
-            }
-        }
+        let (r_chan, g_chan, b_chan, a_chan) =
+            avx_vld_u8_and_deinterleave::<CHANNELS_CONFIGURATION>(src_ptr);
 
         let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
         let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
@@ -110,48 +83,62 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
                 u8_scale,
             );
 
-            let (v0, v1, v2, v3) =
-                avx2_interleave_rgba_ps(x_low_low, y_low_low, z_low_low, a_low_low);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 24), v3);
+            let ptr = dst_ptr.add(cx * 4);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_low_low
+            );
         } else {
-            let (v0, v1, v2) = avx2_interleave_rgb_ps(x_low_low, y_low_low, z_low_low);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 16), v2);
+            let ptr = dst_ptr.add(cx * 3);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low
+            );
         }
 
-        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
-        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
-        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
+        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
 
         let (x_low_high, y_low_high, z_low_high) =
             triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
 
         if USE_ALPHA {
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256::<1>(a_low))),
+                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
                 u8_scale,
             );
 
-            let (v0, v1, v2, v3) =
-                avx2_interleave_rgba_ps(x_low_high, y_low_high, z_low_high, a_low_high);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 32), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 32 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 32 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 32 + 24), v3);
+            let ptr = dst_ptr.add(cx * 4 + 32);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high,
+                a_low_high
+            );
         } else {
-            let (v0, v1, v2) = avx2_interleave_rgb_ps(x_low_high, y_low_high, z_low_high);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 + 16), v2);
+            let ptr = dst_ptr.add(cx * 3 + 24);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high
+            );
         }
 
-        let r_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(r_chan));
-        let g_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(g_chan));
-        let b_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(b_chan));
+        let r_high = _mm256_unpackhi_epi8(r_chan, zeros);
+        let g_high = _mm256_unpackhi_epi8(g_chan, zeros);
+        let b_high = _mm256_unpackhi_epi8(b_chan, zeros);
 
         let r_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_high));
         let g_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_high));
@@ -160,7 +147,7 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
         let (x_high_low, y_high_low, z_high_low) =
             triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
 
-        let a_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(a_chan));
+        let a_high = _mm256_unpackhi_epi8(a_chan, zeros);
 
         if USE_ALPHA {
             let a_high_low = _mm256_mul_ps(
@@ -168,46 +155,189 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
                 u8_scale,
             );
 
-            let (v0, v1, v2, v3) =
-                avx2_interleave_rgba_ps(x_high_low, y_high_low, z_high_low, a_high_low);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 64 + 24), v3);
+            let ptr = dst_ptr.add(cx * 4 + 64);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_high_low,
+                y_high_low,
+                z_high_low,
+                a_high_low
+            );
         } else {
-            let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_low, y_high_low, z_high_low);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 48), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 48 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 48 + 16), v2);
+            let ptr = dst_ptr.add(cx * 3 + 48);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_high_low,
+                y_high_low,
+                z_high_low
+            );
         }
 
-        let r_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_high));
-        let g_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_high));
-        let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
+        let r_high_high = _mm256_unpackhi_epi16(r_high, zeros);
+        let g_high_high = _mm256_unpackhi_epi16(g_high, zeros);
+        let b_high_high = _mm256_unpackhi_epi16(b_high, zeros);
 
         let (x_high_high, y_high_high, z_high_high) =
             triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
 
         if USE_ALPHA {
             let a_high_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256::<1>(a_high))),
+                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_high, zeros)),
                 u8_scale,
             );
-
-            let (v0, v1, v2, v3) =
-                avx2_interleave_rgba_ps(x_high_high, y_high_high, z_high_high, a_high_high);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 16), v2);
-            _mm256_storeu_ps(dst_ptr.add(cx * 4 + 96 + 24), v3);
+            let ptr = dst_ptr.add(cx * 4 + 96);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_high_high,
+                y_high_high,
+                z_high_high,
+                a_high_high
+            );
         } else {
-            let (v0, v1, v2) = avx2_interleave_rgb_ps(x_high_high, y_high_high, z_high_high);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 * 3), v0);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 * 3 + 8), v1);
-            _mm256_storeu_ps(dst_ptr.add(cx * 3 + 24 * 3 + 16), v2);
+            let ptr = dst_ptr.add(cx * 3 + 24 * 3);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_high_high,
+                y_high_high,
+                z_high_high
+            );
         }
 
         cx += 32;
+    }
+
+    while cx + 16 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            avx_vld_u8_and_deinterleave_half::<CHANNELS_CONFIGURATION>(src_ptr);
+
+        let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
+        let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
+        let b_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(b_chan));
+
+        let r_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_low));
+        let g_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_low));
+        let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) =
+            triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+
+        let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
+
+        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
+
+        if USE_ALPHA {
+            let a_low_low = _mm256_mul_ps(
+                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_low))),
+                u8_scale,
+            );
+
+            let ptr = dst_ptr.add(cx * 4);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_low_low
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * 3);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low
+            );
+        }
+
+        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+
+        let (x_low_high, y_low_high, z_low_high) =
+            triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+
+        if USE_ALPHA {
+            let a_low_high = _mm256_mul_ps(
+                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                u8_scale,
+            );
+
+            let ptr = dst_ptr.add(cx * 4 + 32);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high,
+                a_low_high
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * 3 + 24);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high
+            );
+        }
+
+        cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            avx_vld_u8_and_deinterleave_quarter::<CHANNELS_CONFIGURATION>(src_ptr);
+
+        let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
+        let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
+        let b_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(b_chan));
+
+        let r_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_low));
+        let g_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_low));
+        let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) =
+            triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+
+        let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
+
+        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
+
+        if USE_ALPHA {
+            let a_low_low = _mm256_mul_ps(
+                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_low))),
+                u8_scale,
+            );
+
+            let ptr = dst_ptr.add(cx * 4);
+            avx_store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_low_low
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * 3);
+            avx_store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low
+            );
+        }
+        cx += 8;
     }
 
     cx

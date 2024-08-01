@@ -308,5 +308,102 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
         cx += 16;
     }
 
+    while cx + 8 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_0,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
+
+        let src_ptr_1 = offset_src_ptr.add(4 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) =
+            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_1,
+                transfer_function,
+                m0,
+                m1,
+                m2,
+                m3,
+                m4,
+                m5,
+                m6,
+                m7,
+                m8,
+                c0,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                x0,
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                x8,
+            );
+
+        let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
+        let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));
+        let b_row01 = vcombine_u16(vqmovn_u32(b_row0_), vqmovn_u32(b_row1_));
+
+        let r_row = vqmovn_u16(r_row01);
+        let g_row = vqmovn_u16(g_row01);
+        let b_row = vqmovn_u16(b_row01);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if image_configuration.has_alpha() {
+            let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
+            let a_row = vqmovn_u16(a_row01);
+            let store_rows = uint8x8x4_t(r_row, g_row, b_row, a_row);
+            vst4_u8(dst_ptr, store_rows);
+        } else {
+            let store_rows = uint8x8x3_t(r_row, g_row, b_row);
+            vst3_u8(dst_ptr, store_rows);
+        }
+
+        cx += 8;
+    }
+
     cx
 }

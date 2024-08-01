@@ -11,8 +11,8 @@ use crate::sse::{
     sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
 };
 use crate::{
-    load_f32_and_deinterleave, store_and_interleave_v3_u8, store_and_interleave_v4_u8,
-    TransferFunction, XYZ_TO_SRGB_D65,
+    load_f32_and_deinterleave, store_and_interleave_v3_half_u8, store_and_interleave_v3_u8,
+    store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction, XYZ_TO_SRGB_D65,
 };
 use erydanos::{_mm_cos_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
@@ -157,6 +157,8 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm_set1_ps(-0.7034186147f32),
         _mm_set1_ps(1.7076147010f32),
     );
+
+    let zeros = _mm_setzero_si128();
 
     while cx + 16 < width as usize {
         let offset_src_ptr =
@@ -320,12 +322,114 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
             let a_row23 = _mm_packus_epi32(a_row2_, a_row3_);
             let a_row = _mm_packus_epi16(a_row01, a_row23);
-            store_and_interleave_v4_u8!(dst_ptr, r_row, g_row, b_row, a_row);
+            store_and_interleave_v4_u8!(dst_ptr, image_configuration, r_row, g_row, b_row, a_row);
         } else {
-            store_and_interleave_v3_u8!(dst_ptr, r_row, g_row, b_row);
+            store_and_interleave_v3_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_0,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+        );
+
+        let src_ptr_1 = offset_src_ptr.add(4 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
+            src_ptr_1,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+        );
+
+        let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);
+        let g_row01 = _mm_packus_epi32(g_row0_, g_row1_);
+        let b_row01 = _mm_packus_epi32(b_row0_, b_row1_);
+
+        let r_row = _mm_packus_epi16(r_row01, zeros);
+        let g_row = _mm_packus_epi16(g_row01, zeros);
+        let b_row = _mm_packus_epi16(b_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if image_configuration.has_alpha() {
+            let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
+            let a_row = _mm_packus_epi16(a_row01, zeros);
+            store_and_interleave_v4_half_u8!(
+                dst_ptr,
+                image_configuration,
+                r_row,
+                g_row,
+                b_row,
+                a_row
+            );
+        } else {
+            store_and_interleave_v3_half_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
+        }
+
+        cx += 8;
     }
 
     cx

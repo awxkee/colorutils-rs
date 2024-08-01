@@ -7,7 +7,7 @@
 
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-use crate::load_u8_and_deinterleave;
+use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
 use crate::neon::{neon_rgb_to_hsl, neon_rgb_to_hsv};
 use std::arch::aarch64::*;
 
@@ -296,6 +296,59 @@ pub unsafe fn neon_channels_to_hsv_u16<
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) = match target {
+            HsvTarget::HSV => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::HSL => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
+        };
+
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+
+        let r_low_high = vmovl_high_u16(r_low);
+        let g_low_high = vmovl_high_u16(g_low);
+        let b_low_high = vmovl_high_u16(b_low);
+
+        let (x_low_high, y_low_high, z_low_high) = match target {
+            HsvTarget::HSV => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::HSL => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
+        };
+
+        let x_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(x_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(x_low_high)),
+        );
+        let y_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(y_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(y_low_high)),
+        );
+        let z_low = vcombine_u16(
+            vmovn_u32(vcvtaq_u32_f32(z_low_low)),
+            vmovn_u32(vcvtaq_u32_f32(z_low_high)),
+        );
+
+        if USE_ALPHA {
+            let xyz_low_low = uint16x8x4_t(x_low, y_low, z_low, a_low);
+            vst4q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+        } else {
+            let xyz_low_low = uint16x8x3_t(x_low, y_low, z_low);
+            vst3q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+        }
+
+        cx += 8;
     }
 
     cx

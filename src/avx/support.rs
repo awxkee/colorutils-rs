@@ -92,9 +92,7 @@ pub unsafe fn sse_interleave_odd(x: __m128i) -> __m128i {
     return new_lane;
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_interleave_rgb(
     r: __m256i,
     g: __m256i,
@@ -158,9 +156,7 @@ pub unsafe fn avx2_deinterleave_rgb_epi32(
     (b0, g0, r0)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_deinterleave_rgb_epi8(
     rgb0: __m256i,
     rgb1: __m256i,
@@ -261,9 +257,7 @@ pub unsafe fn avx2_reshuffle_odd(v: __m256i) -> __m256i {
     return _mm256_permute4x64_epi64::<MASK>(v);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_deinterleave_rgba_epi8(
     rgba0: __m256i,
     rgba1: __m256i,
@@ -314,7 +308,6 @@ pub unsafe fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i
     _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgb3);
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
 pub unsafe fn avx2_interleave_rgba_epi8(
     a: __m256i,
@@ -391,9 +384,7 @@ pub unsafe fn avx2_interleave_rgba_epi32(
     (bgra0, bgra1, bgra2, bgra3)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_interleave_rgba_ps(
     r: __m256,
     g: __m256,
@@ -414,9 +405,7 @@ pub unsafe fn avx2_interleave_rgba_ps(
     )
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_deinterleave_rgba_ps(
     r: __m256,
     g: __m256,
@@ -471,18 +460,14 @@ pub unsafe fn avx2_div_by255(v: __m256i) -> __m256i {
     return _mm256_srli_epi16::<7>(r);
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_pack_u16(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packus_epi16(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);
     return _mm256_permute4x64_epi64::<MASK>(packed);
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn avx2_pack_s32(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packs_epi32(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);

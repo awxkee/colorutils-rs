@@ -118,6 +118,8 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
     const CHANNELS: usize = 4usize;
 
+    let zeros = _mm_setzero_si128();
+
     while cx + 16 < width as usize {
         let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
 
@@ -217,6 +219,68 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
         _mm_storeu_si128(dst_ptr.add(48) as *mut __m128i, rgba3);
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_0,
+            transfer_function,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+        );
+
+        let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_1,
+            transfer_function,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+        );
+
+        let r_row01 = _mm_packs_epi32(r_row0_, r_row1_);
+        let g_row01 = _mm_packs_epi32(g_row0_, g_row1_);
+        let b_row01 = _mm_packs_epi32(b_row0_, b_row1_);
+        let a_row01 = _mm_packs_epi32(a_row0_, a_row1_);
+
+        let r_row = _mm_packus_epi16(r_row01, zeros);
+        let g_row = _mm_packus_epi16(g_row01, zeros);
+        let b_row = _mm_packus_epi16(b_row01, zeros);
+        let a_row = _mm_packus_epi16(a_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset + cx * channels);
+
+        let (rgba0, rgba1, _, _) = match image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                sse_interleave_rgba(r_row, g_row, b_row, a_row)
+            }
+            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                sse_interleave_rgba(b_row, g_row, r_row, a_row)
+            }
+        };
+
+        _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
+        _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
+
+        cx += 8;
     }
 
     cx

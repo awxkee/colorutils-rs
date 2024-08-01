@@ -102,16 +102,30 @@ pub unsafe fn sse_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
 
         match image_configuration {
             ImageConfiguration::Rgb => {
-                store_and_interleave_v3_u8!(dst_ptr, r_row, g_row, b_row);
+                store_and_interleave_v3_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
             }
             ImageConfiguration::Rgba => {
-                store_and_interleave_v4_u8!(dst_ptr, r_row, g_row, b_row, a_row);
+                store_and_interleave_v4_u8!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row,
+                    g_row,
+                    b_row,
+                    a_row
+                );
             }
             ImageConfiguration::Bgra => {
-                store_and_interleave_v4_u8!(dst_ptr, b_row, g_row, r_row, a_row);
+                store_and_interleave_v4_u8!(
+                    dst_ptr,
+                    image_configuration,
+                    b_row,
+                    g_row,
+                    r_row,
+                    a_row
+                );
             }
             ImageConfiguration::Bgr => {
-                store_and_interleave_v3_u8!(dst_ptr, b_row, g_row, r_row);
+                store_and_interleave_v3_u8!(dst_ptr, image_configuration, b_row, g_row, r_row);
             }
         }
         cx += 16;

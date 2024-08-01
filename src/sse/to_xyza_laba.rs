@@ -7,10 +7,10 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::load_u8_and_deinterleave;
 use crate::sse::cie::{sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
 use crate::sse::*;
 use crate::xyz_target::XyzTarget;
+use crate::{load_u8_and_deinterleave, store_and_interleave_v4_f32};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -49,6 +49,8 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
     let cq9 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
+
+    let zeros = _mm_setzero_si128();
 
     while cx + 16 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
@@ -99,9 +101,9 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
         _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 8), v2);
         _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 12), v3);
 
-        let r_low_high = _mm_unpackhi_epi16(r_low, _mm_setzero_si128());
-        let g_low_high = _mm_unpackhi_epi16(g_low, _mm_setzero_si128());
-        let b_low_high = _mm_unpackhi_epi16(b_low, _mm_setzero_si128());
+        let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = sse_triple_to_xyz(
             r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
@@ -130,17 +132,17 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
             }
         }
 
-        let a_low_high = _mm_mul_ps(
-            _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_srli_si128::<8>(a_low))),
-            u8_scale,
-        );
+        let a_low_high = _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
 
-        let (v0, v1, v2, v3) =
-            sse_interleave_ps_rgba(x_low_high, y_low_high, z_low_high, a_low_high);
-        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4 * CHANNELS), v0);
-        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4 * CHANNELS + 4), v1);
-        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4 * CHANNELS + 8), v2);
-        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4 * CHANNELS + 12), v3);
+        let ptr0 = dst_ptr.add(cx * CHANNELS + 4 * CHANNELS);
+        store_and_interleave_v4_f32!(
+            ptr0,
+            image_configuration,
+            x_low_high,
+            y_low_high,
+            z_low_high,
+            a_low_high
+        );
 
         let r_high = _mm_unpackhi_epi8(r_chan, _mm_setzero_si128());
         let g_high = _mm_unpackhi_epi8(g_chan, _mm_setzero_si128());

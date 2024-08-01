@@ -250,5 +250,87 @@ pub unsafe fn neon_xyz_to_channels<
         cx += 16;
     }
 
+    while cx + 8 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset) as *const f32).add(cx * src_channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_) =
+            neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                src_ptr_0,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
+            );
+
+        let src_ptr_1 = offset_src_ptr.add(4 * src_channels);
+
+        let (r_row1_, g_row1_, b_row1_) =
+            neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
+                src_ptr_1,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
+            );
+
+        let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
+        let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));
+        let b_row01 = vcombine_u16(vqmovn_u32(b_row0_), vqmovn_u32(b_row1_));
+
+        let r_row = vqmovn_u16(r_row01);
+        let g_row = vqmovn_u16(g_row01);
+        let b_row = vqmovn_u16(b_row01);
+
+        let dst_ptr = dst.add(dst_offset + cx * channels);
+
+        if USE_ALPHA {
+            let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
+            let a_low_0_f = vld1q_f32(offset_a_src_ptr);
+            let a_row0_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_0_f, 255f32));
+
+            let a_low_1_f = vld1q_f32(offset_a_src_ptr.add(4));
+            let a_row1_ = vcvtaq_u32_f32(vmulq_n_f32(a_low_1_f, 255f32));
+
+            let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
+            let a_row = vqmovn_u16(a_row01);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x4_t(r_row, g_row, b_row, a_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x4_t(b_row, g_row, r_row, a_row)
+                }
+            };
+            vst4_u8(dst_ptr, store_rows);
+        } else {
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x3_t(r_row, g_row, b_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x3_t(b_row, g_row, r_row)
+                }
+            };
+            vst3_u8(dst_ptr, store_rows);
+        }
+
+        cx += 8;
+    }
+
     cx
 }

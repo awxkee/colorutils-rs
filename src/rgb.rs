@@ -30,6 +30,26 @@ pub struct Rgb<T> {
 }
 
 impl Rgb<u8> {
+    /// Converts gamma corrected RGB to linear RGB
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert RGB into linear RGB
+    #[inline]
+    pub fn to_linear(&self, transfer_function: TransferFunction) -> Rgb<f32> {
+        let linear_transfer = transfer_function.get_linearize_function();
+        self.to_rgb_f32().apply(linear_transfer)
+    }
+
+    /// Converts gamma corrected RGB to linear RGB
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert RGB into linear RGB
+    #[inline]
+    pub fn from_linear(linear_rgb: Rgb<f32>, transfer_function: TransferFunction) -> Rgb<u8> {
+        let linear_transfer = transfer_function.get_gamma_function();
+        linear_rgb.apply(linear_transfer).to_u8()
+    }
+
     /// Converts rgb to Jzazbz
     /// Here is luminance always considered 200 nits
     ///

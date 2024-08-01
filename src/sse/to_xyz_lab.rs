@@ -57,6 +57,8 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
+    let zeros = _mm_setzero_si128();
+
     while cx + 16 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
@@ -101,9 +103,9 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 4), v1);
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 8), v2);
 
-        let r_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(r_low));
-        let g_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_low));
-        let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
+        let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = sse_triple_to_xyz(
             r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
@@ -137,9 +139,9 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 4 * 3 + 4), v1);
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 4 * 3 + 8), v2);
 
-        let r_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(r_chan));
-        let g_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(g_chan));
-        let b_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(b_chan));
+        let r_high = _mm_unpackhi_epi8(r_chan, zeros);
+        let g_high = _mm_unpackhi_epi8(g_chan, zeros);
+        let b_high = _mm_unpackhi_epi8(b_chan, zeros);
 
         let r_high_low = _mm_cvtepu16_epi32(r_high);
         let g_high_low = _mm_cvtepu16_epi32(g_high);
@@ -177,9 +179,9 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 4 * 3 * 2 + 4), v1);
         _mm_storeu_ps(dst_ptr.add(cx * 3 + 4 * 3 * 2 + 8), v2);
 
-        let r_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(r_high));
-        let g_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_high));
-        let b_high_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_high));
+        let r_high_high = _mm_unpackhi_epi16(r_high, zeros);
+        let g_high_high = _mm_unpackhi_epi16(g_high, zeros);
+        let b_high_high = _mm_unpackhi_epi16(b_high, zeros);
 
         let (mut x_high_high, mut y_high_high, mut z_high_high) = sse_triple_to_xyz(
             r_high_high,
@@ -242,16 +244,14 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
 
             _mm_storeu_ps(a_ptr.add(cx + 4), a_low_high);
 
-            let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
+            let a_high = _mm_unpackhi_epi8(a_chan, zeros);
 
             let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
 
             _mm_storeu_ps(a_ptr.add(cx + 4 * 2), a_high_low);
 
-            let a_high_high = _mm_mul_ps(
-                _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_srli_si128::<8>(a_high))),
-                u8_scale,
-            );
+            let a_high_high =
+                _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_high, zeros)), u8_scale);
 
             _mm_storeu_ps(a_ptr.add(cx + 4 * 3), a_high_high);
         }

@@ -10,12 +10,12 @@ use crate::avx::{
     avx2_deinterleave_rgb_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgb,
     avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16,
 };
+use crate::avx_store_and_interleave_u8;
+use crate::image::ImageConfiguration;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-
-use crate::image::ImageConfiguration;
 
 #[inline(always)]
 unsafe fn vld_sigmoidal<const CHANNELS_CONFIGURATION: u8>(
@@ -94,36 +94,7 @@ pub unsafe fn avx_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
 
         let dst_ptr = dst.add(cx * channels);
 
-        match image_configuration {
-            ImageConfiguration::Rgb => {
-                let (rgb0, rgb1, rgb2) = avx2_interleave_rgb(r_row, g_row, b_row);
-                _mm256_storeu_si256(dst_ptr as *mut __m256i, rgb0);
-                _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, rgb1);
-                _mm256_storeu_si256(dst_ptr.add(64) as *mut __m256i, rgb2);
-            }
-            ImageConfiguration::Rgba => {
-                let (rgba0, rgba1, rgba2, rgba3) =
-                    avx2_interleave_rgba_epi8(r_row, g_row, b_row, a_row);
-                _mm256_storeu_si256(dst_ptr as *mut __m256i, rgba0);
-                _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, rgba1);
-                _mm256_storeu_si256(dst_ptr.add(64) as *mut __m256i, rgba2);
-                _mm256_storeu_si256(dst_ptr.add(96) as *mut __m256i, rgba3);
-            }
-            ImageConfiguration::Bgra => {
-                let (bgra0, bgra1, bgra2, bgra3) =
-                    avx2_interleave_rgba_epi8(b_row, g_row, r_row, a_row);
-                _mm256_storeu_si256(dst_ptr as *mut __m256i, bgra0);
-                _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, bgra1);
-                _mm256_storeu_si256(dst_ptr.add(64) as *mut __m256i, bgra2);
-                _mm256_storeu_si256(dst_ptr.add(96) as *mut __m256i, bgra3);
-            }
-            ImageConfiguration::Bgr => {
-                let (bgr0, bgr1, bgr2) = avx2_interleave_rgb(b_row, g_row, r_row);
-                _mm256_storeu_si256(dst_ptr as *mut __m256i, bgr0);
-                _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, bgr1);
-                _mm256_storeu_si256(dst_ptr.add(64) as *mut __m256i, bgr2);
-            }
-        }
+        avx_store_and_interleave_u8!(dst_ptr, image_configuration, r_row, g_row, b_row, a_row);
         cx += 32;
     }
 

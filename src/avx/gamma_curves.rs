@@ -8,6 +8,7 @@
 use crate::avx::math::*;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
+use erydanos::_mm256_select_ps;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -100,8 +101,8 @@ pub unsafe fn avx2_pure_gamma(x: __m256, value: f32) -> __m256 {
     let zero_mask = _mm256_cmp_ps::<_CMP_LE_OS>(x, zeros);
     let ones_mask = _mm256_cmp_ps::<_CMP_GE_OS>(x, ones);
     let mut rs = _mm256_pow_n_ps(x, value);
-    rs = crate::avx::math::_mm256_select_ps(zero_mask, zeros, rs);
-    crate::avx::math::_mm256_select_ps(ones_mask, ones, rs)
+    rs = _mm256_select_ps(zero_mask, zeros, rs);
+    _mm256_select_ps(ones_mask, ones, rs)
 }
 
 #[inline(always)]

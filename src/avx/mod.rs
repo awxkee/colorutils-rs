@@ -8,8 +8,10 @@
 mod cie;
 mod from_sigmoidal;
 mod gamma_curves;
+mod image_to_oklab;
 mod linear_to_image;
 mod math;
+mod routines;
 mod sigmoidal;
 mod support;
 mod to_linear;
@@ -20,6 +22,7 @@ mod xyz_lab_to_image;
 mod xyza_laba_to_image;
 
 pub use from_sigmoidal::avx_from_sigmoidal_row;
+pub use image_to_oklab::avx_image_to_oklab;
 pub use linear_to_image::avx_linear_to_gamma;
 pub use math::*;
 pub use support::*;

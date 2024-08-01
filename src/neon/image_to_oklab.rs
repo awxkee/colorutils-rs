@@ -8,7 +8,9 @@ use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::neon::get_neon_linear_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
-use crate::{load_u8_and_deinterleave, TransferFunction, SRGB_TO_XYZ_D65};
+use crate::{
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, TransferFunction, SRGB_TO_XYZ_D65,
+};
 use erydanos::{vatan2q_f32, vcbrtq_fast_f32, vhypotq_fast_f32};
 use std::arch::aarch64::*;
 
@@ -231,6 +233,57 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
+            r_low_low, g_low_low, b_low_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+        );
+
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+
+        if image_configuration.has_alpha() {
+            let a_low_low =
+                vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
+            let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_low_low);
+            vst4q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+        } else {
+            let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
+            vst3q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+        }
+
+        let r_low_high = vmovl_high_u16(r_low);
+        let g_low_high = vmovl_high_u16(g_low);
+        let b_low_high = vmovl_high_u16(b_low);
+
+        let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
+            r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
+            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+        );
+
+        if image_configuration.has_alpha() {
+            let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
+            let xyz_low_low = float32x4x4_t(x_low_high, y_low_high, z_low_high, a_low_high);
+            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels), xyz_low_low);
+        } else {
+            let xyz_low_low = float32x4x3_t(x_low_high, y_low_high, z_low_high);
+            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels), xyz_low_low);
+        }
+
+        cx += 8;
     }
 
     cx

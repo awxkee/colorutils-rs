@@ -1,5 +1,9 @@
 # Rust utilities for color handling and conversion.
 
+## The goal is to provide support for common conversion and SIMD options for most common conversion path for high-performance
+
+Available SIMD fast paths generally 5-10 times faster than naive implementations
+
 Allows conversion between
 
 - [x] Rgb/Rgba/Rgba1010102/Rgb565/RgbF16
@@ -14,6 +18,7 @@ Allows conversion between
 - [x] Oklch
 - [x] Jzazbz
 - [x] Jzczhz
+- [x] lαβ (l-alpha-beta)
 
 ### Performance
 

@@ -7,8 +7,8 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-use crate::load_u8_and_deinterleave;
 use crate::neon::*;
+use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -132,6 +132,53 @@ pub unsafe fn neon_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const US
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) =
+            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+
+        if USE_ALPHA {
+            let a_low_low =
+                vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
+            let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_low_low);
+            vst4q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+        } else {
+            let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
+            vst3q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+        }
+
+        let r_low_high = vmovl_high_u16(r_low);
+        let g_low_high = vmovl_high_u16(g_low);
+        let b_low_high = vmovl_high_u16(b_low);
+
+        let (x_low_high, y_low_high, z_low_high) =
+            neon_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+
+        if USE_ALPHA {
+            let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
+            let xyz_low_low = float32x4x4_t(x_low_high, y_low_high, z_low_high, a_low_high);
+            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels), xyz_low_low);
+        } else {
+            let xyz_low_low = float32x4x3_t(x_low_high, y_low_high, z_low_high);
+            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels), xyz_low_low);
+        }
+
+        cx += 8;
     }
 
     cx

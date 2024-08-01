@@ -221,9 +221,9 @@ pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
             let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
             let a_row23 = _mm_packus_epi32(a_row2_, a_row3_);
             let a_row = _mm_packus_epi16(a_row01, a_row23);
-            store_and_interleave_v4_u8!(dst_ptr, r_row, g_row, b_row, a_row);
+            store_and_interleave_v4_u8!(dst_ptr, image_configuration, r_row, g_row, b_row, a_row);
         } else {
-            store_and_interleave_v3_u8!(dst_ptr, r_row, g_row, b_row);
+            store_and_interleave_v3_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
         }
 
         cx += 16;

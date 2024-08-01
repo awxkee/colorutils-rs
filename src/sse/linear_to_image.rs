@@ -124,5 +124,46 @@ pub unsafe fn sse_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         cx += 16;
     }
 
+    let zeros = _mm_setzero_si128();
+
+    while cx + 8 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            sse_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
+
+        let src_ptr_1 = offset_src_ptr.add(4 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) =
+            sse_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
+
+        let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);
+        let g_row01 = _mm_packus_epi32(g_row0_, g_row1_);
+        let b_row01 = _mm_packus_epi32(b_row0_, b_row1_);
+
+        let r_row = _mm_packus_epi16(r_row01, zeros);
+        let g_row = _mm_packus_epi16(g_row01, zeros);
+        let b_row = _mm_packus_epi16(b_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if USE_ALPHA {
+            let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
+            let a_row = _mm_packus_epi16(a_row01, zeros);
+            let (rgba0, rgba1, _, _) = sse_interleave_rgba(r_row, g_row, b_row, a_row);
+            _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
+            _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
+        } else {
+            let (rgb0, rgb1, _) = sse_interleave_rgb(r_row, g_row, b_row);
+            _mm_storeu_si128(dst_ptr as *mut __m128i, rgb0);
+            std::ptr::copy_nonoverlapping(&rgb1 as *const _ as *const u8, dst_ptr.add(16), 8);
+        }
+
+        cx += 8;
+    }
+
     cx
 }

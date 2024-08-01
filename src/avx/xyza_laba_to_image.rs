@@ -5,6 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
+use crate::avx::avx2_interleave_rgb;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -18,7 +19,10 @@ use crate::avx::{
 };
 use crate::image::ImageConfiguration;
 use crate::xyz_target::XyzTarget;
-use crate::TransferFunction;
+use crate::{
+    avx_store_and_interleave_v4_half_u8, avx_store_and_interleave_v4_quarter_u8,
+    avx_store_and_interleave_v4_u8, TransferFunction,
+};
 
 #[inline(always)]
 unsafe fn avx_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -120,6 +124,8 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
     const CHANNELS: usize = 4usize;
 
+    let zeros = _mm256_setzero_si256();
+
     while cx + 32 < width as usize {
         let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
 
@@ -204,21 +210,111 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
 
         let dst_ptr = dst.add(dst_offset + cx * channels);
 
-        let (rgba0, rgba1, rgba2, rgba3) = match image_configuration {
-            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
-                avx2_interleave_rgba_epi8(r_row, g_row, b_row, a_row)
-            }
-            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
-                avx2_interleave_rgba_epi8(b_row, g_row, r_row, a_row)
-            }
-        };
-
-        _mm256_storeu_si256(dst_ptr as *mut __m256i, rgba0);
-        _mm256_storeu_si256(dst_ptr.add(32) as *mut __m256i, rgba1);
-        _mm256_storeu_si256(dst_ptr.add(64) as *mut __m256i, rgba2);
-        _mm256_storeu_si256(dst_ptr.add(96) as *mut __m256i, rgba3);
+        avx_store_and_interleave_v4_u8!(dst_ptr, image_configuration, r_row, g_row, b_row, a_row);
 
         cx += 32;
+    }
+
+    while cx + 16 < width as usize {
+        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_0,
+            transfer_function,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+        );
+
+        let src_ptr_1 = offset_src_ptr.add(8 * CHANNELS);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_1,
+            transfer_function,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+        );
+
+        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
+        let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
+
+        let r_row = avx2_pack_u16(r_row01, zeros);
+        let g_row = avx2_pack_u16(g_row01, zeros);
+        let b_row = avx2_pack_u16(b_row01, zeros);
+        let a_row = avx2_pack_u16(a_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset + cx * channels);
+
+        avx_store_and_interleave_v4_half_u8!(
+            dst_ptr,
+            image_configuration,
+            r_row,
+            g_row,
+            b_row,
+            a_row
+        );
+
+        cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_0,
+            transfer_function,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+        );
+
+        let r_row01 = avx2_pack_s32(r_row0_, zeros);
+        let g_row01 = avx2_pack_s32(g_row0_, zeros);
+        let b_row01 = avx2_pack_s32(b_row0_, zeros);
+        let a_row01 = avx2_pack_s32(a_row0_, zeros);
+
+        let r_row = avx2_pack_u16(r_row01, zeros);
+        let g_row = avx2_pack_u16(g_row01, zeros);
+        let b_row = avx2_pack_u16(b_row01, zeros);
+        let a_row = avx2_pack_u16(a_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset + cx * channels);
+
+        avx_store_and_interleave_v4_quarter_u8!(
+            dst_ptr,
+            image_configuration,
+            r_row,
+            g_row,
+            b_row,
+            a_row
+        );
+
+        cx += 8;
     }
 
     cx
