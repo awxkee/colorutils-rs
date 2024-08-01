@@ -4,6 +4,11 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+use crate::avx::avx_oklab_to_image;
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 #[cfg(all(
@@ -44,6 +49,14 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     ))]
     if is_x86_feature_detected!("sse4.1") {
         _wide_row_handle = Some(sse_oklab_to_image::<CHANNELS_CONFIGURATION, TARGET>);
+    }
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        _wide_row_handle = Some(avx_oklab_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(all(

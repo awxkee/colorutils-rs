@@ -18,19 +18,16 @@ pub unsafe fn _mm256_cube_ps(x: __m256) -> __m256 {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_pow_ps(x: __m256, n: __m256) -> __m256 {
     _mm256_pow_fast_ps(x, n)
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn _mm256_pow_n_ps(x: __m256, n: f32) -> __m256 {
     _mm256_pow_fast_ps(x, _mm256_set1_ps(n))
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 pub(crate) unsafe fn _mm256_fmaf_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
     _mm256_prefer_fma_ps(c, b, a)
 }

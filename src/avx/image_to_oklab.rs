@@ -119,8 +119,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm256_set1_ps(-0.8086757660f32),
     );
 
-    let zeros = _mm256_setzero_si256();
-
     while cx + 32 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
@@ -157,9 +155,9 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             avx_store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
         }
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
             r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
@@ -181,9 +179,9 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             avx_store_and_interleave_v3_direct_f32!(ptr, x_low_high, y_low_high, z_low_high);
         }
 
-        let r_high = _mm256_unpackhi_epi8(r_chan, zeros);
-        let g_high = _mm256_unpackhi_epi8(g_chan, zeros);
-        let b_high = _mm256_unpackhi_epi8(b_chan, zeros);
+        let r_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(r_chan));
+        let g_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(g_chan));
+        let b_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(b_chan));
 
         let r_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_high));
         let g_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_high));
@@ -194,7 +192,7 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
         );
 
-        let a_high = _mm256_unpackhi_epi8(a_chan, zeros);
+        let a_high = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
 
         if image_configuration.has_alpha() {
             let a_high_low = _mm256_mul_ps(
@@ -210,9 +208,9 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             avx_store_and_interleave_v3_direct_f32!(ptr, x_high_low, y_high_low, z_high_low);
         }
 
-        let r_high_high = _mm256_unpackhi_epi16(r_high, zeros);
-        let g_high_high = _mm256_unpackhi_epi16(g_high, zeros);
-        let b_high_high = _mm256_unpackhi_epi16(b_high, zeros);
+        let r_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_high));
+        let g_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_high));
+        let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
 
         let (x_high_high, y_high_high, z_high_high) = triple_to_oklab!(
             r_high_high,
@@ -251,7 +249,7 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         if image_configuration.has_alpha() {
             let a_high_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_high, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_castsi256_si128(a_high))),
                 u8_scale,
             );
             let ptr = dst_ptr.add(cx * 4 + 8 * 4 * 3);
@@ -306,9 +304,9 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             avx_store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
         }
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
             r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
@@ -317,7 +315,7 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         if image_configuration.has_alpha() {
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
                 u8_scale,
             );
 

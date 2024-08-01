@@ -13,7 +13,7 @@ use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
-use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
+use crate::{load_f32_and_deinterleave_direct, TransferFunction, XYZ_TO_SRGB_D65};
 
 macro_rules! perceptual_quantizer_inverse {
     ($color: expr) => {{
@@ -44,7 +44,7 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
 
     if target == JzazbzTarget::JZCZHZ {
         let cz = az;

@@ -62,8 +62,6 @@ pub unsafe fn avx2_image_to_xyz_lab<
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
-    let zeros = _mm256_setzero_si256();
-
     while cx + 32 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
@@ -106,9 +104,9 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let write_dst_ptr = dst_ptr.add(cx * 3);
         avx_store_and_interleave_v3_direct_f32!(write_dst_ptr, x_low_low, y_low_low, z_low_low);
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = avx2_triple_to_xyz(
             r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
@@ -140,9 +138,9 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let ptr2 = write_dst_ptr.add(8 * 3);
         avx_store_and_interleave_v3_direct_f32!(ptr2, x_low_high, y_low_high, z_low_high);
 
-        let r_high = _mm256_unpackhi_epi8(r_chan, zeros);
-        let g_high = _mm256_unpackhi_epi8(g_chan, zeros);
-        let b_high = _mm256_unpackhi_epi8(b_chan, zeros);
+        let r_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(r_chan));
+        let g_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(g_chan));
+        let b_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(b_chan));
 
         let r_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_high));
         let g_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_high));
@@ -178,9 +176,9 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let ptr3 = write_dst_ptr.add(8 * 3 * 2);
         avx_store_and_interleave_v3_direct_f32!(ptr3, x_high_low, y_high_low, z_high_low);
 
-        let r_high_high = _mm256_unpackhi_epi16(r_high, zeros);
-        let g_high_high = _mm256_unpackhi_epi16(g_high, zeros);
-        let b_high_high = _mm256_unpackhi_epi16(b_high, zeros);
+        let r_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_high));
+        let g_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_high));
+        let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
 
         let (mut x_high_high, mut y_high_high, mut z_high_high) = avx2_triple_to_xyz(
             r_high_high,
@@ -238,13 +236,13 @@ pub unsafe fn avx2_image_to_xyz_lab<
             _mm256_storeu_ps(a_ptr.add(cx), a_low_low);
 
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
                 u8_scale,
             );
 
             _mm256_storeu_ps(a_ptr.add(cx + 8), a_low_high);
 
-            let a_high = _mm256_unpackhi_epi8(a_chan, zeros);
+            let a_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(a_chan));
 
             let a_high_low = _mm256_mul_ps(
                 _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_high))),
@@ -254,7 +252,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
             _mm256_storeu_ps(a_ptr.add(cx + 8 * 2), a_high_low);
 
             let a_high_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_high, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_high))),
                 u8_scale,
             );
 
@@ -306,10 +304,9 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let write_dst_ptr = dst_ptr.add(cx * 3);
         avx_store_and_interleave_v3_direct_f32!(write_dst_ptr, x_low_low, y_low_low, z_low_low);
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
-
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
         let (mut x_low_high, mut y_low_high, mut z_low_high) = avx2_triple_to_xyz(
             r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
             &transfer,
@@ -355,7 +352,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
             _mm256_storeu_ps(a_ptr.add(cx), a_low_low);
 
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
                 u8_scale,
             );
 

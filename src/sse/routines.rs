@@ -131,6 +131,38 @@ macro_rules! load_f32_and_deinterleave {
 }
 
 #[macro_export]
+macro_rules! load_f32_and_deinterleave_direct {
+    ($ptr: expr, $image_configuration: expr) => {{
+        let (r_f32, g_f32, b_f32, a_f32);
+
+        let row0 = _mm_loadu_ps($ptr);
+        let row1 = _mm_loadu_ps($ptr.add(4));
+        let row2 = _mm_loadu_ps($ptr.add(8));
+
+        match $image_configuration {
+            ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
+                let row3 = _mm_loadu_ps($ptr.add(12));
+                let (v0, v1, v2, v3) = sse_deinterleave_rgba_ps(row0, row1, row2, row3);
+                r_f32 = v0;
+                g_f32 = v1;
+                b_f32 = v2;
+                a_f32 = v3;
+            }
+            ImageConfiguration::Bgr | ImageConfiguration::Rgb => {
+                let d_alpha = _mm_set1_ps(1f32);
+                let rgb_pixels = sse_deinterleave_rgb_ps(row0, row1, row2);
+                r_f32 = rgb_pixels.0;
+                g_f32 = rgb_pixels.1;
+                b_f32 = rgb_pixels.2;
+                a_f32 = d_alpha;
+            }
+        }
+
+        (r_f32, g_f32, b_f32, a_f32)
+    }};
+}
+
+#[macro_export]
 macro_rules! store_and_interleave_v3_direct_f32 {
     ($ptr: expr, $j0: expr, $j1: expr, $j2: expr) => {{
         let (v0, v1, v2) = sse_interleave_ps_rgb($j0, $j1, $j2);

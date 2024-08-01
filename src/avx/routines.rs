@@ -188,6 +188,38 @@ pub(crate) unsafe fn avx_vld_f32_and_deinterleave<const CHANNELS_CONFIGURATION: 
     (r_f32, g_f32, b_f32, a_f32)
 }
 
+#[inline]
+pub(crate) unsafe fn avx_vld_f32_and_deinterleave_direct<const CHANNELS_CONFIGURATION: u8>(
+    ptr: *const f32,
+) -> (__m256, __m256, __m256, __m256) {
+    let (r_f32, g_f32, b_f32, a_f32);
+    let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+
+    let row0 = _mm256_loadu_ps(ptr);
+    let row1 = _mm256_loadu_ps(ptr.add(8));
+    let row2 = _mm256_loadu_ps(ptr.add(16));
+
+    match image_configuration {
+        ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
+            let row3 = _mm256_loadu_ps(ptr.add(24));
+            let (v0, v1, v2, v3) = avx2_deinterleave_rgba_ps(row0, row1, row2, row3);
+            r_f32 = v0;
+            g_f32 = v1;
+            b_f32 = v2;
+            a_f32 = v3;
+        }
+        ImageConfiguration::Bgr | ImageConfiguration::Rgb => {
+            let rgb_pixels = avx2_deinterleave_rgb_ps(row0, row1, row2);
+            r_f32 = rgb_pixels.0;
+            g_f32 = rgb_pixels.1;
+            b_f32 = rgb_pixels.2;
+            a_f32 = _mm256_set1_ps(1.);
+        }
+    }
+
+    (r_f32, g_f32, b_f32, a_f32)
+}
+
 #[macro_export]
 macro_rules! avx_store_and_interleave_u8 {
     ($ptr: expr, $configuration: expr, $j0: expr, $j1: expr, $j2: expr, $j3: expr) => {{
@@ -291,6 +323,31 @@ macro_rules! avx_store_and_interleave_v4_quarter_u8 {
             }
         };
         _mm256_storeu_si256($ptr as *mut __m256i, row0);
+    }};
+}
+
+#[macro_export]
+macro_rules! avx_store_and_interleave_v3_quarter_u8 {
+    ($ptr: expr, $configuration: expr, $j0: expr, $j1: expr, $j2: expr) => {{
+        let row0;
+        match $configuration {
+            ImageConfiguration::Rgba => {
+                (row0, _, _, _) = avx2_interleave_rgba_epi8($j0, $j1, $j2, _mm256_setzero_si256())
+            }
+            ImageConfiguration::Rgb => {
+                (row0, _, _) = avx2_interleave_rgb($j0, $j1, $j2);
+            }
+            ImageConfiguration::Bgr => {
+                (row0, _, _) = avx2_interleave_rgb($j2, $j1, $j0);
+            }
+            ImageConfiguration::Bgra => {
+                (row0, _, _, _) = avx2_interleave_rgba_epi8($j2, $j1, $j0, _mm256_setzero_si256())
+            }
+        };
+        let lo = _mm256_castsi256_si128(row0);
+        _mm_storeu_si128($ptr as *mut __m128i, lo);
+        let hi = _mm256_extracti128_si256::<1>(row0);
+        std::ptr::copy_nonoverlapping(&hi as *const _ as *const u8, $ptr.add(16), 8);
     }};
 }
 

@@ -20,6 +20,7 @@ mod to_xyz_lab;
 mod utils;
 mod xyz_lab_to_image;
 mod xyza_laba_to_image;
+mod oklab_to_image;
 
 pub use from_sigmoidal::avx_from_sigmoidal_row;
 pub use image_to_oklab::avx_image_to_oklab;
@@ -32,3 +33,4 @@ pub use to_xyz_lab::*;
 pub use utils::*;
 pub use xyz_lab_to_image::*;
 pub use xyza_laba_to_image::*;
+pub use oklab_to_image::avx_oklab_to_image;

@@ -14,7 +14,10 @@ use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::{avx2_interleave_rgb, avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16};
 use crate::image::ImageConfiguration;
-use crate::{avx_store_and_interleave_v3_u8, avx_store_and_interleave_v4_u8, TransferFunction};
+use crate::{
+    avx_store_and_interleave_v3_half_u8, avx_store_and_interleave_v3_u8,
+    avx_store_and_interleave_v4_half_u8, avx_store_and_interleave_v4_u8, TransferFunction,
+};
 
 #[inline(always)]
 unsafe fn gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
@@ -111,6 +114,50 @@ pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         }
 
         cx += 32;
+    }
+
+    let zeros = _mm256_setzero_si256();
+
+    while cx + 16 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
+
+        let src_ptr_1 = offset_src_ptr.add(8 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) =
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
+
+        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
+
+        let r_row = avx2_pack_u16(r_row01, zeros);
+        let g_row = avx2_pack_u16(g_row01, zeros);
+        let b_row = avx2_pack_u16(b_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if USE_ALPHA {
+            let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
+            let a_row = avx2_pack_u16(a_row01, zeros);
+            avx_store_and_interleave_v4_half_u8!(
+                dst_ptr,
+                image_configuration,
+                r_row,
+                g_row,
+                b_row,
+                a_row
+            );
+        } else {
+            avx_store_and_interleave_v3_half_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
+        }
+
+        cx += 16;
     }
 
     cx

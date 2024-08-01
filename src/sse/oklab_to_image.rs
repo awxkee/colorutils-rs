@@ -23,7 +23,7 @@ use std::arch::x86_64::*;
 #[inline(always)]
 unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
-    transfer_function: TransferFunction,
+    transfer: &unsafe fn(__m128) -> __m128,
     oklab_target: OklabTarget,
     m0: __m128,
     m1: __m128,
@@ -53,7 +53,6 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     x7: __m128,
     x8: __m128,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
-    let transfer = get_sse_gamma_transfer(transfer_function);
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
@@ -116,6 +115,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
     width: u32,
     transfer_function: TransferFunction,
 ) -> usize {
+    let transfer = get_sse_gamma_transfer(transfer_function);
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
@@ -168,7 +168,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_0,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,
@@ -203,7 +203,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_1,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,
@@ -238,7 +238,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_2,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,
@@ -273,7 +273,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_3,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,
@@ -338,7 +338,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_0,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,
@@ -373,7 +373,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
             src_ptr_1,
-            transfer_function,
+            &transfer,
             target,
             m0,
             m1,

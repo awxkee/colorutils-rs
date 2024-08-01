@@ -14,7 +14,7 @@ use std::arch::x86_64::*;
 use crate::avx::cie::{avx_lab_to_xyz, avx_lch_to_xyz, avx_luv_to_xyz};
 use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::{
-    _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_s32,
+    _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_u32,
     avx2_pack_u16,
 };
 use crate::image::ImageConfiguration;
@@ -193,15 +193,15 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
-        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
-        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
-        let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
+        let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_u32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_u32(b_row0_, b_row1_);
+        let a_row01 = avx2_pack_u32(a_row0_, a_row1_);
 
-        let r_row23 = avx2_pack_s32(r_row2_, r_row3_);
-        let g_row23 = avx2_pack_s32(g_row2_, g_row3_);
-        let b_row23 = avx2_pack_s32(b_row2_, b_row3_);
-        let a_row23 = avx2_pack_s32(a_row2_, a_row3_);
+        let r_row23 = avx2_pack_u32(r_row2_, r_row3_);
+        let g_row23 = avx2_pack_u32(g_row2_, g_row3_);
+        let b_row23 = avx2_pack_u32(b_row2_, b_row3_);
+        let a_row23 = avx2_pack_u32(a_row2_, a_row3_);
 
         let r_row = avx2_pack_u16(r_row01, r_row23);
         let g_row = avx2_pack_u16(g_row01, g_row23);
@@ -250,10 +250,10 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
-        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
-        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
-        let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
+        let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_u32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_u32(b_row0_, b_row1_);
+        let a_row01 = avx2_pack_u32(a_row0_, a_row1_);
 
         let r_row = avx2_pack_u16(r_row01, zeros);
         let g_row = avx2_pack_u16(g_row01, zeros);
@@ -293,10 +293,10 @@ pub unsafe fn avx_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
             c9,
         );
 
-        let r_row01 = avx2_pack_s32(r_row0_, zeros);
-        let g_row01 = avx2_pack_s32(g_row0_, zeros);
-        let b_row01 = avx2_pack_s32(b_row0_, zeros);
-        let a_row01 = avx2_pack_s32(a_row0_, zeros);
+        let r_row01 = avx2_pack_u32(r_row0_, zeros);
+        let g_row01 = avx2_pack_u32(g_row0_, zeros);
+        let b_row01 = avx2_pack_u32(b_row0_, zeros);
+        let a_row01 = avx2_pack_u32(a_row0_, zeros);
 
         let r_row = avx2_pack_u16(r_row01, zeros);
         let g_row = avx2_pack_u16(g_row01, zeros);

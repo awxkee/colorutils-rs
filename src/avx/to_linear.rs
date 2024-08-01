@@ -55,8 +55,6 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
-    let zeros = _mm256_setzero_si256();
-
     while cx + 32 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
@@ -103,16 +101,16 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             );
         }
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
             triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
 
         if USE_ALPHA {
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
                 u8_scale,
             );
 
@@ -136,9 +134,9 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             );
         }
 
-        let r_high = _mm256_unpackhi_epi8(r_chan, zeros);
-        let g_high = _mm256_unpackhi_epi8(g_chan, zeros);
-        let b_high = _mm256_unpackhi_epi8(b_chan, zeros);
+        let r_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(r_chan));
+        let g_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(g_chan));
+        let b_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(b_chan));
 
         let r_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_high));
         let g_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_high));
@@ -147,7 +145,7 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
         let (x_high_low, y_high_low, z_high_low) =
             triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
 
-        let a_high = _mm256_unpackhi_epi8(a_chan, zeros);
+        let a_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(a_chan));
 
         if USE_ALPHA {
             let a_high_low = _mm256_mul_ps(
@@ -175,16 +173,16 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             );
         }
 
-        let r_high_high = _mm256_unpackhi_epi16(r_high, zeros);
-        let g_high_high = _mm256_unpackhi_epi16(g_high, zeros);
-        let b_high_high = _mm256_unpackhi_epi16(b_high, zeros);
+        let r_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_high));
+        let g_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_high));
+        let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
 
         let (x_high_high, y_high_high, z_high_high) =
             triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
 
         if USE_ALPHA {
             let a_high_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_high, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_high))),
                 u8_scale,
             );
             let ptr = dst_ptr.add(cx * 4 + 96);
@@ -256,16 +254,16 @@ pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE
             );
         }
 
-        let r_low_high = _mm256_unpackhi_epi16(r_low, zeros);
-        let g_low_high = _mm256_unpackhi_epi16(g_low, zeros);
-        let b_low_high = _mm256_unpackhi_epi16(b_low, zeros);
+        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
+        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
+        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
             triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
 
         if USE_ALPHA {
             let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_unpackhi_epi16(a_low, zeros)),
+                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
                 u8_scale,
             );
 

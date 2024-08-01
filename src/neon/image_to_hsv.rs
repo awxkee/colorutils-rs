@@ -7,12 +7,11 @@
 
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
 use crate::neon::{neon_rgb_to_hsl, neon_rgb_to_hsv};
+use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
 use std::arch::aarch64::*;
 
 #[inline(always)]
-#[allow(dead_code)]
 pub unsafe fn neon_channels_to_hsv<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
@@ -167,10 +166,6 @@ pub unsafe fn neon_channels_to_hsv<
     cx
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
 pub unsafe fn neon_channels_to_hsv_u16<
     const CHANNELS_CONFIGURATION: u8,

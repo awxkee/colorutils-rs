@@ -12,15 +12,12 @@ use std::arch::x86_64::*;
 
 use erydanos::{_mm_cos_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_pow_ps, _mm_sin_ps};
 
+use crate::{load_f32_and_deinterleave_direct, store_and_interleave_v3_u8, store_and_interleave_v4_u8, TransferFunction, XYZ_TO_SRGB_D65};
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::sse::{
     _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, get_sse_gamma_transfer,
     sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
-};
-use crate::{
-    load_f32_and_deinterleave, store_and_interleave_v3_u8, store_and_interleave_v4_u8,
-    TransferFunction, XYZ_TO_SRGB_D65,
 };
 
 macro_rules! perceptual_quantizer_inverse {
@@ -54,7 +51,7 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
 
     if target == JzazbzTarget::JZCZHZ {
         let cz = az;
