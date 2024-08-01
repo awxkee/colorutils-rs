@@ -11,6 +11,7 @@ use crate::neon::{neon_rgb_to_hsl, neon_rgb_to_hsv};
 use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
 use std::arch::aarch64::*;
 
+#[allow(dead_code)]
 #[inline(always)]
 pub unsafe fn neon_channels_to_hsv<
     const CHANNELS_CONFIGURATION: u8,

@@ -20,7 +20,7 @@ pub(crate) unsafe fn neon_xyz_lab_vld<
     const TARGET: u8,
 >(
     src: *const f32,
-    transfer_function: TransferFunction,
+    transfer: &unsafe fn(float32x4_t) -> float32x4_t,
     c1: float32x4_t,
     c2: float32x4_t,
     c3: float32x4_t,
@@ -32,7 +32,6 @@ pub(crate) unsafe fn neon_xyz_lab_vld<
     c9: float32x4_t,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t) {
     let target: XyzTarget = TARGET.into();
-    let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_color = vdupq_n_f32(255f32);
     let lab_pixel = vld3q_f32(src);
     let (mut r_f32, mut g_f32, mut b_f32) = (lab_pixel.0, lab_pixel.1, lab_pixel.2);
@@ -121,6 +120,8 @@ pub unsafe fn neon_xyz_to_channels<
     let c8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
     let c9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
 
+    let transfer = get_neon_gamma_transfer(transfer_function);
+
     let src_channels = 3usize;
 
     while cx + 16 < width as usize {
@@ -131,68 +132,28 @@ pub unsafe fn neon_xyz_to_channels<
 
         let (r_row0_, g_row0_, b_row0_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_0,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let src_ptr_1 = offset_src_ptr.add(4 * src_channels);
 
         let (r_row1_, g_row1_, b_row1_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_1,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * src_channels);
 
         let (r_row2_, g_row2_, b_row2_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_2,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_2, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * src_channels);
 
         let (r_row3_, g_row3_, b_row3_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_3,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_3, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
@@ -258,34 +219,14 @@ pub unsafe fn neon_xyz_to_channels<
 
         let (r_row0_, g_row0_, b_row0_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_0,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let src_ptr_1 = offset_src_ptr.add(4 * src_channels);
 
         let (r_row1_, g_row1_, b_row1_) =
             neon_xyz_lab_vld::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>(
-                src_ptr_1,
-                transfer_function,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));

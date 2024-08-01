@@ -64,8 +64,8 @@ pub(crate) unsafe fn neon_triple_to_luv(
     );
     let u_prime = vdivq_f32(vmulq_n_f32(x, 4f32), den);
     let v_prime = vdivq_f32(vmulq_n_f32(y, 9f32), den);
-    let sub_u_prime = vsubq_f32(u_prime, vdupq_n_f32(crate::luv::LUV_WHITE_U_PRIME));
-    let sub_v_prime = vsubq_f32(v_prime, vdupq_n_f32(crate::luv::LUV_WHITE_V_PRIME));
+    let sub_u_prime = vsubq_f32(u_prime, vdupq_n_f32(LUV_WHITE_U_PRIME));
+    let sub_v_prime = vsubq_f32(v_prime, vdupq_n_f32(LUV_WHITE_V_PRIME));
     let l13 = vmulq_n_f32(l, 13f32);
     let u = vbslq_f32(nan_mask, zeros, vmulq_f32(l13, sub_u_prime));
     let v = vbslq_f32(nan_mask, zeros, vmulq_f32(l13, sub_v_prime));

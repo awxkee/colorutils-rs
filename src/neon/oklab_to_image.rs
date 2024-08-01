@@ -4,13 +4,15 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+use std::arch::aarch64::*;
+
+use erydanos::{vcosq_f32, vsinq_f32};
+
+use crate::{load_f32_and_deinterleave_direct, TransferFunction, XYZ_TO_SRGB_D65};
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
-use crate::{load_f32_and_deinterleave, TransferFunction, XYZ_TO_SRGB_D65};
-use erydanos::{vcosq_f32, vsinq_f32};
-use std::arch::aarch64::*;
 
 #[inline(always)]
 unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -48,7 +50,7 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+    let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
 
     if target == OklabTarget::OKLCH {
         let a0 = vmulq_f32(a, vcosq_f32(b));
