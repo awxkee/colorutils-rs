@@ -14,8 +14,8 @@ use std::arch::x86_64::*;
 use crate::avx::cie::{avx_lab_to_xyz, avx_lch_to_xyz, avx_luv_to_xyz};
 use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::{
-    _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_u32,
-    avx2_pack_u16,
+    _mm256_color_matrix_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgba_epi8, avx2_pack_u16,
+    avx2_pack_u32,
 };
 use crate::image::ImageConfiguration;
 use crate::xyz_target::XyzTarget;

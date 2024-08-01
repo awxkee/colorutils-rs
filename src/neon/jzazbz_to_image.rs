@@ -44,7 +44,8 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (jz, mut az, mut bz, mut a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
+    let (jz, mut az, mut bz, mut a_f32) =
+        load_f32_and_deinterleave_direct!(src, image_configuration);
 
     if target == JzazbzTarget::JZCZHZ {
         let cz = az;
