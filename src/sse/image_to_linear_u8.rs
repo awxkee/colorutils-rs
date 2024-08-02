@@ -41,6 +41,8 @@ pub mod sse_image_to_linear_unsigned {
     pub(crate) unsafe fn sse_channels_to_linear_u8<
         const CHANNELS_CONFIGURATION: u8,
         const USE_ALPHA: bool,
+        const TRANSFER_FUNCTION: u8,
+        const INTO_LINEAR: bool,
     >(
         start_cx: usize,
         src: *const u8,
@@ -48,7 +50,7 @@ pub mod sse_image_to_linear_unsigned {
         width: u32,
         dst: *mut u8,
         dst_offset: usize,
-        transfer_function: TransferFunction,
+        _: TransferFunction,
     ) -> usize {
         let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
         let channels = image_configuration.get_channels_count();
@@ -56,7 +58,12 @@ pub mod sse_image_to_linear_unsigned {
 
         let dst_ptr = dst.add(dst_offset);
 
-        let transfer = get_sse_linear_transfer(transfer_function);
+        let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
+        let transfer = if INTO_LINEAR {
+            get_sse_linear_transfer(transfer_function)
+        } else {
+            get_sse_gamma_transfer(transfer_function)
+        };
 
         while cx + 16 < width as usize {
             let src_ptr = src.add(src_offset + cx * channels);

@@ -17,7 +17,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 #[inline(always)]
-pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8, const TRANSFER_FUNCTION: u8>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -25,7 +25,7 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
     dst: *mut f32,
     dst_offset: usize,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     const CHANNELS: usize = 4;
     let target: XyzTarget = TARGET.into();
@@ -36,6 +36,7 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
     }
     let mut cx = start_cx;
 
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_sse_linear_transfer(transfer_function);
 
     let cq1 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));

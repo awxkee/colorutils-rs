@@ -102,7 +102,36 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _wide_row_handle = Some(sse_image_to_oklab::<CHANNELS_CONFIGURATION, TARGET>);
+        _wide_row_handle = match transfer_function {
+            TransferFunction::Srgb => Some(
+                sse_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Srgb as u8 },
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                sse_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Rec709 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                sse_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                sse_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Gamma2p8 as u8 },
+                >,
+            ),
+        };
     }
 
     #[cfg(all(
@@ -110,7 +139,36 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         target_feature = "avx2"
     ))]
     if is_x86_feature_detected!("avx2") {
-        _wide_row_handle = Some(avx_image_to_oklab::<CHANNELS_CONFIGURATION, TARGET>);
+        _wide_row_handle = match transfer_function {
+            TransferFunction::Srgb => Some(
+                avx_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Srgb as u8 },
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                avx_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Rec709 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                avx_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                avx_image_to_oklab::<
+                    CHANNELS_CONFIGURATION,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+        };
     }
 
     let mut src_offset = 0usize;

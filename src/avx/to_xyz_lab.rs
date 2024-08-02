@@ -26,6 +26,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
 >(
     start_cx: usize,
     src: *const u8,
@@ -36,7 +37,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
     a_linearized: *mut f32,
     a_offset: usize,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     if USE_ALPHA {
         if a_linearized.is_null() {
@@ -48,6 +49,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
 
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_avx2_linear_transfer(transfer_function);
 
     let cq1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));

@@ -113,8 +113,40 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         target_feature = "sse4.1"
     ))]
     if is_x86_feature_detected!("sse4.1") {
-        _wide_row_handler =
-            Some(sse_channels_to_xyz_or_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
+        _wide_row_handler = match transfer_function {
+            TransferFunction::Srgb => Some(
+                sse_channels_to_xyz_or_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Srgb as u8 },
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                sse_channels_to_xyz_or_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Rec709 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                sse_channels_to_xyz_or_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                sse_channels_to_xyz_or_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p8 as u8 },
+                >,
+            ),
+        };
     }
 
     #[cfg(all(
@@ -122,8 +154,40 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         target_feature = "avx2"
     ))]
     if is_x86_feature_detected!("avx2") {
-        _wide_row_handler =
-            Some(avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
+        _wide_row_handler = match transfer_function {
+            TransferFunction::Srgb => Some(
+                avx2_image_to_xyz_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Srgb as u8 },
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                avx2_image_to_xyz_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Rec709 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                avx2_image_to_xyz_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                avx2_image_to_xyz_lab::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p8 as u8 },
+                >,
+            ),
+        };
     }
 
     for _ in 0..height as usize {

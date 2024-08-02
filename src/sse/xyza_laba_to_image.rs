@@ -20,7 +20,7 @@ use std::arch::x86_64::*;
 #[inline(always)]
 unsafe fn sse_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
-    transfer_function: TransferFunction,
+    transfer: &unsafe fn(__m128) -> __m128,
     c1: __m128,
     c2: __m128,
     c3: __m128,
@@ -32,7 +32,6 @@ unsafe fn sse_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     c9: __m128,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
     let target: XyzTarget = TARGET.into();
-    let transfer = get_sse_gamma_transfer(transfer_function);
     let v_scale_color = _mm_set1_ps(255f32);
     let pixel_0 = _mm_loadu_ps(src);
     let pixel_1 = _mm_loadu_ps(src.add(4));
@@ -87,7 +86,11 @@ unsafe fn sse_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 }
 
 #[inline(always)]
-pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub unsafe fn sse_xyza_to_image<
+    const CHANNELS_CONFIGURATION: u8,
+    const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const f32,
     src_offset: usize,
@@ -95,12 +98,15 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
     dst_offset: usize,
     width: u32,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if !image_configuration.has_alpha() {
         panic!("Alpha may be set only on images with alpha");
     }
+
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
+    let transfer = get_sse_gamma_transfer(transfer_function);
 
     let channels = image_configuration.get_channels_count();
 
@@ -126,65 +132,25 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_0,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_1,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * CHANNELS);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_2,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_2, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * CHANNELS);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_3,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_3, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let r_row01 = _mm_packs_epi32(r_row0_, r_row1_);
@@ -227,33 +193,13 @@ pub unsafe fn sse_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: 
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_0,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-            src_ptr_1,
-            transfer_function,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
+            src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
         );
 
         let r_row01 = _mm_packs_epi32(r_row0_, r_row1_);

@@ -12,7 +12,7 @@ use std::arch::x86_64::*;
 
 use crate::avx::gamma_curves::get_avx_gamma_transfer;
 use crate::avx::routines::avx_vld_f32_and_deinterleave;
-use crate::avx::{avx2_interleave_rgb, avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16};
+use crate::avx::{avx2_interleave_rgb, avx2_interleave_rgba_epi8, avx2_pack_u16, avx2_pack_u32};
 use crate::image::ImageConfiguration;
 use crate::{
     avx_store_and_interleave_v3_half_u8, avx_store_and_interleave_v3_u8,
@@ -22,9 +22,8 @@ use crate::{
 #[inline(always)]
 unsafe fn gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
-    transfer_function: TransferFunction,
+    transfer: &unsafe fn(__m256) -> __m256,
 ) -> (__m256i, __m256i, __m256i, __m256i) {
-    let transfer = get_avx_gamma_transfer(transfer_function);
     let v_scale_alpha = _mm256_set1_ps(255f32);
     let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
         avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(src);
@@ -46,18 +45,25 @@ unsafe fn gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 }
 
 #[inline(always)]
-pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
+pub unsafe fn avx_linear_to_gamma<
+    const CHANNELS_CONFIGURATION: u8,
+    const USE_ALPHA: bool,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
+
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
+    let transfer = get_avx_gamma_transfer(transfer_function);
 
     while cx + 32 < width as usize {
         let offset_src_ptr =
@@ -66,30 +72,30 @@ pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
 
         let src_ptr_2 = offset_src_ptr.add(8 * 2 * channels);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, &transfer);
 
         let src_ptr_3 = offset_src_ptr.add(8 * 3 * channels);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, &transfer);
 
-        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
-        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
-        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
+        let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_u32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_u32(b_row0_, b_row1_);
 
-        let r_row23 = avx2_pack_s32(r_row2_, r_row3_);
-        let g_row23 = avx2_pack_s32(g_row2_, g_row3_);
-        let b_row23 = avx2_pack_s32(b_row2_, b_row3_);
+        let r_row23 = avx2_pack_u32(r_row2_, r_row3_);
+        let g_row23 = avx2_pack_u32(g_row2_, g_row3_);
+        let b_row23 = avx2_pack_u32(b_row2_, b_row3_);
 
         let r_row = avx2_pack_u16(r_row01, r_row23);
         let g_row = avx2_pack_u16(g_row01, g_row23);
@@ -98,8 +104,8 @@ pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         let dst_ptr = dst.add(dst_offset as usize + cx * channels);
 
         if USE_ALPHA {
-            let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
-            let a_row23 = avx2_pack_s32(a_row2_, a_row3_);
+            let a_row01 = avx2_pack_u32(a_row0_, a_row1_);
+            let a_row23 = avx2_pack_u32(a_row2_, a_row3_);
             let a_row = avx2_pack_u16(a_row01, a_row23);
             avx_store_and_interleave_v4_u8!(
                 dst_ptr,
@@ -125,16 +131,16 @@ pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
 
-        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
-        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
-        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
+        let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
+        let g_row01 = avx2_pack_u32(g_row0_, g_row1_);
+        let b_row01 = avx2_pack_u32(b_row0_, b_row1_);
 
         let r_row = avx2_pack_u16(r_row01, zeros);
         let g_row = avx2_pack_u16(g_row01, zeros);
@@ -143,7 +149,7 @@ pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_AL
         let dst_ptr = dst.add(dst_offset as usize + cx * channels);
 
         if USE_ALPHA {
-            let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
+            let a_row01 = avx2_pack_u32(a_row0_, a_row1_);
             let a_row = avx2_pack_u16(a_row01, zeros);
             avx_store_and_interleave_v4_half_u8!(
                 dst_ptr,

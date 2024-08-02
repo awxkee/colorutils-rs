@@ -35,19 +35,24 @@ unsafe fn sse_triple_to_linear(
 }
 
 #[inline(always)]
-pub unsafe fn sse_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
+pub unsafe fn sse_channels_to_linear<
+    const CHANNELS_CONFIGURATION: u8,
+    const USE_ALPHA: bool,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
 
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_sse_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
