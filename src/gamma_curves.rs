@@ -110,6 +110,18 @@ pub enum TransferFunction {
     Gamma2p8,
 }
 
+impl From<u8> for TransferFunction {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => TransferFunction::Srgb,
+            1 => TransferFunction::Rec709,
+            2 => TransferFunction::Gamma2p2,
+            3 => TransferFunction::Gamma2p8,
+            _ => TransferFunction::Srgb,
+        }
+    }
+}
+
 impl TransferFunction {
     #[inline]
     pub fn get_linearize_function(&self) -> fn(f32) -> f32 {

@@ -76,12 +76,12 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     )
 }
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
 #[inline(always)]
-pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub unsafe fn neon_xyza_to_image<
+    const CHANNELS_CONFIGURATION: u8,
+    const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const f32,
     src_offset: usize,
@@ -89,8 +89,9 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
     dst_offset: usize,
     width: u32,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_neon_gamma_transfer(transfer_function);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if !image_configuration.has_alpha() {

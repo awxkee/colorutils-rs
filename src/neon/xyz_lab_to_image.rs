@@ -87,6 +87,7 @@ pub unsafe fn neon_xyz_to_channels<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
 >(
     start_cx: usize,
     src: *const f32,
@@ -97,7 +98,7 @@ pub unsafe fn neon_xyz_to_channels<
     dst_offset: usize,
     width: u32,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if USE_ALPHA {
@@ -120,6 +121,7 @@ pub unsafe fn neon_xyz_to_channels<
     let c8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
     let c9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
 
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_neon_gamma_transfer(transfer_function);
 
     let src_channels = 3usize;

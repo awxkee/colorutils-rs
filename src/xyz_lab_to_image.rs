@@ -87,7 +87,40 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         target_feature = "neon"
     ))]
     {
-        _wide_row_handler = Some(neon_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
+        _wide_row_handler = match transfer_function {
+            TransferFunction::Srgb => Some(
+                neon_xyz_to_channels::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Srgb as u8 },
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                neon_xyz_to_channels::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Rec709 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                neon_xyz_to_channels::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p2 as u8 },
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                neon_xyz_to_channels::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    TARGET,
+                    { TransferFunction::Gamma2p8 as u8 },
+                >,
+            ),
+        };
     }
 
     for _ in 0..height as usize {

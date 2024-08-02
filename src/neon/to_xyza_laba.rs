@@ -18,7 +18,11 @@ use crate::{
 use std::arch::aarch64::*;
 
 #[inline(always)]
-pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub unsafe fn neon_channels_to_xyza_or_laba<
+    const CHANNELS_CONFIGURATION: u8,
+    const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -26,13 +30,14 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
     dst: *mut f32,
     dst_offset: usize,
     matrix: &[[f32; 3]; 3],
-    transfer_function: TransferFunction,
+    _: TransferFunction,
 ) -> usize {
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
 
+    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
     let transfer = get_neon_linear_transfer(transfer_function);
 
     let cq1 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(0));

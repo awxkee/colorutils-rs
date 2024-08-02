@@ -63,10 +63,10 @@ fn main() {
     {
         let mut lab_store: Vec<f32> = vec![];
         let store_stride = width as usize * components * std::mem::size_of::<f32>();
-        lab_store.resize(width as usize * components * height as usize, 0f32);
+        lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_oklab(
+        rgb_to_linear(
             src_bytes,
             src_stride,
             &mut lab_store,
@@ -101,7 +101,7 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        oklab_to_rgb(
+        linear_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,

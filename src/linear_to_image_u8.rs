@@ -62,9 +62,40 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         target_feature = "neon"
     ))]
     {
-        _wide_row_handler = Some(
-            neon_image_linear_to_u8::neon_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA>,
-        );
+        _wide_row_handler = match transfer_function {
+            TransferFunction::Srgb => Some(
+                neon_channels_to_linear_u8::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    { TransferFunction::Srgb as u8 },
+                    false,
+                >,
+            ),
+            TransferFunction::Rec709 => Some(
+                neon_channels_to_linear_u8::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    { TransferFunction::Rec709 as u8 },
+                    false,
+                >,
+            ),
+            TransferFunction::Gamma2p2 => Some(
+                neon_channels_to_linear_u8::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    { TransferFunction::Gamma2p2 as u8 },
+                    false,
+                >,
+            ),
+            TransferFunction::Gamma2p8 => Some(
+                neon_channels_to_linear_u8::<
+                    CHANNELS_CONFIGURATION,
+                    USE_ALPHA,
+                    { TransferFunction::Gamma2p8 as u8 },
+                    false,
+                >,
+            ),
+        };
     }
 
     for _ in 0..height as usize {
