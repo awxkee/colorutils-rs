@@ -296,6 +296,7 @@ pub unsafe fn neon_channels_to_hsv_u16<
 
     while cx + 8 < width as usize {
         let src_ptr = src.add(src_offset + cx * channels);
+
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave_half!(src_ptr, image_configuration);
 

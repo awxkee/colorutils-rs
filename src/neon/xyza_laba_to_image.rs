@@ -216,5 +216,44 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         cx += 8;
     }
 
+    while cx + 4 < width as usize {
+        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+            );
+
+        let zeros = vdup_n_u16(0);
+
+        let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), zeros);
+        let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), zeros);
+        let b_row01 = vcombine_u16(vqmovn_u32(b_row0_), zeros);
+        let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), zeros);
+
+        let r_row = vqmovn_u16(r_row01);
+        let g_row = vqmovn_u16(g_row01);
+        let b_row = vqmovn_u16(b_row01);
+        let a_row = vqmovn_u16(a_row01);
+
+        let dst_ptr = dst.add(dst_offset + cx * channels);
+
+        let store_rows = match image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                uint8x8x4_t(r_row, g_row, b_row, a_row)
+            }
+            ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                uint8x8x4_t(b_row, g_row, r_row, a_row)
+            }
+        };
+        let mut transient: [u8; 32] = [0; 32];
+        vst4_u8(transient.as_mut_ptr(), store_rows);
+        std::ptr::copy_nonoverlapping(transient.as_ptr(), dst_ptr, 4 * 4);
+
+        cx += 4;
+    }
+
     cx
 }

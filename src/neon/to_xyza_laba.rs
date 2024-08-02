@@ -12,7 +12,9 @@ use crate::neon::cie::{
 };
 use crate::neon::*;
 use crate::xyz_target::XyzTarget;
-use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
+use crate::{
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
+};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -304,6 +306,55 @@ pub unsafe fn neon_channels_to_xyza_or_laba<const CHANNELS_CONFIGURATION: u8, co
         vst4q_f32(dst_ptr.add(cx * 4 + 4 * 4), xyz_low_low);
 
         cx += 8;
+    }
+
+    while cx + 4 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_quarter!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (mut x_low_low, mut y_low_low, mut z_low_low) = neon_triple_to_xyz(
+            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+        );
+
+        match target {
+            XyzTarget::LAB => {
+                let (l, a, b) = neon_triple_to_lab(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = a;
+                z_low_low = b;
+            }
+            XyzTarget::XYZ => {}
+            XyzTarget::LCH => {
+                let (l, c, h) = neon_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = c;
+                z_low_low = h;
+            }
+            XyzTarget::LUV => {
+                let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = u;
+                z_low_low = v;
+            }
+        }
+
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+
+        let a_low_low = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
+
+        let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_low_low);
+        vst4q_f32(dst_ptr.add(cx * 4), xyz_low_low);
+
+        cx += 4;
     }
 
     cx

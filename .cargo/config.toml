@@ -3,3 +3,6 @@ rustflags = ["-Ctarget-cpu=native"]
 
 [target.x86_64-apple-darwin]
 rustflags = ["-Ctarget-feature=+sse4.1,+avx2"]
+
+[rust]
+debuginfo-level = 1

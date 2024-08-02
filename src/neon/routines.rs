@@ -86,6 +86,53 @@ macro_rules! load_u8_and_deinterleave_half {
 }
 
 #[macro_export]
+macro_rules! load_u8_and_deinterleave_quarter {
+    ($ptr: expr, $image_configuration: expr) => {{
+        let (r_chan, g_chan, b_chan, a_chan);
+        let mut transient: [u8; 32] = [0; 32];
+        match $image_configuration {
+            ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
+                std::ptr::copy_nonoverlapping($ptr, transient.as_mut_ptr(), 3 * 4);
+                let ldr = vld3_u8(transient.as_mut_ptr());
+                if $image_configuration == ImageConfiguration::Rgb {
+                    r_chan = ldr.0;
+                    g_chan = ldr.1;
+                    b_chan = ldr.2;
+                } else {
+                    r_chan = ldr.2;
+                    g_chan = ldr.1;
+                    b_chan = ldr.0;
+                }
+                a_chan = vdup_n_u8(0);
+            }
+            ImageConfiguration::Rgba => {
+                std::ptr::copy_nonoverlapping($ptr, transient.as_mut_ptr(), 4 * 4);
+                let ldr = vld4_u8(transient.as_mut_ptr());
+                r_chan = ldr.0;
+                g_chan = ldr.1;
+                b_chan = ldr.2;
+                a_chan = ldr.3;
+            }
+            ImageConfiguration::Bgra => {
+                std::ptr::copy_nonoverlapping($ptr, transient.as_mut_ptr(), 4 * 4);
+                let ldr = vld4_u8(transient.as_mut_ptr());
+                r_chan = ldr.2;
+                g_chan = ldr.1;
+                b_chan = ldr.0;
+                a_chan = ldr.3;
+            }
+        }
+        let zero_lane = vdup_n_u8(0);
+        (
+            vcombine_u8(r_chan, zero_lane),
+            vcombine_u8(g_chan, zero_lane),
+            vcombine_u8(b_chan, zero_lane),
+            vcombine_u8(a_chan, zero_lane),
+        )
+    }};
+}
+
+#[macro_export]
 macro_rules! load_f32_and_deinterleave {
     ($ptr: expr, $image_configuration: expr) => {{
         let d_alpha = vdupq_n_f32(1f32);

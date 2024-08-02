@@ -94,10 +94,24 @@ pub unsafe fn neon_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_A
             let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
             let a_row23 = vcombine_u16(vqmovn_u32(a_row2_), vqmovn_u32(a_row3_));
             let a_row = vcombine_u8(vqmovn_u16(a_row01), vqmovn_u16(a_row23));
-            let store_rows = uint8x16x4_t(r_row, g_row, b_row, a_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x4_t(r_row, g_row, b_row, a_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x4_t(b_row, g_row, r_row, a_row)
+                }
+            };
             vst4q_u8(dst_ptr, store_rows);
         } else {
-            let store_rows = uint8x16x3_t(r_row, g_row, b_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x16x3_t(r_row, g_row, b_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x16x3_t(b_row, g_row, r_row)
+                }
+            };
             vst3q_u8(dst_ptr, store_rows);
         }
 
@@ -131,14 +145,80 @@ pub unsafe fn neon_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_A
         if USE_ALPHA {
             let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
             let a_row = vqmovn_u16(a_row01);
-            let store_rows = uint8x8x4_t(r_row, g_row, b_row, a_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x4_t(r_row, g_row, b_row, a_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x4_t(b_row, g_row, r_row, a_row)
+                }
+            };
             vst4_u8(dst_ptr, store_rows);
         } else {
-            let store_rows = uint8x8x3_t(r_row, g_row, b_row);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x3_t(r_row, g_row, b_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x3_t(b_row, g_row, r_row)
+                }
+            };
             vst3_u8(dst_ptr, store_rows);
         }
 
         cx += 8;
+    }
+
+    while cx + 4 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
+
+        let zero = vdup_n_u16(0);
+
+        let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), zero);
+        let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), zero);
+        let b_row01 = vcombine_u16(vqmovn_u32(b_row0_), zero);
+
+        let r_row = vqmovn_u16(r_row01);
+        let g_row = vqmovn_u16(g_row01);
+        let b_row = vqmovn_u16(b_row01);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if USE_ALPHA {
+            let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), zero);
+            let a_row = vqmovn_u16(a_row01);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x4_t(r_row, g_row, b_row, a_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x4_t(b_row, g_row, r_row, a_row)
+                }
+            };
+            let mut transient: [u8; 32] = [0; 32];
+            vst4_u8(transient.as_mut_ptr(), store_rows);
+            std::ptr::copy_nonoverlapping(transient.as_ptr(), dst_ptr, 4 * 4);
+        } else {
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    uint8x8x3_t(r_row, g_row, b_row)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    uint8x8x3_t(b_row, g_row, r_row)
+                }
+            };
+            let mut transient: [u8; 24] = [0; 24];
+            vst3_u8(transient.as_mut_ptr(), store_rows);
+            std::ptr::copy_nonoverlapping(transient.as_ptr(), dst_ptr, 4 * 3);
+        }
+
+        cx += 4;
     }
 
     cx

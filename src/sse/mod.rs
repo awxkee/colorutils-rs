@@ -6,9 +6,6 @@
  */
 
 mod color;
-
-mod from_xyz_lab;
-
 mod gamma_curves;
 
 mod hsv_to_image;

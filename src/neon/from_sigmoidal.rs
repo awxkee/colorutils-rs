@@ -103,5 +103,53 @@ pub unsafe fn neon_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
         cx += 16;
     }
 
+    while cx + 8 < width as usize {
+        let offset_src_ptr = src.add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) =
+            neon_sigmoidal_vld::<CHANNELS_CONFIGURATION>(src_ptr_0);
+
+        let src_ptr_1 = offset_src_ptr.add(4 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) =
+            neon_sigmoidal_vld::<CHANNELS_CONFIGURATION>(src_ptr_1);
+
+        let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
+        let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));
+        let b_row01 = vcombine_u16(vqmovn_u32(b_row0_), vqmovn_u32(b_row1_));
+
+        let r_row = vqmovn_u16(r_row01);
+        let g_row = vqmovn_u16(g_row01);
+        let b_row = vqmovn_u16(b_row01);
+
+        let dst_ptr = dst.add(cx * channels);
+
+        match image_configuration {
+            ImageConfiguration::Rgb => {
+                let rgb = uint8x8x3_t(r_row, g_row, b_row);
+                vst3_u8(dst_ptr, rgb);
+            }
+            ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
+                let a_row01 = vcombine_u16(vqmovn_u32(a_row0_), vqmovn_u32(a_row1_));
+                let a_row = vqmovn_u16(a_row01);
+                if image_configuration == ImageConfiguration::Rgba {
+                    let rgba = uint8x8x4_t(r_row, g_row, b_row, a_row);
+                    vst4_u8(dst_ptr, rgba);
+                } else {
+                    let bgra = uint8x8x4_t(b_row, g_row, r_row, a_row);
+                    vst4_u8(dst_ptr, bgra);
+                }
+            }
+            ImageConfiguration::Bgr => {
+                let bgr = uint8x8x3_t(b_row, g_row, r_row);
+                vst3_u8(dst_ptr, bgr);
+            }
+        }
+
+        cx += 8;
+    }
+
     cx
 }

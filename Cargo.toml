@@ -21,3 +21,6 @@ half = "2.4.1"
 
 [features]
 default = []
+
+[profile.release]
+debug = 1
