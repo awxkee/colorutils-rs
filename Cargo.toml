@@ -2,7 +2,7 @@ workspace = { members = ["src/app"] }
 
 [package]
 name = "colorutils-rs"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2021"
 description = "High performance utilities for color format handling and conversion."
 readme = "README.md"
@@ -16,7 +16,7 @@ repository = "https://github.com/awxkee/colorutils-rs"
 exclude = ["*.jpg"]
 
 [dependencies]
-erydanos = "0.2.9"
+erydanos = "0.2.11"
 half = "2.4.1"
 
 [features]
