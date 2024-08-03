@@ -7,7 +7,10 @@
 
 use crate::image::ImageConfiguration;
 use crate::sse::*;
-use crate::{load_f32_and_deinterleave, TransferFunction};
+use crate::{
+    load_f32_and_deinterleave, store_and_interleave_v3_half_u8, store_and_interleave_v3_u8,
+    store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction,
+};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -115,16 +118,9 @@ pub unsafe fn sse_linear_to_gamma<
             let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
             let a_row23 = _mm_packus_epi32(a_row2_, a_row3_);
             let a_row = _mm_packus_epi16(a_row01, a_row23);
-            let (rgba0, rgba1, rgba2, rgba3) = sse_interleave_rgba(r_row, g_row, b_row, a_row);
-            _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
-            _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
-            _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, rgba2);
-            _mm_storeu_si128(dst_ptr.add(48) as *mut __m128i, rgba3);
+            store_and_interleave_v4_u8!(dst_ptr, image_configuration, r_row, g_row, b_row, a_row);
         } else {
-            let (rgb0, rgb1, rgb2) = sse_interleave_rgb(r_row, g_row, b_row);
-            _mm_storeu_si128(dst_ptr as *mut __m128i, rgb0);
-            _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgb1);
-            _mm_storeu_si128(dst_ptr.add(32) as *mut __m128i, rgb2);
+            store_and_interleave_v3_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
         }
 
         cx += 16;
@@ -159,13 +155,16 @@ pub unsafe fn sse_linear_to_gamma<
         if USE_ALPHA {
             let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
             let a_row = _mm_packus_epi16(a_row01, zeros);
-            let (rgba0, rgba1, _, _) = sse_interleave_rgba(r_row, g_row, b_row, a_row);
-            _mm_storeu_si128(dst_ptr as *mut __m128i, rgba0);
-            _mm_storeu_si128(dst_ptr.add(16) as *mut __m128i, rgba1);
+            store_and_interleave_v4_half_u8!(
+                dst_ptr,
+                image_configuration,
+                r_row,
+                g_row,
+                b_row,
+                a_row
+            );
         } else {
-            let (rgb0, rgb1, _) = sse_interleave_rgb(r_row, g_row, b_row);
-            _mm_storeu_si128(dst_ptr as *mut __m128i, rgb0);
-            std::ptr::copy_nonoverlapping(&rgb1 as *const _ as *const u8, dst_ptr.add(16), 8);
+            store_and_interleave_v3_half_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
         }
 
         cx += 8;

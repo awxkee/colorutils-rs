@@ -10,14 +10,18 @@ use crate::image::ImageConfiguration;
 use crate::sse::cie::{sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
 use crate::sse::*;
 use crate::xyz_target::XyzTarget;
-use crate::{load_u8_and_deinterleave, store_and_interleave_v4_f32};
+use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v4_f32};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
 #[inline(always)]
-pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8, const TRANSFER_FUNCTION: u8>(
+pub unsafe fn sse_channels_to_xyza_laba<
+    const CHANNELS_CONFIGURATION: u8,
+    const TARGET: u8,
+    const TRANSFER_FUNCTION: u8,
+>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -246,6 +250,101 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
         _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4 * CHANNELS * 3 + 12), v3);
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let r_low = _mm_cvtepu8_epi16(r_chan);
+        let g_low = _mm_cvtepu8_epi16(g_chan);
+        let b_low = _mm_cvtepu8_epi16(b_chan);
+
+        let r_low_low = _mm_cvtepu16_epi32(r_low);
+        let g_low_low = _mm_cvtepu16_epi32(g_low);
+        let b_low_low = _mm_cvtepu16_epi32(b_low);
+
+        let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
+            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+        );
+
+        match target {
+            XyzTarget::LAB => {
+                let (l, a, b) = sse_triple_to_lab(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = a;
+                z_low_low = b;
+            }
+            XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = u;
+                z_low_low = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                x_low_low = l;
+                y_low_low = c;
+                z_low_low = h;
+            }
+        }
+
+        let a_low = _mm_cvtepu8_epi16(a_chan);
+        let u8_scale = _mm_set1_ps(1f32 / 255f32);
+        let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
+
+        let (v0, v1, v2, v3) = sse_interleave_ps_rgba(x_low_low, y_low_low, z_low_low, a_low_low);
+        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS), v0);
+        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 4), v1);
+        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 8), v2);
+        _mm_storeu_ps(dst_ptr.add(cx * CHANNELS + 12), v3);
+
+        let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
+
+        let (mut x_low_high, mut y_low_high, mut z_low_high) = sse_triple_to_xyz(
+            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
+            &transfer,
+        );
+
+        match target {
+            XyzTarget::LAB => {
+                let (l, a, b) = sse_triple_to_lab(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = a;
+                z_low_high = b;
+            }
+            XyzTarget::XYZ => {}
+            XyzTarget::LUV => {
+                let (l, u, v) = sse_triple_to_luv(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = u;
+                z_low_high = v;
+            }
+            XyzTarget::LCH => {
+                let (l, c, h) = sse_triple_to_lch(x_low_high, y_low_high, z_low_high);
+                x_low_high = l;
+                y_low_high = c;
+                z_low_high = h;
+            }
+        }
+
+        let a_low_high = _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
+
+        let ptr0 = dst_ptr.add(cx * CHANNELS + 4 * CHANNELS);
+        store_and_interleave_v4_f32!(
+            ptr0,
+            image_configuration,
+            x_low_high,
+            y_low_high,
+            z_low_high,
+            a_low_high
+        );
+
+        cx += 8;
     }
 
     cx

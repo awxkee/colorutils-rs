@@ -15,7 +15,10 @@ use crate::sse::sigmoidal::sse_rgb_to_sigmoidal;
 use crate::sse::{
     sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba,
 };
-use crate::{load_u8_and_deinterleave, store_and_interleave_v3_f32, store_and_interleave_v4_f32};
+use crate::{
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v3_f32,
+    store_and_interleave_v4_f32,
+};
 
 #[inline]
 pub unsafe fn sse_image_to_sigmoidal_row<
@@ -174,6 +177,76 @@ pub unsafe fn sse_image_to_sigmoidal_row<
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let zeros = _mm_setzero_si128();
+
+        let r_low = _mm_unpacklo_epi8(r_chan, zeros);
+        let g_low = _mm_unpacklo_epi8(g_chan, zeros);
+        let b_low = _mm_unpacklo_epi8(b_chan, zeros);
+        let a_low = _mm_cvtepu8_epi16(a_chan);
+
+        let r_low_low = _mm_unpacklo_epi16(r_low, zeros);
+        let g_low_low = _mm_unpacklo_epi16(g_low, zeros);
+        let b_low_low = _mm_unpacklo_epi16(b_low, zeros);
+
+        let (x_low_low, y_low_low, z_low_low) =
+            sse_rgb_to_sigmoidal(r_low_low, g_low_low, b_low_low);
+
+        let u8_scale = _mm_set1_ps(1f32 / 255f32);
+
+        if USE_ALPHA {
+            let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
+            let ptr = dst_ptr.add(cx * channels);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_low_low
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * channels);
+            store_and_interleave_v3_f32!(ptr, image_configuration, x_low_low, y_low_low, z_low_low);
+        }
+
+        let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
+        let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
+        let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
+
+        let (x_low_high, y_low_high, z_low_high) =
+            sse_rgb_to_sigmoidal(r_low_high, g_low_high, b_low_high);
+
+        if USE_ALPHA {
+            let a_low_high =
+                _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
+            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            store_and_interleave_v4_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high,
+                a_low_high
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            store_and_interleave_v3_f32!(
+                ptr,
+                image_configuration,
+                x_low_high,
+                y_low_high,
+                z_low_high
+            );
+        }
+
+        cx += 8;
     }
 
     cx

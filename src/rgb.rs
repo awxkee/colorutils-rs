@@ -13,8 +13,8 @@ use crate::{
     adjust_saturation, clip_color, color_add, color_burn, color_darken, color_difference,
     color_dodge, color_exclusion, color_hard_light, color_hard_mix, color_lighten,
     color_linear_burn, color_linear_light, color_pin_light, color_reflect, color_screen,
-    color_soft_light, color_soft_light_weight, color_vivid_light, pdf_lum, Hsl, Jzazbz, LCh, Oklab,
-    Rgba, Sigmoidal, TransferFunction, Xyz,
+    color_soft_light, color_soft_light_weight, color_vivid_light, pdf_lum, Hsl, Jzazbz, LAlphaBeta,
+    LCh, Oklab, Rgba, Sigmoidal, TransferFunction, Xyz,
 };
 use erydanos::Euclidean3DDistance;
 
@@ -147,6 +147,15 @@ impl Rgb<u8> {
     #[inline]
     pub fn to_sigmoidal(&self) -> Sigmoidal {
         Sigmoidal::from_rgb(*self)
+    }
+
+    /// Converts rgb to *lαβ*
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
+    #[inline]
+    pub fn to_lalphabeta(&self, transfer_function: TransferFunction) -> LAlphaBeta {
+        LAlphaBeta::from_rgb(*self, transfer_function)
     }
 
     #[inline]

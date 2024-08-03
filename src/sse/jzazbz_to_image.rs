@@ -19,8 +19,8 @@ use crate::sse::{
     sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
 };
 use crate::{
-    load_f32_and_deinterleave_direct, store_and_interleave_v3_u8, store_and_interleave_v4_u8,
-    TransferFunction, XYZ_TO_SRGB_D65,
+    load_f32_and_deinterleave_direct, store_and_interleave_v3_half_u8, store_and_interleave_v3_u8,
+    store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction, XYZ_TO_SRGB_D65,
 };
 
 macro_rules! perceptual_quantizer_inverse {
@@ -228,6 +228,56 @@ pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
         }
 
         cx += 16;
+    }
+
+    let zeros = _mm_setzero_si128();
+
+    while cx + 8 < width as usize {
+        let offset_src_ptr =
+            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+
+        let src_ptr_0 = offset_src_ptr;
+
+        let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_0,
+            transfer_function,
+            luminance_scale,
+        );
+
+        let src_ptr_1 = offset_src_ptr.add(4 * channels);
+
+        let (r_row1_, g_row1_, b_row1_, a_row1_) = sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(
+            src_ptr_1,
+            transfer_function,
+            luminance_scale,
+        );
+
+        let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);
+        let g_row01 = _mm_packus_epi32(g_row0_, g_row1_);
+        let b_row01 = _mm_packus_epi32(b_row0_, b_row1_);
+
+        let r_row = _mm_packus_epi16(r_row01, zeros);
+        let g_row = _mm_packus_epi16(g_row01, zeros);
+        let b_row = _mm_packus_epi16(b_row01, zeros);
+
+        let dst_ptr = dst.add(dst_offset as usize + cx * channels);
+
+        if image_configuration.has_alpha() {
+            let a_row01 = _mm_packus_epi32(a_row0_, a_row1_);
+            let a_row = _mm_packus_epi16(a_row01, zeros);
+            store_and_interleave_v4_half_u8!(
+                dst_ptr,
+                image_configuration,
+                r_row,
+                g_row,
+                b_row,
+                a_row
+            );
+        } else {
+            store_and_interleave_v3_half_u8!(dst_ptr, image_configuration, r_row, g_row, b_row);
+        }
+
+        cx += 8;
     }
 
     cx

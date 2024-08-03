@@ -7,13 +7,17 @@
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub mod sse_image_to_linear_unsigned {
-    use crate::image::ImageConfiguration;
-    use crate::sse::*;
-    use crate::{load_u8_and_deinterleave, TransferFunction};
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
+
+    use crate::image::ImageConfiguration;
+    use crate::sse::*;
+    use crate::{
+        load_u8_and_deinterleave, store_and_interleave_v3_half_u8, store_and_interleave_v3_u8,
+        store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction,
+    };
 
     #[inline(always)]
     unsafe fn sse_triple_to_linear_u8(
@@ -65,6 +69,8 @@ pub mod sse_image_to_linear_unsigned {
             get_sse_gamma_transfer(transfer_function)
         };
 
+        let zeros = _mm_setzero_si128();
+
         while cx + 16 < width as usize {
             let src_ptr = src.add(src_offset + cx * channels);
             let (r_chan, g_chan, b_chan, a_chan) =
@@ -80,8 +86,6 @@ pub mod sse_image_to_linear_unsigned {
 
             let (x_low_low, y_low_low, z_low_low) =
                 sse_triple_to_linear_u8(r_low_low, g_low_low, b_low_low, &transfer);
-
-            let zeros = _mm_setzero_si128();
 
             let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
             let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
@@ -126,20 +130,72 @@ pub mod sse_image_to_linear_unsigned {
             let dst = dst_ptr.add(cx * channels);
 
             if USE_ALPHA {
-                let (rgba0, rgba1, rgba2, rgba3) =
-                    sse_interleave_rgba(r_u_norm, g_u_norm, b_u_norm, a_chan);
-                _mm_storeu_si128(dst as *mut __m128i, rgba0);
-                _mm_storeu_si128(dst.add(16) as *mut __m128i, rgba1);
-                _mm_storeu_si128(dst.add(32) as *mut __m128i, rgba2);
-                _mm_storeu_si128(dst.add(48) as *mut __m128i, rgba3);
+                store_and_interleave_v4_u8!(
+                    dst,
+                    image_configuration,
+                    r_u_norm,
+                    g_u_norm,
+                    b_u_norm,
+                    a_chan
+                );
             } else {
-                let (rgb0, rgb1, rgb2) = sse_interleave_rgb(r_u_norm, g_u_norm, b_u_norm);
-                _mm_storeu_si128(dst as *mut __m128i, rgb0);
-                _mm_storeu_si128(dst.add(16) as *mut __m128i, rgb1);
-                _mm_storeu_si128(dst.add(32) as *mut __m128i, rgb2);
+                store_and_interleave_v3_u8!(dst, image_configuration, r_u_norm, g_u_norm, b_u_norm);
             }
 
             cx += 16;
+        }
+
+        while cx + 8 < width as usize {
+            let src_ptr = src.add(src_offset + cx * channels);
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_u8_and_deinterleave!(src_ptr, image_configuration);
+
+            let r_low = _mm_cvtepu8_epi16(r_chan);
+            let g_low = _mm_cvtepu8_epi16(g_chan);
+            let b_low = _mm_cvtepu8_epi16(b_chan);
+
+            let r_low_low = _mm_cvtepu16_epi32(r_low);
+            let g_low_low = _mm_cvtepu16_epi32(g_low);
+            let b_low_low = _mm_cvtepu16_epi32(b_low);
+
+            let (x_low_low, y_low_low, z_low_low) =
+                sse_triple_to_linear_u8(r_low_low, g_low_low, b_low_low, &transfer);
+
+            let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
+            let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
+            let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
+
+            let (x_low_high, y_low_high, z_low_high) =
+                sse_triple_to_linear_u8(r_low_high, g_low_high, b_low_high, &transfer);
+
+            let r_u_norm = _mm_packus_epi16(_mm_packus_epi32(x_low_low, x_low_high), zeros);
+
+            let g_u_norm = _mm_packus_epi16(_mm_packus_epi32(y_low_low, y_low_high), zeros);
+
+            let b_u_norm = _mm_packus_epi16(_mm_packus_epi32(z_low_low, z_low_high), zeros);
+
+            let dst = dst_ptr.add(cx * channels);
+
+            if USE_ALPHA {
+                store_and_interleave_v4_half_u8!(
+                    dst,
+                    image_configuration,
+                    r_u_norm,
+                    g_u_norm,
+                    b_u_norm,
+                    a_chan
+                );
+            } else {
+                store_and_interleave_v3_half_u8!(
+                    dst,
+                    image_configuration,
+                    r_u_norm,
+                    g_u_norm,
+                    b_u_norm
+                );
+            }
+
+            cx += 8;
         }
 
         cx

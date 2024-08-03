@@ -19,7 +19,7 @@ use crate::sse::{
     sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba,
 };
 use crate::{
-    load_u8_and_deinterleave, store_and_interleave_v3_direct_f32,
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v3_direct_f32,
     store_and_interleave_v4_direct_f32, TransferFunction, SRGB_TO_XYZ_D65,
 };
 
@@ -250,6 +250,60 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         }
 
         cx += 16;
+    }
+
+    while cx + 8 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+
+        let r_low = _mm_cvtepu8_epi16(r_chan);
+        let g_low = _mm_cvtepu8_epi16(g_chan);
+        let b_low = _mm_cvtepu8_epi16(b_chan);
+
+        let r_low_low = _mm_cvtepu16_epi32(r_low);
+        let g_low_low = _mm_cvtepu16_epi32(g_low);
+        let b_low_low = _mm_cvtepu16_epi32(b_low);
+
+        let (x_low_low, y_low_low, z_low_low) =
+            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, &transfer, target, luminance);
+
+        let a_low = _mm_cvtepu8_epi16(a_chan);
+
+        let u8_scale = _mm_set1_ps(1f32 / 255f32);
+
+        if image_configuration.has_alpha() {
+            let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
+            let ptr = dst_ptr.add(cx * 4);
+            store_and_interleave_v4_direct_f32!(ptr, x_low_low, y_low_low, z_low_low, a_low_low);
+        } else {
+            let ptr = dst_ptr.add(cx * 3);
+            store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
+        }
+
+        let r_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(r_low));
+        let g_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_low));
+        let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
+
+        let (x_low_high, y_low_high, z_low_high) =
+            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, &transfer, target, luminance);
+
+        if image_configuration.has_alpha() {
+            let a_low_high = _mm_mul_ps(
+                _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_srli_si128::<8>(a_low))),
+                u8_scale,
+            );
+
+            let ptr = dst_ptr.add(cx * 4 + 16);
+            store_and_interleave_v4_direct_f32!(
+                ptr, x_low_high, y_low_high, z_low_high, a_low_high
+            );
+        } else {
+            let ptr = dst_ptr.add(cx * 3 + 4 * 3);
+            store_and_interleave_v3_direct_f32!(ptr, x_low_high, y_low_high, z_low_high);
+        }
+
+        cx += 8;
     }
 
     cx
