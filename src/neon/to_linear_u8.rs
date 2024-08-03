@@ -7,7 +7,10 @@
 
 use crate::image::ImageConfiguration;
 use crate::neon::{get_neon_gamma_transfer, get_neon_linear_transfer};
-use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half, TransferFunction};
+use crate::{
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
+    TransferFunction,
+};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -156,15 +159,59 @@ pub unsafe fn neon_channels_to_linear_u8<
 
         let b_u_norm = vqmovn_u16(vcombine_u16(vmovn_u32(z_low_low), vmovn_u32(z_low_high)));
 
+        let dst = dst_ptr.add(cx * channels);
+
         if USE_ALPHA {
             let v_4 = uint8x8x4_t(r_u_norm, g_u_norm, b_u_norm, vget_low_u8(a_chan));
-            vst4_u8(dst_ptr.add(cx * channels), v_4);
+            vst4_u8(dst, v_4);
         } else {
             let v_4 = uint8x8x3_t(r_u_norm, g_u_norm, b_u_norm);
-            vst3_u8(dst_ptr.add(cx * channels), v_4);
+            vst3_u8(dst, v_4);
         }
 
         cx += 8;
+    }
+
+    while cx + 4 < width as usize {
+        let src_ptr = src.add(src_offset + cx * channels);
+
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_quarter!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) =
+            neon_triple_to_linear_u8(r_low_low, g_low_low, b_low_low, &transfer);
+
+        let zeros = vdup_n_u16(0);
+
+        let r_u_norm = vqmovn_u16(vcombine_u16(vmovn_u32(x_low_low), zeros));
+
+        let g_u_norm = vqmovn_u16(vcombine_u16(vmovn_u32(y_low_low), zeros));
+
+        let b_u_norm = vqmovn_u16(vcombine_u16(vmovn_u32(z_low_low), zeros));
+
+        let dst = dst_ptr.add(cx * channels);
+
+        if USE_ALPHA {
+            let v_4 = uint8x8x4_t(r_u_norm, g_u_norm, b_u_norm, vget_low_u8(a_chan));
+            let mut transient: [u8; 32] = [0; 32];
+            vst4_u8(transient.as_mut_ptr(), v_4);
+            std::ptr::copy_nonoverlapping(transient.as_ptr(), dst, 4 * 4);
+        } else {
+            let v_3 = uint8x8x3_t(r_u_norm, g_u_norm, b_u_norm);
+            let mut transient: [u8; 24] = [0; 24];
+            vst3_u8(transient.as_mut_ptr(), v_3);
+            std::ptr::copy_nonoverlapping(transient.as_ptr(), dst, 4 * 3);
+        }
+
+        cx += 4;
     }
 
     cx

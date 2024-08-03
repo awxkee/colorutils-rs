@@ -7,7 +7,7 @@
 
 use crate::image::ImageConfiguration;
 use crate::neon::sigmoidal::neon_rgb_to_sigmoidal;
-use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half};
+use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -242,6 +242,50 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
         }
 
         cx += 8;
+    }
+
+    while cx + 4 < width as usize {
+        let src_ptr = src.add(cx * channels);
+        let (r_chan, g_chan, b_chan, a_chan) =
+            load_u8_and_deinterleave_quarter!(src_ptr, image_configuration);
+
+        let r_low = vmovl_u8(vget_low_u8(r_chan));
+        let g_low = vmovl_u8(vget_low_u8(g_chan));
+        let b_low = vmovl_u8(vget_low_u8(b_chan));
+
+        let r_low_low = vmovl_u16(vget_low_u16(r_low));
+        let g_low_low = vmovl_u16(vget_low_u16(g_low));
+        let b_low_low = vmovl_u16(vget_low_u16(b_low));
+
+        let (x_low_low, y_low_low, z_low_low) =
+            neon_rgb_to_sigmoidal(r_low_low, g_low_low, b_low_low);
+
+        let a_low = vmovl_u8(vget_low_u8(a_chan));
+        if USE_ALPHA {
+            let a_low_low =
+                vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(a_low))), 1f32 / 255f32);
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    float32x4x4_t(x_low_low, y_low_low, z_low_low, a_low_low)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    float32x4x4_t(z_low_low, y_low_low, x_low_low, a_low_low)
+                }
+            };
+            vst4q_f32(dst_ptr.add(cx * channels), store_rows);
+        } else {
+            let store_rows = match image_configuration {
+                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                    float32x4x3_t(x_low_low, y_low_low, z_low_low)
+                }
+                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                    float32x4x3_t(z_low_low, y_low_low, x_low_low)
+                }
+            };
+            vst3q_f32(dst_ptr.add(cx * channels), store_rows);
+        }
+
+        cx += 4;
     }
 
     cx
