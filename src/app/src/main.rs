@@ -20,9 +20,9 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 1;
-    let g = 75;
-    let b = 1;
+    let r = 65;
+    let g = 65;
+    let b = 65;
     let rgb = Rgb::<u8>::new(r, g, b);
     let xyb = LAlphaBeta::from_rgb(rgb, TransferFunction::Srgb);
     println!("XYB {:?}", xyb);

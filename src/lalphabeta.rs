@@ -4,7 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use crate::{Rgb, SRGB_TO_XYZ_D65, TransferFunction, Xyz, XYZ_TO_SRGB_D65};
 
 /// Represents l-alpha-beta (lαβ) colorspace
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
