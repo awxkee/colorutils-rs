@@ -7,8 +7,7 @@
 
 use std::time::Instant;
 
-use image::io::Reader as ImageReader;
-use image::{EncodableLayout, GenericImageView};
+use image::{EncodableLayout, GenericImageView, ImageReader};
 
 use colorutils_rs::*;
 
@@ -21,11 +20,11 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 0;
-    let g = 127;
-    let b = 255;
+    let r = 1;
+    let g = 75;
+    let b = 1;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let xyb = Oklab::from_rgb(rgb, TransferFunction::Srgb);
+    let xyb = LAlphaBeta::from_rgb(rgb, TransferFunction::Srgb);
     println!("XYB {:?}", xyb);
     println!("Rgb {:?}", xyb.to_rgb(TransferFunction::Srgb));
     // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
