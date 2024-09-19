@@ -24,7 +24,7 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 pub unsafe fn demote_i16_to_u8(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packus_epi16(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(packed);
+    _mm256_permute4x64_epi64::<MASK>(packed)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -40,8 +40,7 @@ pub unsafe fn avx2_interleave_even(x: __m256i) -> __m256i {
                                        20, 20, 22, 22,
                                        24, 24, 26, 26,
                                        28, 28, 30, 30);
-    let new_lane = _mm256_shuffle_epi8(x, shuffle);
-    return new_lane;
+    _mm256_shuffle_epi8(x, shuffle)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -51,7 +50,7 @@ pub unsafe fn avx2_interleave_even_2_epi8(a: __m256i, b: __m256i) -> __m256i {
     let mask_a = _mm256_slli_epi16::<8>(_mm256_srli_epi16::<8>(a));
     let masked_a = _mm256_and_si256(a, mask_a);
     let b_s = _mm256_srli_epi16::<8>(b);
-    return _mm256_or_si256(masked_a, b_s);
+    _mm256_or_si256(masked_a, b_s)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -61,7 +60,7 @@ pub unsafe fn avx2_interleave_odd_2_epi8(a: __m256i, b: __m256i) -> __m256i {
     let mask_a = _mm256_set1_epi16(0x00FF);
     let masked_a = _mm256_slli_epi16::<8>(_mm256_and_si256(a, mask_a));
     let b_s = _mm256_and_si256(b, mask_a);
-    return _mm256_or_si256(masked_a, b_s);
+    _mm256_or_si256(masked_a, b_s)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -77,8 +76,7 @@ pub unsafe fn avx2_interleave_odd(x: __m256i) -> __m256i {
                                        21, 21, 23, 23,
                                        25, 25, 27, 27,
                                        29, 29, 31, 31);
-    let new_lane = _mm256_shuffle_epi8(x, shuffle);
-    new_lane
+    _mm256_shuffle_epi8(x, shuffle)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -88,8 +86,7 @@ pub unsafe fn sse_interleave_odd(x: __m128i) -> __m128i {
     #[rustfmt::skip]
     let shuffle = _mm_setr_epi8(1, 1, 3, 3, 5, 5, 7, 7,
                                     9, 9, 11, 11, 13, 13, 15, 15);
-    let new_lane = _mm_shuffle_epi8(x, shuffle);
-    new_lane
+    _mm_shuffle_epi8(x, shuffle)
 }
 
 #[inline(always)]
@@ -443,7 +440,7 @@ pub unsafe fn avx2_pairwise_add(v: __m256i) -> __m256i {
     let shifted = _mm256_srli_epi16::<1>(sums);
     let packed_lo = _mm256_packus_epi16(shifted, shifted);
     const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(packed_lo);
+    _mm256_permute4x64_epi64::<MASK>(packed_lo)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -454,26 +451,26 @@ pub unsafe fn avx2_div_by255(v: __m256i) -> __m256i {
     let x = _mm256_adds_epi16(v, rounding);
     let multiplier = _mm256_set1_epi16(-32640);
     let r = _mm256_mulhi_epu16(x, multiplier);
-    return _mm256_srli_epi16::<7>(r);
+    _mm256_srli_epi16::<7>(r)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_pack_u16(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packus_epi16(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(packed);
+    _mm256_permute4x64_epi64::<MASK>(packed)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_pack_s32(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packs_epi32(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(packed);
+    _mm256_permute4x64_epi64::<MASK>(packed)
 }
 
 #[inline(always)]
 pub unsafe fn avx2_pack_u32(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packus_epi32(s_1, s_2);
     const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(packed);
+    _mm256_permute4x64_epi64::<MASK>(packed)
 }

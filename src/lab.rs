@@ -43,7 +43,7 @@ impl Lab {
     #[inline]
     pub fn from_xyz(xyz: Xyz) -> Self {
         let x = xyz.x * 100f32 / 95.047f32;
-        let y = xyz.y * 100f32 / 100f32;
+        let y = xyz.y;
         let z = xyz.z * 100f32 / 108.883f32;
         let x = if x > 0.008856f32 {
             x.cbrt()

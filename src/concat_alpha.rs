@@ -56,10 +56,7 @@ pub fn append_alpha(
             }
         }
 
-        #[cfg(all(
-            any(target_arch = "x86_64", target_arch = "x86"),
-            target_feature = "sse4.1"
-        ))]
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         unsafe {
             if _use_sse {
                 concat_alpha_sse(width, _cx, src_ptr, a_ptr, dst_ptr);

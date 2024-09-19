@@ -18,7 +18,7 @@ pub(crate) unsafe fn avx_color_to_sigmoidal(x: __m256) -> __m256 {
     let den = _mm256_add_ps(_mm256_set1_ps(1f32), _mm256_exp_ps(negg));
     let erase_nan_mask = _mm256_cmp_ps::<_CMP_EQ_OS>(den, _mm256_setzero_ps());
     let rcp = _mm256_rcp_ps(den);
-    return _mm256_select_ps(erase_nan_mask, _mm256_setzero_ps(), rcp);
+    _mm256_select_ps(erase_nan_mask, _mm256_setzero_ps(), rcp)
 }
 
 #[inline(always)]
@@ -29,8 +29,7 @@ pub(crate) unsafe fn avx_sigmoidal_to_color(x: __m256) -> __m256 {
     let zeros = _mm256_setzero_ps();
     let zero_mask_2 = _mm256_cmp_ps::<_CMP_LT_OS>(k, zeros);
     let ln = _mm256_ln_fast_ps(k);
-    let rs = _mm256_select_ps(_mm256_and_ps(zero_mask_1, zero_mask_2), zeros, ln);
-    return rs;
+    _mm256_select_ps(_mm256_and_ps(zero_mask_1, zero_mask_2), zeros, ln)
 }
 
 #[inline(always)]

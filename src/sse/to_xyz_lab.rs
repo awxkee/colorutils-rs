@@ -34,10 +34,8 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
     matrix: &[[f32; 3]; 3],
     _: TransferFunction,
 ) -> usize {
-    if USE_ALPHA {
-        if a_linearized.is_null() {
-            panic!("Null alpha channel with requirements of linearized alpha if not supported");
-        }
+    if USE_ALPHA && a_linearized.is_null() {
+        panic!("Null alpha channel with requirements of linearized alpha if not supported");
     }
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();

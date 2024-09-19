@@ -30,7 +30,7 @@ pub unsafe fn sse_srgb_from_linear(linear: __m128) -> __m128 {
         ),
         _mm_set1_ps(0.0550107189475866f32),
     );
-    return _mm_select_ps(mask, high, low);
+    _mm_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -49,7 +49,7 @@ pub unsafe fn sse_srgb_to_linear(gamma: __m128) -> __m128 {
         2.4f32,
     );
     low = _mm_mul_ps(low, _mm_set1_ps(1f32 / 12.92f32));
-    return _mm_select_ps(mask, high, low);
+    _mm_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -70,7 +70,7 @@ pub unsafe fn sse_rec709_from_linear(linear: __m128) -> __m128 {
         ),
         _mm_set1_ps(0.09929682680944f32),
     );
-    return _mm_select_ps(mask, high, low);
+    _mm_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -89,7 +89,7 @@ pub unsafe fn sse_rec709_to_linear(gamma: __m128) -> __m128 {
         1.0f32 / 0.45f32,
     );
     low = _mm_mul_ps(low, _mm_set1_ps(1f32 / 4.5f32));
-    return _mm_select_ps(mask, high, low);
+    _mm_select_ps(mask, high, low)
 }
 
 #[inline(always)]

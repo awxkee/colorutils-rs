@@ -36,12 +36,12 @@ pub(crate) unsafe fn _mm256_fmaf_ps(a: __m256, b: __m256, c: __m256) -> __m256 {
 pub unsafe fn _mm256_cmpge_epi32(a: __m256i, b: __m256i) -> __m256i {
     let gt = _mm256_cmpgt_epi32(a, b);
     let eq = _mm256_cmpeq_epi32(a, b);
-    return _mm256_or_si256(gt, eq);
+    _mm256_or_si256(gt, eq)
 }
 
 #[inline(always)]
 pub unsafe fn _mm256_cmplt_epi32(a: __m256i, b: __m256i) -> __m256i {
-    return _mm256_cmpgt_epi32(b, a);
+    _mm256_cmpgt_epi32(b, a)
 }
 
 #[inline(always)]

@@ -34,10 +34,8 @@ pub unsafe fn sse_hsv_u16_to_image<
     let target: HsvTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Use alpha flag used on image without alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Use alpha flag used on image without alpha");
     }
 
     let channels = image_configuration.get_channels_count();

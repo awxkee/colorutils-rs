@@ -28,21 +28,21 @@ unsafe fn process_pixels(
 
     let r_low_low = _mm_unpacklo_epi16(r_low, zeros);
 
-    let x_low_low = sse_to_linear(r_low_low, &transfer);
+    let x_low_low = sse_to_linear(r_low_low, transfer);
 
     let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
 
-    let x_low_high = sse_to_linear(r_low_high, &transfer);
+    let x_low_high = sse_to_linear(r_low_high, transfer);
 
     let r_high = _mm_unpackhi_epi8(pixels, zeros);
 
     let r_high_low = _mm_unpacklo_epi16(r_high, zeros);
 
-    let x_high_low = sse_to_linear(r_high_low, &transfer);
+    let x_high_low = sse_to_linear(r_high_low, transfer);
 
     let r_high_high = _mm_unpackhi_epi16(r_high, zeros);
 
-    let x_high_high = sse_to_linear(r_high_high, &transfer);
+    let x_high_high = sse_to_linear(r_high_high, transfer);
 
     (x_low_low, x_low_high, x_high_low, x_high_high)
 }

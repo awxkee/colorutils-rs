@@ -111,10 +111,8 @@ pub unsafe fn avx_xyz_to_channels<
     _: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let channels = image_configuration.get_channels_count();

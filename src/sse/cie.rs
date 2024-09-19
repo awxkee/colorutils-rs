@@ -83,7 +83,6 @@ pub(crate) unsafe fn sse_triple_to_lab(
     z: __m128,
 ) -> (__m128, __m128, __m128) {
     let x = _mm_mul_ps(x, _mm_set1_ps(100f32 / 95.047f32));
-    let y = _mm_mul_ps(y, _mm_set1_ps(100f32 / 100f32));
     let z = _mm_mul_ps(z, _mm_set1_ps(100f32 / 108.883f32));
     let cbrt_x = _mm_cbrt_fast_ps(x);
     let cbrt_y = _mm_cbrt_fast_ps(y);

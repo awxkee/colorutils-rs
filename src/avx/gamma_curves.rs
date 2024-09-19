@@ -32,7 +32,7 @@ pub unsafe fn avx2_srgb_from_linear(linear: __m256) -> __m256 {
         ),
         _mm256_set1_ps(0.0550107189475866f32),
     );
-    return _mm256_select_ps(mask, high, low);
+    _mm256_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -51,7 +51,7 @@ pub unsafe fn avx2_srgb_to_linear(gamma: __m256) -> __m256 {
         2.4f32,
     );
     low = _mm256_mul_ps(low, _mm256_set1_ps(1f32 / 12.92f32));
-    return _mm256_select_ps(mask, high, low);
+    _mm256_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -72,7 +72,7 @@ pub unsafe fn avx2_rec709_from_linear(linear: __m256) -> __m256 {
         ),
         _mm256_set1_ps(0.09929682680944f32),
     );
-    return _mm256_select_ps(mask, high, low);
+    _mm256_select_ps(mask, high, low)
 }
 
 #[inline(always)]
@@ -91,7 +91,7 @@ pub unsafe fn avx2_rec709_to_linear(gamma: __m256) -> __m256 {
         1.0f32 / 0.45f32,
     );
     low = _mm256_mul_ps(low, _mm256_set1_ps(1f32 / 4.5f32));
-    return _mm256_select_ps(mask, high, low);
+    _mm256_select_ps(mask, high, low)
 }
 
 #[inline(always)]

@@ -19,7 +19,7 @@ pub(crate) unsafe fn sse_color_to_sigmoidal(x: __m128) -> __m128 {
     let den = _mm_add_ps(_mm_set1_ps(1f32), _mm_exp_ps(negg));
     let erase_nan_mask = _mm_cmpeq_ps(den, _mm_setzero_ps());
     let rcp = _mm_rcp_ps(den);
-    return _mm_select_ps(erase_nan_mask, _mm_setzero_ps(), rcp);
+    _mm_select_ps(erase_nan_mask, _mm_setzero_ps(), rcp)
 }
 
 #[inline(always)]
@@ -30,8 +30,7 @@ pub(crate) unsafe fn sse_sigmoidal_to_color(x: __m128) -> __m128 {
     let zeros = _mm_setzero_ps();
     let zero_mask_2 = _mm_cmple_ps(k, zeros);
     let ln = _mm_ln_fast_ps(k);
-    let rs = _mm_select_ps(_mm_and_ps(zero_mask_1, zero_mask_2), zeros, ln);
-    return rs;
+    _mm_select_ps(_mm_and_ps(zero_mask_1, zero_mask_2), zeros, ln)
 }
 
 #[inline(always)]

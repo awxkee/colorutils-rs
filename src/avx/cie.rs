@@ -166,7 +166,6 @@ pub(crate) unsafe fn avx2_triple_to_lab(
     z: __m256,
 ) -> (__m256, __m256, __m256) {
     let x = _mm256_mul_ps(x, _mm256_set1_ps(100f32 / 95.047f32));
-    let y = _mm256_mul_ps(y, _mm256_set1_ps(100f32 / 100f32));
     let z = _mm256_mul_ps(z, _mm256_set1_ps(100f32 / 108.883f32));
     let cbrt_x = _mm256_cbrt_ps(x);
     let cbrt_y = _mm256_cbrt_ps(y);
