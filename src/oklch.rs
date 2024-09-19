@@ -6,7 +6,7 @@
  */
 use crate::{EuclideanDistance, Oklab, Rgb, TaxicabDistance, TransferFunction};
 use erydanos::{eatan2f, ehypotf, Cosine, Sine};
-use num_traits::{Float, Pow};
+use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Represents *Oklch* colorspace
