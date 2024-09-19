@@ -109,10 +109,10 @@ macro_rules! triple_to_jzazbz {
         let jz = _mm_div_ps(num, den);
 
         match $target {
-            JzazbzTarget::JZAZBZ => {
+            JzazbzTarget::Jzazbz => {
                 (jz, az, bz)
             }
-            JzazbzTarget::JZCZHZ => {
+            JzazbzTarget::Jzczhz => {
                 let cz = _mm_hypot_fast_ps(az, bz);
                 let hz = _mm_atan2_ps(bz, az);
                 (jz, cz, hz)

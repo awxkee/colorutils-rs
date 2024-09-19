@@ -4,7 +4,8 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-use crate::{Rgb, SRGB_TO_XYZ_D65, TransferFunction, Xyz, XYZ_TO_SRGB_D65};
+use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
+use std::ops::{Index, IndexMut, Neg};
 
 /// Represents l-alpha-beta (lαβ) colorspace
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
@@ -74,5 +75,39 @@ impl LAlphaBeta {
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
         let xyz = self.to_xyz();
         xyz.to_rgb(&XYZ_TO_SRGB_D65, transfer_function)
+    }
+}
+
+impl Index<usize> for LAlphaBeta {
+    type Output = f32;
+
+    #[inline]
+    fn index(&self, index: usize) -> &f32 {
+        match index {
+            0 => &self.l,
+            1 => &self.alpha,
+            2 => &self.beta,
+            _ => panic!("Index out of bounds for LAlphaBeta"),
+        }
+    }
+}
+
+impl IndexMut<usize> for LAlphaBeta {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut f32 {
+        match index {
+            0 => &mut self.l,
+            1 => &mut self.alpha,
+            2 => &mut self.beta,
+            _ => panic!("Index out of bounds for LAlphaBeta"),
+        }
+    }
+}
+
+impl Neg for LAlphaBeta {
+    type Output = LAlphaBeta;
+
+    fn neg(self) -> Self::Output {
+        LAlphaBeta::new(-self.l, -self.alpha, -self.beta)
     }
 }

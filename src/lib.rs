@@ -4,11 +4,12 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::excessive_precision,
+    clippy::manual_clamp
+)]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx;
 mod concat_alpha;
 mod euclidean;
@@ -52,12 +53,11 @@ mod rgba;
 mod routines;
 mod sigmoidal;
 mod sigmoidal_to_image;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod sse;
 mod taxicab;
+mod utils;
+mod xyb;
 mod xyz;
 mod xyz_lab_to_image;
 mod xyz_target;
@@ -109,6 +109,7 @@ pub use rgba::ToRgba1010102;
 pub use rgba::ToRgba8;
 pub use rgba::ToRgbaF16;
 pub use rgba::ToRgbaF32;
+pub use xyb::Xyb;
 pub use xyz::Xyz;
 pub use xyz_lab_to_image::lab_to_srgb;
 pub use xyz_lab_to_image::laba_to_srgb;

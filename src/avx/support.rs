@@ -78,7 +78,7 @@ pub unsafe fn avx2_interleave_odd(x: __m256i) -> __m256i {
                                        25, 25, 27, 27,
                                        29, 29, 31, 31);
     let new_lane = _mm256_shuffle_epi8(x, shuffle);
-    return new_lane;
+    new_lane
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -89,7 +89,7 @@ pub unsafe fn sse_interleave_odd(x: __m128i) -> __m128i {
     let shuffle = _mm_setr_epi8(1, 1, 3, 3, 5, 5, 7, 7,
                                     9, 9, 11, 11, 13, 13, 15, 15);
     let new_lane = _mm_shuffle_epi8(x, shuffle);
-    return new_lane;
+    new_lane
 }
 
 #[inline(always)]
@@ -135,9 +135,8 @@ pub unsafe fn avx2_interleave_rgb(
     (bgr0, bgr1, bgr2)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
+#[inline]
+#[target_feature(enable = "avx2")]
 pub unsafe fn avx2_deinterleave_rgb_epi32(
     bgr0: __m256i,
     bgr1: __m256i,
@@ -229,9 +228,8 @@ pub unsafe fn avx2_deinterleave_rgb_epi8(
     (b0, g0, r0)
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
+#[inline]
+#[target_feature(enable = "avx2")]
 pub unsafe fn avx2_deinterleave_rgb_ps(
     rgb0: __m256,
     rgb1: __m256,
@@ -249,13 +247,12 @@ pub unsafe fn avx2_deinterleave_rgb_ps(
     )
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
-#[allow(dead_code)]
-pub unsafe fn avx2_reshuffle_odd(v: __m256i) -> __m256i {
-    const MASK: i32 = shuffle(3, 1, 2, 0);
-    return _mm256_permute4x64_epi64::<MASK>(v);
-}
+// #[inline]
+// #[target_feature(enable = "avx2")]
+// pub unsafe fn avx2_reshuffle_odd(v: __m256i) -> __m256i {
+//     const MASK: i32 = shuffle(3, 1, 2, 0);
+//     _mm256_permute4x64_epi64::<MASK>(v)
+// }
 
 #[inline(always)]
 pub unsafe fn avx2_deinterleave_rgba_epi8(

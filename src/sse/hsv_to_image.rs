@@ -78,8 +78,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_low = _mm_cvtepi32_ps(_mm_cvtepu16_epi32(v_chan));
 
         let (r_low, g_low, b_low) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
         };
 
         let zeros = _mm_setzero_si128();
@@ -89,8 +89,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_high = _mm_cvtepi32_ps(_mm_unpackhi_epi16(v_chan, zeros));
 
         let (r_high, g_high, b_high) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
         };
 
         let r_chan_16_lo = _mm_packus_epi32(r_low, r_high);
@@ -128,8 +128,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_low = _mm_cvtepi32_ps(_mm_cvtepu16_epi32(v_chan));
 
         let (r_low, g_low, b_low) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
         };
 
         let zeros = _mm_setzero_si128();
@@ -139,8 +139,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_high = _mm_cvtepi32_ps(_mm_unpackhi_epi16(v_chan, zeros));
 
         let (r_high, g_high, b_high) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
         };
 
         let r_chan_16_hi = _mm_packus_epi32(r_low, r_high);
@@ -214,8 +214,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_low = _mm_cvtepi32_ps(_mm_cvtepu16_epi32(v_chan));
 
         let (r_low, g_low, b_low) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_low, s_low, v_low, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_low, s_low, v_low, v_scale),
         };
 
         let zeros = _mm_setzero_si128();
@@ -225,8 +225,8 @@ pub unsafe fn sse_hsv_u16_to_image<
         let v_high = _mm_cvtepi32_ps(_mm_unpackhi_epi16(v_chan, zeros));
 
         let (r_high, g_high, b_high) = match target {
-            HsvTarget::HSV => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
-            HsvTarget::HSL => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsv => sse_hsv_to_rgb(h_high, s_high, v_high, v_scale),
+            HsvTarget::Hsl => sse_hsl_to_rgb(h_high, s_high, v_high, v_scale),
         };
 
         let r_chan_16_lo = _mm_packus_epi32(r_low, r_high);

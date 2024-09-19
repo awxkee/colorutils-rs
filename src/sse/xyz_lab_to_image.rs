@@ -45,19 +45,19 @@ unsafe fn sse_xyz_lab_vld<
         sse_deinterleave_rgb_ps(lab_pixel_0, lab_pixel_1, lab_pixel_2);
 
     match target {
-        XyzTarget::LAB => {
+        XyzTarget::Lab => {
             let (x, y, z) = sse_lab_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LUV => {
+        XyzTarget::Luv => {
             let (x, y, z) = sse_luv_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LCH => {
+        XyzTarget::Lch => {
             let (x, y, z) = sse_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;

@@ -96,10 +96,10 @@ macro_rules! triple_to_jzazbz {
         let jz = vdivq_f32(num, den);
 
         match $target {
-            JzazbzTarget::JZAZBZ => {
+            JzazbzTarget::Jzazbz => {
                 (jz, az, bz)
             }
-            JzazbzTarget::JZCZHZ => {
+            JzazbzTarget::Jzczhz => {
                 let cz = vhypotq_fast_f32(az, bz);
                 let hz = vatan2q_f32(bz, az);
                 (jz, cz, hz)

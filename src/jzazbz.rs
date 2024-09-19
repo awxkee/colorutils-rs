@@ -5,9 +5,13 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::{
-    EuclideanDistance, Jzczhz, Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65,
+    EuclideanDistance, Jzczhz, Rgb, TaxicabDistance, TransferFunction, Xyz, SRGB_TO_XYZ_D65,
+    XYZ_TO_SRGB_D65,
 };
-use erydanos::ehypot3f;
+use num_traits::Pow;
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 #[inline]
 fn perceptual_quantizer(x: f32) -> f32 {
@@ -173,7 +177,238 @@ impl Jzazbz {
 }
 
 impl EuclideanDistance for Jzazbz {
+    #[inline]
     fn euclidean_distance(&self, other: Self) -> f32 {
-        ehypot3f(self.jz - other.jz, self.az - other.az, self.bz - other.bz)
+        let djz = self.jz - other.jz;
+        let daz = self.az - other.az;
+        let dbz = self.bz - other.bz;
+        (djz * djz + daz * daz + dbz * dbz).sqrt()
+    }
+}
+
+impl TaxicabDistance for Jzazbz {
+    #[inline]
+    fn taxicab_distance(&self, other: Self) -> f32 {
+        let djz = self.jz - other.jz;
+        let daz = self.az - other.az;
+        let dbz = self.bz - other.bz;
+        djz.abs() + daz.abs() + dbz.abs()
+    }
+}
+
+impl Index<usize> for Jzazbz {
+    type Output = f32;
+
+    #[inline]
+    fn index(&self, index: usize) -> &f32 {
+        match index {
+            0 => &self.jz,
+            1 => &self.az,
+            2 => &self.bz,
+            _ => panic!("Index out of bounds for Jzazbz"),
+        }
+    }
+}
+
+impl IndexMut<usize> for Jzazbz {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut f32 {
+        match index {
+            0 => &mut self.jz,
+            1 => &mut self.az,
+            2 => &mut self.bz,
+            _ => panic!("Index out of bounds for Jzazbz"),
+        }
+    }
+}
+
+impl Add<f32> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn add(self, rhs: f32) -> Self::Output {
+        Jzazbz::new(self.jz + rhs, self.az + rhs, self.bz + rhs)
+    }
+}
+
+impl Sub<f32> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn sub(self, rhs: f32) -> Self::Output {
+        Jzazbz::new(self.jz - rhs, self.az - rhs, self.bz - rhs)
+    }
+}
+
+impl Mul<f32> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Self::Output {
+        Jzazbz::new(self.jz * rhs, self.az * rhs, self.bz * rhs)
+    }
+}
+
+impl Div<f32> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn div(self, rhs: f32) -> Self::Output {
+        Jzazbz::new(self.jz / rhs, self.az / rhs, self.bz / rhs)
+    }
+}
+
+impl Add<Jzazbz> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn add(self, rhs: Jzazbz) -> Self::Output {
+        Jzazbz::new(self.jz + rhs.jz, self.az + rhs.az, self.bz + rhs.bz)
+    }
+}
+
+impl Sub<Jzazbz> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn sub(self, rhs: Jzazbz) -> Self::Output {
+        Jzazbz::new(self.jz - rhs.jz, self.az - rhs.az, self.bz - rhs.bz)
+    }
+}
+
+impl Mul<Jzazbz> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn mul(self, rhs: Jzazbz) -> Self::Output {
+        Jzazbz::new(self.jz * rhs.jz, self.az * rhs.az, self.bz * rhs.bz)
+    }
+}
+
+impl Div<Jzazbz> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn div(self, rhs: Jzazbz) -> Self::Output {
+        Jzazbz::new(self.jz / rhs.jz, self.az / rhs.az, self.bz / rhs.bz)
+    }
+}
+
+impl AddAssign<Jzazbz> for Jzazbz {
+    #[inline]
+    fn add_assign(&mut self, rhs: Jzazbz) {
+        self.jz += rhs.jz;
+        self.az += rhs.az;
+        self.bz += rhs.bz;
+    }
+}
+
+impl SubAssign<Jzazbz> for Jzazbz {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Jzazbz) {
+        self.jz -= rhs.jz;
+        self.az -= rhs.az;
+        self.bz -= rhs.bz;
+    }
+}
+
+impl MulAssign<Jzazbz> for Jzazbz {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Jzazbz) {
+        self.jz *= rhs.jz;
+        self.az *= rhs.az;
+        self.bz *= rhs.bz;
+    }
+}
+
+impl DivAssign<Jzazbz> for Jzazbz {
+    #[inline]
+    fn div_assign(&mut self, rhs: Jzazbz) {
+        self.jz /= rhs.jz;
+        self.az /= rhs.az;
+        self.bz /= rhs.bz;
+    }
+}
+
+impl AddAssign<f32> for Jzazbz {
+    #[inline]
+    fn add_assign(&mut self, rhs: f32) {
+        self.jz += rhs;
+        self.az += rhs;
+        self.bz += rhs;
+    }
+}
+
+impl SubAssign<f32> for Jzazbz {
+    #[inline]
+    fn sub_assign(&mut self, rhs: f32) {
+        self.jz -= rhs;
+        self.az -= rhs;
+        self.bz -= rhs;
+    }
+}
+
+impl MulAssign<f32> for Jzazbz {
+    #[inline]
+    fn mul_assign(&mut self, rhs: f32) {
+        self.jz *= rhs;
+        self.az *= rhs;
+        self.bz *= rhs;
+    }
+}
+
+impl DivAssign<f32> for Jzazbz {
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        self.jz /= rhs;
+        self.az /= rhs;
+        self.bz /= rhs;
+    }
+}
+
+impl Neg for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Jzazbz::new(-self.jz, -self.az, -self.bz)
+    }
+}
+
+impl Jzazbz {
+    #[inline]
+    pub fn sqrt(&self) -> Jzazbz {
+        Jzazbz::new(
+            if self.jz < 0. { 0. } else { self.jz.sqrt() },
+            if self.az < 0. { 0. } else { self.az.sqrt() },
+            if self.bz < 0. { 0. } else { self.bz.sqrt() },
+        )
+    }
+
+    #[inline]
+    pub fn cbrt(&self) -> Jzazbz {
+        Jzazbz::new(self.jz.cbrt(), self.az.cbrt(), self.bz.cbrt())
+    }
+}
+
+impl Pow<f32> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn pow(self, rhs: f32) -> Self::Output {
+        Jzazbz::new(self.jz.powf(rhs), self.az.powf(rhs), self.bz.powf(rhs))
+    }
+}
+
+impl Pow<Jzazbz> for Jzazbz {
+    type Output = Jzazbz;
+
+    #[inline]
+    fn pow(self, rhs: Jzazbz) -> Self::Output {
+        Jzazbz::new(
+            self.jz.powf(rhs.jz),
+            self.az.powf(self.az),
+            self.bz.powf(self.bz),
+        )
     }
 }

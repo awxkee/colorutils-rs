@@ -27,23 +27,22 @@ unsafe fn process_pixels(
 
     let r_low_low = vmovl_u16(vget_low_u16(r_low));
 
-    let x_low_low = neon_to_linear(r_low_low, &transfer);
+    let x_low_low = neon_to_linear(r_low_low, transfer);
 
     let r_low_high = vmovl_high_u16(r_low);
 
-    let x_low_high = neon_to_linear(r_low_high, &transfer);
+    let x_low_high = neon_to_linear(r_low_high, transfer);
 
     let r_high = vmovl_high_u8(pixels);
 
     let r_high_low = vmovl_u16(vget_low_u16(r_high));
 
-    let x_high_low = neon_to_linear(r_high_low, &transfer);
+    let x_high_low = neon_to_linear(r_high_low, transfer);
 
     let r_high_high = vmovl_high_u16(r_high);
 
-    let x_high_high = neon_to_linear(r_high_high, &transfer);
-    let storing_row = float32x4x4_t(x_low_low, x_low_high, x_high_low, x_high_high);
-    storing_row
+    let x_high_high = neon_to_linear(r_high_high, transfer);
+    float32x4x4_t(x_low_low, x_low_high, x_high_low, x_high_high)
 }
 
 #[inline(always)]

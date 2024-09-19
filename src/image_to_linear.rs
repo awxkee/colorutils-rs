@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_channels_to_linear;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
@@ -17,14 +14,11 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_channels_to_linear;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::*;
 use crate::Rgb;
 
-#[inline(always)]
+#[allow(clippy::type_complexity)]
 fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: &[u8],
     src_stride: u32,
@@ -35,10 +29,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     transfer_function: TransferFunction,
 ) {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let mut src_offset = 0usize;
@@ -52,11 +44,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(
                 sse_channels_to_linear::<
@@ -89,11 +78,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    if is_x86_feature_detected!("avx2") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("avx2") {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(
                 avx_channels_to_linear::<
@@ -226,7 +212,9 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     }
 }
 
-/// This function converts RGB to Linear. This is much more effective than naive direct transformation
+/// This function converts RGB to linear colorspace
+///
+/// This function converts RGB to linear color space. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains RGB data
@@ -256,6 +244,8 @@ pub fn rgb_to_linear(
     );
 }
 
+/// This function converts RGBA to liner color space
+///
 /// This function converts RGBA to Linear, Alpha channel is normalized. This is much more effective than naive direct transformation
 ///
 /// # Arguments
@@ -286,7 +276,9 @@ pub fn rgba_to_linear(
     );
 }
 
-/// This function converts BGRA to Linear, Alpha channel is normalized. This is much more effective than naive direct transformation
+/// This function converts BGRA to Linear.
+///
+/// This function converts BGRA to Linear, alpha channel is normalized. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGRA data
@@ -316,7 +308,9 @@ pub fn bgra_to_linear(
     );
 }
 
-/// This function converts BGR to Linear. This is much more effective than naive direct transformation
+/// This function converts BGR to linear
+///
+/// This function converts BGR to linear color space. This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGR data

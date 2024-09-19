@@ -4,10 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_image_to_oklab;
 use crate::image::ImageConfiguration;
 #[cfg(all(
@@ -16,24 +13,21 @@ use crate::image::ImageConfiguration;
 ))]
 use crate::neon::neon_image_to_oklab;
 use crate::oklch::Oklch;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_oklab;
 use crate::{Oklab, Rgb, TransferFunction};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub(crate) enum OklabTarget {
-    OKLAB = 0,
-    OKLCH = 1,
+    Oklab = 0,
+    Oklch = 1,
 }
 
 impl From<u8> for OklabTarget {
     fn from(value: u8) -> Self {
         match value {
-            0 => OklabTarget::OKLAB,
-            1 => OklabTarget::OKLCH,
+            0 => OklabTarget::Oklab,
+            1 => OklabTarget::Oklch,
             _ => {
                 panic!("Not implemented")
             }
@@ -41,7 +35,7 @@ impl From<u8> for OklabTarget {
     }
 }
 
-#[inline(always)]
+#[allow(clippy::type_complexity)]
 fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[u8],
     src_stride: u32,
@@ -97,11 +91,8 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(
                 sse_image_to_oklab::<
@@ -134,11 +125,8 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    if is_x86_feature_detected!("avx2") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("avx2") {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(
                 avx_image_to_oklab::<
@@ -215,7 +203,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
             let dst_store = unsafe { dst_ptr.add(px) };
 
             match target {
-                OklabTarget::OKLAB => {
+                OklabTarget::Oklab => {
                     let oklab = Oklab::from_rgb(rgb, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(oklab.l);
@@ -223,7 +211,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                         dst_store.add(2).write_unaligned(oklab.b);
                     }
                 }
-                OklabTarget::OKLCH => {
+                OklabTarget::Oklch => {
                     let oklch = Oklch::from_rgb(rgb, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(oklch.l);
@@ -269,7 +257,7 @@ pub fn rgb_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLAB as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
         src_stride,
         dst,
@@ -299,7 +287,7 @@ pub fn rgba_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLAB as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
         src_stride,
         dst,
@@ -329,7 +317,7 @@ pub fn bgra_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLAB as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
         src_stride,
         dst,
@@ -359,7 +347,7 @@ pub fn bgr_to_oklab(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLAB as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
         src_stride,
         dst,
@@ -389,7 +377,7 @@ pub fn rgb_to_oklch(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::OKLCH as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
         src_stride,
         dst,
@@ -419,7 +407,7 @@ pub fn rgba_to_oklch(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::OKLCH as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
         src_stride,
         dst,
@@ -449,7 +437,7 @@ pub fn bgra_to_oklch(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::OKLCH as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
         src_stride,
         dst,
@@ -479,7 +467,7 @@ pub fn bgr_to_oklch(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::OKLCH as u8 }>(
+    channels_to_oklab::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
         src_stride,
         dst,

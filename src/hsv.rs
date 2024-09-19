@@ -40,16 +40,16 @@ impl Hsv {
             rgb.g as f32 * HSV_U8_SCALE,
             rgb.b as f32 * HSV_U8_SCALE,
         );
-        return Hsv { h, s, v };
+        Hsv { h, s, v }
     }
     #[inline]
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let (rf, gf, bf) = hsv_to_rgb(self.h, self.s, self.v);
-        return Rgb {
+        Rgb {
             r: (rf * 255f32) as u8,
             g: (gf * 255f32) as u8,
             b: (bf * 255f32) as u8,
-        };
+        }
     }
     #[inline]
     pub fn get_hue(&self) -> f32 {
@@ -108,6 +108,7 @@ fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 }
 
 #[inline]
+#[allow(clippy::manual_range_contains)]
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     let c = v * s;
     let h_prime = (h / 60f32) % 6f32;

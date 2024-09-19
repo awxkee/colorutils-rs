@@ -11,13 +11,11 @@ use crate::image_to_jzazbz::JzazbzTarget;
     target_feature = "neon"
 ))]
 use crate::neon::neon_jzazbz_to_image;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_jzazbz_to_image;
 use crate::{Jzazbz, Jzczhz, TransferFunction};
 
+#[allow(clippy::type_complexity)]
 fn jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
     src_stride: u32,
@@ -35,11 +33,8 @@ fn jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, f32, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handle = Some(sse_jzazbz_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
@@ -82,18 +77,16 @@ fn jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
             let l_x = unsafe { src_ptr.add(px).read_unaligned() };
             let l_y = unsafe { src_ptr.add(px + 1).read_unaligned() };
             let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
-            let rgb;
-
-            match target {
-                JzazbzTarget::JZAZBZ => {
+            let rgb = match target {
+                JzazbzTarget::Jzazbz => {
                     let jzazbz = Jzazbz::new_with_luminance(l_x, l_y, l_z, display_luminance);
-                    rgb = jzazbz.to_rgb(transfer_function);
+                    jzazbz.to_rgb(transfer_function)
                 }
-                JzazbzTarget::JZCZHZ => {
+                JzazbzTarget::Jzczhz => {
                     let jzczhz = Jzczhz::new(l_x, l_y, l_z);
-                    rgb = jzczhz.to_rgb_with_luminance(display_luminance, transfer_function);
+                    jzczhz.to_rgb_with_luminance(display_luminance, transfer_function)
                 }
-            }
+            };
 
             unsafe {
                 let dst = dst_ptr.add(x * channels);
@@ -137,7 +130,7 @@ pub fn jzazbz_to_rgba(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Rgba as u8 }, { JzazbzTarget::JZAZBZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Rgba as u8 }, { JzazbzTarget::Jzazbz as u8 }>(
         src,
         src_stride,
         dst,
@@ -169,7 +162,7 @@ pub fn jzazbz_to_rgb(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Rgb as u8 }, { JzazbzTarget::JZAZBZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Rgb as u8 }, { JzazbzTarget::Jzazbz as u8 }>(
         src,
         src_stride,
         dst,
@@ -201,7 +194,7 @@ pub fn jzazbz_to_bgr(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Bgr as u8 }, { JzazbzTarget::JZAZBZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Bgr as u8 }, { JzazbzTarget::Jzazbz as u8 }>(
         src,
         src_stride,
         dst,
@@ -233,7 +226,7 @@ pub fn jzazbz_to_bgra(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Bgra as u8 }, { JzazbzTarget::JZAZBZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Bgra as u8 }, { JzazbzTarget::Jzazbz as u8 }>(
         src,
         src_stride,
         dst,
@@ -265,7 +258,7 @@ pub fn jzczhz_to_rgba(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Rgba as u8 }, { JzazbzTarget::JZCZHZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Rgba as u8 }, { JzazbzTarget::Jzczhz as u8 }>(
         src,
         src_stride,
         dst,
@@ -297,7 +290,7 @@ pub fn jzczhz_to_rgb(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Rgb as u8 }, { JzazbzTarget::JZCZHZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Rgb as u8 }, { JzazbzTarget::Jzczhz as u8 }>(
         src,
         src_stride,
         dst,
@@ -329,7 +322,7 @@ pub fn jzczhz_to_bgr(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Bgr as u8 }, { JzazbzTarget::JZCZHZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Bgr as u8 }, { JzazbzTarget::Jzczhz as u8 }>(
         src,
         src_stride,
         dst,
@@ -361,7 +354,7 @@ pub fn jzczhz_to_bgra(
     display_luminance: f32,
     transfer_function: TransferFunction,
 ) {
-    jzazbz_to_image::<{ ImageConfiguration::Bgra as u8 }, { JzazbzTarget::JZCZHZ as u8 }>(
+    jzazbz_to_image::<{ ImageConfiguration::Bgra as u8 }, { JzazbzTarget::Jzczhz as u8 }>(
         src,
         src_stride,
         dst,

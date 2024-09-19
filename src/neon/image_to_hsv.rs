@@ -29,10 +29,8 @@ pub unsafe fn neon_channels_to_hsv<
     let target: HsvTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Use alpha flag used on image without alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Use alpha flag used on image without alpha");
     }
 
     let channels = image_configuration.get_channels_count();
@@ -83,8 +81,8 @@ pub unsafe fn neon_channels_to_hsv<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
         };
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -104,8 +102,8 @@ pub unsafe fn neon_channels_to_hsv<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
         };
         if USE_ALPHA {
             let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -125,8 +123,8 @@ pub unsafe fn neon_channels_to_hsv<
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
         let (x_high_low, y_high_low, z_high_low) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
         };
 
         let a_high = vmovl_high_u8(a_chan);
@@ -148,8 +146,8 @@ pub unsafe fn neon_channels_to_hsv<
         let b_high_high = vmovl_high_u16(b_high);
 
         let (x_high_high, y_high_high, z_high_high) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
         };
 
         if USE_ALPHA {
@@ -184,10 +182,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
     let target: HsvTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Use alpha flag used on image without alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Use alpha flag used on image without alpha");
     }
 
     let channels = image_configuration.get_channels_count();
@@ -210,8 +206,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
         };
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -221,8 +217,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
         };
 
         let x_low = vcombine_u16(
@@ -255,8 +251,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
         let (x_high_low, y_high_low, z_high_low) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
         };
 
         let a_high = vmovl_high_u8(a_chan);
@@ -266,8 +262,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_high_high = vmovl_high_u16(b_high);
 
         let (x_high_high, y_high_high, z_high_high) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
         };
 
         let x_high = vcombine_u16(
@@ -309,8 +305,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
         };
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -320,8 +316,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) = match target {
-            HsvTarget::HSV => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
-            HsvTarget::HSL => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsv => neon_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsl => neon_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
         };
 
         let x_low = vcombine_u16(

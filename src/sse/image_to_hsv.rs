@@ -63,8 +63,8 @@ pub unsafe fn sse_channels_to_hsv_u16<
         let b_low_low = _mm_unpacklo_epi16(b_low, zeros);
 
         let (x_low_low, y_low_low, z_low_low) = match target {
-            HsvTarget::HSV => sse_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
-            HsvTarget::HSL => sse_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsv => sse_rgb_to_hsv(r_low_low, g_low_low, b_low_low, v_scale),
+            HsvTarget::Hsl => sse_rgb_to_hsl(r_low_low, g_low_low, b_low_low, v_scale),
         };
 
         let a_low = _mm_unpacklo_epi8(a_chan, zeros);
@@ -74,8 +74,8 @@ pub unsafe fn sse_channels_to_hsv_u16<
         let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (x_low_high, y_low_high, z_low_high) = match target {
-            HsvTarget::HSV => sse_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
-            HsvTarget::HSL => sse_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsv => sse_rgb_to_hsv(r_low_high, g_low_high, b_low_high, v_scale),
+            HsvTarget::Hsl => sse_rgb_to_hsl(r_low_high, g_low_high, b_low_high, v_scale),
         };
 
         const ROUNDING_FLAGS: i32 = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
@@ -109,8 +109,8 @@ pub unsafe fn sse_channels_to_hsv_u16<
         let b_high_low = _mm_unpacklo_epi16(b_high, zeros);
 
         let (x_high_low, y_high_low, z_high_low) = match target {
-            HsvTarget::HSV => sse_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
-            HsvTarget::HSL => sse_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsv => sse_rgb_to_hsv(r_high_low, g_high_low, b_high_low, v_scale),
+            HsvTarget::Hsl => sse_rgb_to_hsl(r_high_low, g_high_low, b_high_low, v_scale),
         };
 
         let a_high = _mm_unpackhi_epi8(a_chan, zeros);
@@ -120,8 +120,8 @@ pub unsafe fn sse_channels_to_hsv_u16<
         let b_high_high = _mm_unpackhi_epi16(b_high, zeros);
 
         let (x_high_high, y_high_high, z_high_high) = match target {
-            HsvTarget::HSV => sse_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
-            HsvTarget::HSL => sse_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsv => sse_rgb_to_hsv(r_high_high, g_high_high, b_high_high, v_scale),
+            HsvTarget::Hsl => sse_rgb_to_hsl(r_high_high, g_high_high, b_high_high, v_scale),
         };
 
         let x_high = _mm_packus_epi32(

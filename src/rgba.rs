@@ -4,16 +4,20 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-
-use half::f16;
-
 use crate::rgb::Rgb;
 use crate::routines::{
     op_color_burn, op_color_dodge, op_darken, op_difference, op_exclusion, op_hard_light,
     op_hard_mix, op_lighten, op_linear_burn, op_linear_light, op_overlay, op_pin_light, op_reflect,
     op_screen, op_soft_light, op_vivid_light,
 };
-use crate::{adjust_saturation, clip_color, color_add, pdf_lum};
+use crate::{
+    adjust_saturation, clip_color, color_add, pdf_lum, EuclideanDistance, TaxicabDistance,
+    TransferFunction,
+};
+use half::f16;
+use num_traits::{clamp, AsPrimitive, Bounded, Float, Num, Pow};
+use std::cmp::{max, min, Ordering};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Neg, Sub};
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Represents any RGBA values, Rgba<u8>, Rgba<u16> etc.
@@ -30,70 +34,116 @@ pub struct Rgba<T> {
 
 impl Rgba<f16> {
     pub fn from_rgb(r: f16, g: f16, b: f16) -> Rgba<f16> {
-        return Rgba {
+        Rgba {
             r,
             g,
             b,
             a: f16::from_f32(1f32),
-        };
+        }
     }
 }
 
 impl<T> Rgba<T> {
     #[inline]
     pub fn new(r: T, g: T, b: T, a: T) -> Rgba<T> {
-        return Rgba { r, g, b, a };
+        Rgba { r, g, b, a }
     }
 }
 
-impl Rgba<f32> {
-    #[inline]
-    pub fn zeroed() -> Rgba<f32> {
-        Rgba::<f32>::new(0., 0., 0., 0.)
-    }
-
-    #[inline]
-    pub fn ones() -> Rgba<f32> {
-        Rgba::<f32>::new(1., 1., 1., 1.)
-    }
-
-    #[inline]
-    pub fn white() -> Rgba<f32> {
-        Rgba::<f32>::new(1., 1., 1., 1.)
-    }
-
-    #[inline]
-    pub fn black() -> Rgba<f32> {
-        Rgba::<f32>::new(0., 0., 0., 1.)
-    }
-
-    #[inline]
-    pub fn from_rgb(r: f32, g: f32, b: f32) -> Rgba<f32> {
-        return Rgba { r, g, b, a: 1f32 };
+impl<T> Rgba<T>
+where
+    T: Copy,
+{
+    pub fn dup(v: T) -> Self {
+        Rgba::new(v, v, v, v)
     }
 }
 
-impl Rgba<u8> {
-    #[inline]
-    pub fn zeroed() -> Rgba<u8> {
-        Rgba::<u8>::new(0, 0, 0, 0)
-    }
+macro_rules! generated_float_definition_rgba {
+    ($T: ty) => {
+        impl Rgba<$T> {
+            #[inline]
+            pub fn zeroed() -> Rgba<$T> {
+                Rgba::<$T>::dup(0.)
+            }
 
-    #[inline]
-    pub fn capped() -> Rgba<u8> {
-        Rgba::<u8>::new(255, 255, 255, 255)
-    }
+            #[inline]
+            pub fn ones() -> Rgba<$T> {
+                Rgba::<$T>::new(1., 1., 1., 1.)
+            }
 
-    #[inline]
-    pub fn black() -> Rgba<u8> {
-        Rgba::<u8>::new(0, 0, 0, 255)
-    }
+            #[inline]
+            pub fn white() -> Rgba<$T> {
+                Rgba::<$T>::new(1., 1., 1., 1.)
+            }
 
-    #[inline]
-    pub fn white() -> Rgba<u8> {
-        Rgba::<u8>::capped()
-    }
+            #[inline]
+            pub fn black() -> Rgba<$T> {
+                Rgba::<$T>::new(0., 0., 0., 1.)
+            }
+
+            #[inline]
+            pub fn from_rgb(r: $T, g: $T, b: $T) -> Rgba<$T> {
+                Rgba { r, g, b, a: 1. }
+            }
+        }
+    };
 }
+
+generated_float_definition_rgba!(f32);
+generated_float_definition_rgba!(f64);
+
+macro_rules! generated_integral_definition_rgba {
+    ($T: ty) => {
+        impl Rgba<$T> {
+            #[inline]
+            pub fn zeroed() -> Rgba<$T> {
+                Rgba::<$T>::new(0, 0, 0, 0)
+            }
+
+            #[inline]
+            pub fn capped() -> Rgba<$T> {
+                Rgba::<$T>::new(<$T>::MAX, <$T>::MAX, <$T>::MAX, <$T>::MAX)
+            }
+
+            #[inline]
+            pub fn black() -> Rgba<$T> {
+                Rgba::<$T>::new(0, 0, 0, <$T>::MAX)
+            }
+
+            #[inline]
+            pub fn white() -> Rgba<$T> {
+                Rgba::<$T>::capped()
+            }
+        }
+    };
+}
+
+generated_integral_definition_rgba!(u8);
+generated_integral_definition_rgba!(u16);
+generated_integral_definition_rgba!(i8);
+generated_integral_definition_rgba!(i16);
+generated_integral_definition_rgba!(i32);
+generated_integral_definition_rgba!(u32);
+
+macro_rules! generated_default_definition_rgba {
+    ($T: ty) => {
+        impl Default for Rgba<$T> {
+            fn default() -> Self {
+                Rgba::<$T>::zeroed()
+            }
+        }
+    };
+}
+
+generated_default_definition_rgba!(u8);
+generated_default_definition_rgba!(u16);
+generated_default_definition_rgba!(i8);
+generated_default_definition_rgba!(i16);
+generated_default_definition_rgba!(i32);
+generated_default_definition_rgba!(u32);
+generated_default_definition_rgba!(f32);
+generated_default_definition_rgba!(f64);
 
 impl Rgba<f32> {
     /// Using alpha blend over algorithm where current color is on bottom ( destination )
@@ -339,7 +389,7 @@ impl Rgba<f32> {
     #[inline]
     pub fn clip_color(&self) -> Rgba<f32> {
         let (r, g, b) = clip_color!(self);
-        return Rgba::<f32>::new(r, g, b, self.a);
+        Rgba::<f32>::new(r, g, b, self.a)
     }
 
     #[inline]
@@ -349,7 +399,7 @@ impl Rgba<f32> {
         let g = self.g + d;
         let b = self.b + d;
         let new_color = Rgba::<f32>::new(r, g, b, self.a);
-        return new_color.clip_color();
+        new_color.clip_color()
     }
 
     #[inline]
@@ -398,7 +448,7 @@ impl Rgba<f32> {
             cmin
         };
 
-        return Rgba::<f32>::new(r, g, b, self.a);
+        Rgba::<f32>::new(r, g, b, self.a)
     }
 
     #[inline]
@@ -440,12 +490,12 @@ impl Rgba<f32> {
 impl Rgba<u8> {
     #[inline]
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Rgba<u8> {
-        return Rgba {
+        Rgba {
             r,
             g,
             b,
             a: u8::MAX,
-        };
+        }
     }
 
     #[inline]
@@ -677,6 +727,7 @@ impl Rgba<u8> {
     }
 
     #[inline]
+    #[allow(clippy::manual_clamp)]
     pub fn contrast(&self, contrast: f32) -> Rgba<u8> {
         let new_r = (self.r as f32 * contrast + -127.5f32 * contrast + 127.5f32)
             .round()
@@ -713,6 +764,38 @@ impl Rgba<u8> {
             self.a,
         )
     }
+
+    /// Converts gamma corrected RGBA to linear RGBA
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert RGB into linear RGB
+    #[inline]
+    pub fn to_linear(&self, transfer_function: TransferFunction) -> Rgba<f32> {
+        let linear_transfer = transfer_function.get_linearize_function();
+        let rgba = self.to_rgba_f32();
+        Rgba::<f32>::new(
+            linear_transfer(rgba.r),
+            linear_transfer(rgba.g),
+            linear_transfer(rgba.b),
+            rgba.a,
+        )
+    }
+
+    /// Converts gamma corrected RGB to linear RGB
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function to convert RGB into linear RGB
+    #[inline]
+    pub fn from_linear(linear_rgb: Rgba<f32>, transfer_function: TransferFunction) -> Rgba<u8> {
+        let gamma_transfer = transfer_function.get_gamma_function();
+        let gamma = Rgba::<f32>::new(
+            gamma_transfer(linear_rgb.r),
+            gamma_transfer(linear_rgb.g),
+            gamma_transfer(linear_rgb.b),
+            linear_rgb.a,
+        );
+        gamma.to_rgba8()
+    }
 }
 
 pub trait ToRgba8 {
@@ -735,36 +818,38 @@ impl ToRgbaF32 for Rgba<u8> {
     #[inline]
     fn to_rgba_f32(&self) -> Rgba<f32> {
         const SCALE_U8: f32 = 1f32 / 255f32;
-        return Rgba::<f32>::new(
+        Rgba::<f32>::new(
             self.r as f32 * SCALE_U8,
             self.g as f32 * SCALE_U8,
             self.b as f32 * SCALE_U8,
             self.a as f32 * SCALE_U8,
-        );
+        )
     }
 }
 
 impl ToRgba8 for Rgba<f32> {
     #[inline]
+    #[allow(clippy::manual_clamp)]
     fn to_rgba8(&self) -> Rgba<u8> {
-        return Rgba {
+        Rgba {
             r: (self.r * 255f32).min(255f32).max(0f32) as u8,
             g: (self.g * 255f32).min(255f32).max(0f32) as u8,
             b: (self.b * 255f32).min(255f32).max(0f32) as u8,
             a: (self.a * 255f32).min(255f32).max(0f32) as u8,
-        };
+        }
     }
 }
 
 impl ToRgba8 for Rgba<f16> {
     #[inline]
+    #[allow(clippy::manual_clamp)]
     fn to_rgba8(&self) -> Rgba<u8> {
-        return Rgba {
+        Rgba {
             r: (self.r.to_f32() * 255f32).min(255f32).max(0f32) as u8,
             g: (self.g.to_f32() * 255f32).min(255f32).max(0f32) as u8,
             b: (self.b.to_f32() * 255f32).min(255f32).max(0f32) as u8,
             a: (self.a.to_f32() * 255f32).min(255f32).max(0f32) as u8,
-        };
+        }
     }
 }
 
@@ -847,10 +932,11 @@ impl ToRgb565 for Rgba<u8> {
 
 impl ToRgb565 for Rgba<f16> {
     #[inline]
+    #[allow(clippy::manual_clamp)]
     fn to_rgb_565(&self) -> Rgb565 {
-        let red5 = (self.r.to_f32() * 31f32).max(31f32).min(0f32) as u16;
-        let green6 = (self.g.to_f32() * 63f32).max(63f32).min(0f32) as u16;
-        let blue5 = (self.b.to_f32() * 31f32).max(31f32).min(0f32) as u16;
+        let red5 = (self.r.to_f32() * 31f32).min(31f32).max(0f32) as u16;
+        let green6 = (self.g.to_f32() * 63f32).min(63f32).max(0f32) as u16;
+        let blue5 = (self.b.to_f32() * 31f32).min(31f32).max(0f32) as u16;
         Rgb565 {
             rgb565: red5 | green6 | blue5,
         }
@@ -859,10 +945,11 @@ impl ToRgb565 for Rgba<f16> {
 
 impl ToRgb565 for Rgba<f32> {
     #[inline]
+    #[allow(clippy::manual_clamp)]
     fn to_rgb_565(&self) -> Rgb565 {
-        let red5 = (self.r * 31f32).max(31f32).min(0f32) as u16;
-        let green6 = (self.g * 63f32).max(63f32).min(0f32) as u16;
-        let blue5 = (self.b * 31f32).max(31f32).min(0f32) as u16;
+        let red5 = (self.r * 31f32).min(31f32).max(0f32) as u16;
+        let green6 = (self.g * 63f32).min(63f32).max(0f32) as u16;
+        let blue5 = (self.b * 31f32).min(31f32).max(0f32) as u16;
         Rgb565 {
             rgb565: red5 | green6 | blue5,
         }
@@ -938,6 +1025,7 @@ impl ToRgba1010102 for Rgba<u8> {
 
 impl ToRgba1010102 for Rgba<f16> {
     #[inline]
+    #[allow(clippy::manual_clamp)]
     fn to_rgba1010102(&self) -> Rgba1010102 {
         let r = (self.r.to_f32() * 1023f32).min(1023f32).max(0f32) as u32;
         let g = (self.g.to_f32() * 1023f32).min(1023f32).max(0f32) as u32;
@@ -945,5 +1033,329 @@ impl ToRgba1010102 for Rgba<f16> {
         let a = (self.a.to_f32() * 3f32).min(3f32).max(0f32) as u32;
         let rgba1010102 = (a << 30) | (r << 20) | (g << 10) | b;
         Rgba1010102 { rgba: rgba1010102 }
+    }
+}
+
+impl<T> Index<usize> for Rgba<T> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, index: usize) -> &T {
+        match index {
+            0 => &self.r,
+            1 => &self.g,
+            2 => &self.b,
+            3 => &self.a,
+            _ => panic!("Index out of bounds for Rgba"),
+        }
+    }
+}
+
+impl<T> IndexMut<usize> for Rgba<T> {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        match index {
+            0 => &mut self.r,
+            1 => &mut self.g,
+            2 => &mut self.b,
+            3 => &mut self.a,
+            _ => panic!("Index out of bounds for Lab"),
+        }
+    }
+}
+
+impl<T> Add for Rgba<T>
+where
+    T: Add<Output = T>,
+{
+    type Output = Rgba<T>;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Rgba::new(
+            self.r + rhs.r,
+            self.g + rhs.g,
+            self.b + rhs.b,
+            self.a + rhs.a,
+        )
+    }
+}
+
+impl<T> Sub for Rgba<T>
+where
+    T: Sub<Output = T>,
+{
+    type Output = Rgba<T>;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        Rgba::new(
+            self.r - rhs.r,
+            self.g - rhs.g,
+            self.b - rhs.b,
+            self.a - rhs.a,
+        )
+    }
+}
+
+impl<T> Mul for Rgba<T>
+where
+    T: Mul<Output = T>,
+{
+    type Output = Rgba<T>;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        Rgba::new(
+            self.r * rhs.r,
+            self.g * rhs.g,
+            self.b * rhs.b,
+            self.a * rhs.a,
+        )
+    }
+}
+
+impl<T> Div for Rgba<T>
+where
+    T: Div<Output = T>,
+{
+    type Output = Rgba<T>;
+    #[inline]
+    fn div(self, rhs: Self) -> Self::Output {
+        Rgba::new(
+            self.r / rhs.r,
+            self.g / rhs.g,
+            self.b / rhs.b,
+            self.a / rhs.a,
+        )
+    }
+}
+
+impl<T> AddAssign for Rgba<T>
+where
+    T: AddAssign<T>,
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
+        self.a += rhs.a;
+    }
+}
+
+impl<T> DivAssign for Rgba<T>
+where
+    T: DivAssign<T>,
+{
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        self.r /= rhs.r;
+        self.g /= rhs.g;
+        self.b /= rhs.b;
+        self.a /= rhs.a;
+    }
+}
+
+macro_rules! generated_div_assign_definition_rgba {
+    ($T: ty) => {
+        impl<T> DivAssign<$T> for Rgba<T>
+        where
+            T: DivAssign<$T> + Copy,
+        {
+            fn div_assign(&mut self, rhs: $T) {
+                self.r /= rhs;
+                self.g /= rhs;
+                self.b /= rhs;
+                self.a /= rhs;
+            }
+        }
+    };
+}
+
+generated_div_assign_definition_rgba!(u8);
+generated_div_assign_definition_rgba!(u16);
+generated_div_assign_definition_rgba!(i16);
+generated_div_assign_definition_rgba!(u32);
+generated_div_assign_definition_rgba!(i32);
+generated_div_assign_definition_rgba!(f32);
+generated_div_assign_definition_rgba!(f64);
+
+impl<T> Rgba<T>
+where
+    T: Num + PartialOrd + Copy + Bounded + Ord,
+{
+    /// Clamp function to clamp each channel within a given range
+    #[inline]
+    pub fn clamp(&self, min: T, max: T) -> Rgba<T> {
+        Rgba::new(
+            clamp(self.r, min, max),
+            clamp(self.g, min, max),
+            clamp(self.b, min, max),
+            clamp(self.a, min, max),
+        )
+    }
+
+    /// Min function to define min
+    #[inline]
+    pub fn min(&self, other_min: T) -> Rgba<T> {
+        Rgba::new(
+            min(self.r, other_min),
+            min(self.g, other_min),
+            min(self.b, other_min),
+            min(self.a, other_min),
+        )
+    }
+
+    /// Max function to define max
+    #[inline]
+    pub fn max(&self, other_max: T) -> Rgba<T> {
+        Rgba::new(
+            max(self.r, other_max),
+            max(self.g, other_max),
+            max(self.b, other_max),
+            max(self.a, other_max),
+        )
+    }
+
+    /// Clamp function to clamp each channel within a given range
+    #[inline]
+    pub fn clamp_p(&self, min: Rgba<T>, max: Rgba<T>) -> Rgba<T> {
+        Rgba::new(
+            clamp(self.r, min.r, max.r),
+            clamp(self.g, min.g, max.g),
+            clamp(self.b, min.b, max.b),
+            clamp(self.a, min.a, max.a),
+        )
+    }
+
+    /// Min function to define min
+    #[inline]
+    pub fn min_p(&self, other_min: Rgba<T>) -> Rgba<T> {
+        Rgba::new(
+            min(self.r, other_min.r),
+            min(self.g, other_min.g),
+            min(self.b, other_min.b),
+            min(self.a, other_min.a),
+        )
+    }
+
+    /// Max function to define max
+    #[inline]
+    pub fn max_p(&self, other_max: Rgba<T>) -> Rgba<T> {
+        Rgba::new(
+            max(self.r, other_max.r),
+            max(self.g, other_max.g),
+            max(self.b, other_max.b),
+            max(self.a, other_max.a),
+        )
+    }
+}
+
+impl<T> Neg for Rgba<T>
+where
+    T: Neg<Output = T>,
+{
+    type Output = Rgba<T>;
+    fn neg(self) -> Self::Output {
+        Rgba::new(-self.r, -self.g, -self.b, -self.a)
+    }
+}
+
+impl<T> Rgba<T>
+where
+    T: Float + 'static,
+    f32: AsPrimitive<T>,
+{
+    #[inline]
+    pub fn sqrt(&self) -> Rgba<T> {
+        let zeros = 0f32.as_();
+        Rgba::new(
+            if self.r.partial_cmp(&zeros).unwrap_or(Ordering::Less) == Ordering::Less {
+                0f32.as_()
+            } else {
+                self.r.sqrt()
+            },
+            if self.g.partial_cmp(&zeros).unwrap_or(Ordering::Less) == Ordering::Less {
+                0f32.as_()
+            } else {
+                self.g.sqrt()
+            },
+            if self.b.partial_cmp(&zeros).unwrap_or(Ordering::Less) == Ordering::Less {
+                0f32.as_()
+            } else {
+                self.b.sqrt()
+            },
+            if self.a.partial_cmp(&zeros).unwrap_or(Ordering::Less) == Ordering::Less {
+                0f32.as_()
+            } else {
+                self.a.sqrt()
+            },
+        )
+    }
+
+    #[inline]
+    pub fn cbrt(&self) -> Rgba<T> {
+        Rgba::new(self.r.cbrt(), self.g.cbrt(), self.b.cbrt(), self.a.cbrt())
+    }
+}
+
+impl<T> Pow<T> for Rgba<T>
+where
+    T: Float,
+{
+    type Output = Rgba<T>;
+
+    #[inline]
+    fn pow(self, rhs: T) -> Self::Output {
+        Rgba::<T>::new(
+            self.r.powf(rhs),
+            self.g.powf(rhs),
+            self.b.powf(rhs),
+            self.a.powf(self.a),
+        )
+    }
+}
+
+impl<T> Pow<Rgba<T>> for Rgba<T>
+where
+    T: Float,
+{
+    type Output = Rgba<T>;
+
+    #[inline]
+    fn pow(self, rhs: Rgba<T>) -> Self::Output {
+        Rgba::<T>::new(
+            self.r.powf(rhs.r),
+            self.g.powf(rhs.g),
+            self.b.powf(rhs.b),
+            self.a.powf(rhs.a),
+        )
+    }
+}
+
+impl<T> EuclideanDistance for Rgba<T>
+where
+    T: AsPrimitive<f32>,
+{
+    fn euclidean_distance(&self, other: Self) -> f32 {
+        let dr = self.r.as_() - other.r.as_();
+        let dg = self.g.as_() - other.g.as_();
+        let db = self.b.as_() - other.b.as_();
+        let da = self.a.as_() - other.a.as_();
+        (dr * dr + dg * dg + db * db + da * da).sqrt()
+    }
+}
+
+impl<T> TaxicabDistance for Rgba<T>
+where
+    T: AsPrimitive<f32>,
+{
+    fn taxicab_distance(&self, other: Self) -> f32 {
+        let dr = self.r.as_() - other.r.as_();
+        let dg = self.g.as_() - other.g.as_();
+        let db = self.b.as_() - other.b.as_();
+        let da = self.a.as_() - other.a.as_();
+        dr.abs() + dg.abs() + db.abs() + da.abs()
     }
 }

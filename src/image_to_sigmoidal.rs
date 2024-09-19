@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_image_to_sigmoidal_row;
 
 use crate::image::ImageConfiguration;
@@ -17,14 +14,11 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_image_to_sigmoidal;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_sigmoidal_row;
 use crate::Rgb;
 
-#[inline]
+#[allow(clippy::type_complexity)]
 fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: &[u8],
     src_stride: u32,
@@ -34,10 +28,8 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     height: u32,
 ) {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let mut src_offset = 0usize;
@@ -55,19 +47,13 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _wide_row_handler = Some(neon_image_to_sigmoidal::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = Some(sse_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    if is_x86_feature_detected!("avx2") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("avx2") {
         _wide_row_handler = Some(avx_image_to_sigmoidal_row::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 

@@ -24,7 +24,7 @@ pub unsafe fn neon_srgb_from_linear(linear: float32x4_t) -> float32x4_t {
         vmulq_n_f32(vpowq_n_f32(high, 1.0f32 / 2.4f32), 1.0550107189475866f32),
         vdupq_n_f32(0.0550107189475866f32),
     );
-    return vbslq_f32(mask, high, low);
+    vbslq_f32(mask, high, low)
 }
 
 #[inline(always)]
@@ -43,7 +43,7 @@ pub unsafe fn neon_srgb_to_linear(gamma: float32x4_t) -> float32x4_t {
         2.4f32,
     );
     low = vmulq_n_f32(low, 1f32 / 12.92f32);
-    return vbslq_f32(mask, high, low);
+    vbslq_f32(mask, high, low)
 }
 
 #[inline(always)]
@@ -61,7 +61,7 @@ pub unsafe fn neon_rec709_from_linear(linear: float32x4_t) -> float32x4_t {
         vmulq_n_f32(vpowq_n_f32(high, 0.45f32), 1.09929682680944f32),
         vdupq_n_f32(0.09929682680944f32),
     );
-    return vbslq_f32(mask, high, low);
+    vbslq_f32(mask, high, low)
 }
 
 #[inline(always)]
@@ -80,7 +80,7 @@ pub unsafe fn neon_rec709_to_linear(gamma: float32x4_t) -> float32x4_t {
         1.0f32 / 0.45f32,
     );
     low = vmulq_n_f32(low, 1f32 / 4.5f32);
-    return vbslq_f32(mask, high, low);
+    vbslq_f32(mask, high, low)
 }
 
 #[inline(always)]

@@ -14,14 +14,11 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::*;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
 use crate::Rgb;
 
-#[inline]
+#[allow(clippy::type_complexity)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: &[u8],
     src_stride: u32,
@@ -32,10 +29,8 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     transfer_function: TransferFunction,
 ) {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let mut src_offset = 0usize;
@@ -49,11 +44,8 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         unsafe fn(usize, *const u8, usize, u32, *mut u8, usize, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(
                 sse_channels_to_linear_u8::<

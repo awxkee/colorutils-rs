@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_xyza_to_image;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
@@ -17,14 +14,12 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_xyza_to_image;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_xyza_to_image;
 use crate::xyz_target::XyzTarget;
 use crate::{LCh, Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
 
+#[allow(clippy::type_complexity)]
 fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[f32],
     src_stride: u32,
@@ -91,11 +86,8 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(
                 sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET, { TransferFunction::Srgb as u8 }>,
@@ -124,11 +116,8 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    if is_x86_feature_detected!("avx2") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("avx2") {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(
                 avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET, { TransferFunction::Srgb as u8 }>,
@@ -174,7 +163,7 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     dst.as_mut_ptr(),
                     dst_offset,
                     width,
-                    &matrix,
+                    matrix,
                     transfer_function,
                 )
             }
@@ -188,25 +177,24 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             let l_x = unsafe { src_ptr.add(px).read_unaligned() };
             let l_y = unsafe { src_ptr.add(px + 1).read_unaligned() };
             let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
-            let rgb;
-            match source {
-                XyzTarget::LAB => {
+            let rgb = match source {
+                XyzTarget::Lab => {
                     let lab = Lab::new(l_x, l_y, l_z);
-                    rgb = lab.to_rgb();
+                    lab.to_rgb()
                 }
-                XyzTarget::XYZ => {
+                XyzTarget::Xyz => {
                     let xyz = Xyz::new(l_x, l_y, l_z);
-                    rgb = xyz.to_rgb(&matrix, transfer_function);
+                    xyz.to_rgb(matrix, transfer_function)
                 }
-                XyzTarget::LUV => {
+                XyzTarget::Luv => {
                     let luv = Luv::new(l_x, l_y, l_z);
-                    rgb = luv.to_rgb();
+                    luv.to_rgb()
                 }
-                XyzTarget::LCH => {
+                XyzTarget::Lch => {
                     let lch = LCh::new(l_x, l_y, l_z);
-                    rgb = lch.to_rgb();
+                    lch.to_rgb()
                 }
-            }
+            };
 
             let l_a = unsafe { src_ptr.add(px + 3).read_unaligned() };
             let a_value = (l_a * 255f32).max(0f32);
@@ -245,7 +233,7 @@ pub fn lab_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         dst,
@@ -274,7 +262,7 @@ pub fn lab_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         dst,
@@ -303,7 +291,7 @@ pub fn luv_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LUV as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Luv as u8 }>(
         src,
         src_stride,
         dst,
@@ -334,7 +322,7 @@ pub fn luv_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LAB as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         dst,
@@ -363,7 +351,7 @@ pub fn xyz_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::XYZ as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         dst,
@@ -392,7 +380,7 @@ pub fn xyz_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::XYZ as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         dst,
@@ -421,7 +409,7 @@ pub fn lch_with_alpha_to_rgba(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LCH as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         dst,
@@ -450,7 +438,7 @@ pub fn lch_with_alpha_to_bgra(
     width: u32,
     height: u32,
 ) {
-    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LCH as u8 }>(
+    xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         dst,

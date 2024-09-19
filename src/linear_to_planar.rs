@@ -10,14 +10,11 @@
     target_feature = "neon"
 ))]
 use crate::neon::linear_to_planar::neon_linear_plane_to_gamma;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_linear_plane_to_gamma;
 use crate::TransferFunction;
 
-#[inline(always)]
+#[allow(clippy::type_complexity)]
 fn linear_to_gamma_channels(
     src: &[f32],
     src_stride: u32,
@@ -44,11 +41,8 @@ fn linear_to_gamma_channels(
         _wide_row_handler = Some(neon_linear_plane_to_gamma);
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = Some(sse_linear_plane_to_gamma);
     }
 

@@ -10,14 +10,12 @@
     target_feature = "neon"
 ))]
 use crate::neon::planar_to_linear::neon_plane_to_linear;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_plane_to_linear;
 use crate::TransferFunction;
 
 #[inline(always)]
+#[allow(clippy::type_complexity)]
 fn channels_to_linear(
     src: &[u8],
     src_stride: u32,
@@ -34,11 +32,8 @@ fn channels_to_linear(
         unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = Some(sse_plane_to_linear);
     }
 

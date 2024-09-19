@@ -48,19 +48,19 @@ unsafe fn avx_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         avx2_deinterleave_rgba_ps(pixel_0, pixel_1, pixel_2, pixel_3);
 
     match target {
-        XyzTarget::LAB => {
+        XyzTarget::Lab => {
             let (x, y, z) = avx_lab_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LUV => {
+        XyzTarget::Luv => {
             let (x, y, z) = avx_luv_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LCH => {
+        XyzTarget::Lch => {
             let (x, y, z) = avx_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;

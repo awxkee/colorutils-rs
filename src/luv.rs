@@ -56,8 +56,9 @@ const D65_XYZ: [f32; 3] = [95.047f32, 100.0f32, 108.883f32];
 use crate::rgb::Rgb;
 use crate::rgba::Rgba;
 use crate::xyz::Xyz;
-use crate::EuclideanDistance;
-use erydanos::Euclidean3DDistance;
+use crate::{EuclideanDistance, TaxicabDistance};
+use num_traits::Pow;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 pub(crate) const LUV_WHITE_U_PRIME: f32 =
     4.0f32 * D65_XYZ[1] / (D65_XYZ[0] + 15.0 * D65_XYZ[1] + 3.0 * D65_XYZ[2]);
@@ -70,6 +71,7 @@ pub(crate) const LUV_MULTIPLIER_INVERSE_Y: f32 = (3f32 / 29f32) * (3f32 / 29f32)
 impl Luv {
     /// Converts RGB to CIE Luv
     #[inline]
+    #[allow(clippy::manual_clamp)]
     pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
         let [x, y, z] = [xyz.x, xyz.y, xyz.z];
@@ -96,12 +98,12 @@ impl Luv {
         Luv { l, u, v }
     }
 
-    //
     #[inline]
     pub fn from_rgba(rgba: Rgba<u8>) -> Self {
         Luv::from_rgb(rgba.to_rgb())
     }
 
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         if self.l <= 0f32 {
             return Xyz::new(0f32, 0f32, 0f32).to_srgb();
@@ -129,6 +131,18 @@ impl Luv {
 
     pub fn new(l: f32, u: f32, v: f32) -> Luv {
         Luv { l, u, v }
+    }
+
+    pub const fn l_range() -> (f32, f32) {
+        (0., 100.)
+    }
+
+    pub const fn u_range() -> (f32, f32) {
+        (-100., 100.)
+    }
+
+    pub const fn v_range() -> (f32, f32) {
+        (-100., 100.)
     }
 }
 
@@ -199,13 +213,415 @@ impl PartialEq<LCh> for LCh {
 }
 
 impl EuclideanDistance for Luv {
+    #[inline]
     fn euclidean_distance(&self, other: Luv) -> f32 {
-        (self.l - other.l).hypot3(self.u - other.u, self.v - other.v)
+        let dl = self.l - other.l;
+        let du = self.u - other.u;
+        let dv = self.v - other.v;
+        (dl * dl + du * du + dv * dv).sqrt()
     }
 }
 
 impl EuclideanDistance for LCh {
+    #[inline]
     fn euclidean_distance(&self, other: LCh) -> f32 {
-        (self.l - other.l).hypot3(self.c - other.c, self.h - other.h)
+        let dl = self.l - other.l;
+        let dc = self.c - other.c;
+        let dh = self.h - other.h;
+        (dl * dl + dc * dc + dh * dh).sqrt()
+    }
+}
+
+impl TaxicabDistance for Luv {
+    #[inline]
+    fn taxicab_distance(&self, other: Self) -> f32 {
+        let dl = self.l - other.l;
+        let du = self.u - other.u;
+        let dv = self.v - other.v;
+        dl.abs() + du.abs() + dv.abs()
+    }
+}
+
+impl TaxicabDistance for LCh {
+    #[inline]
+    fn taxicab_distance(&self, other: Self) -> f32 {
+        let dl = self.l - other.l;
+        let dc = self.c - other.c;
+        let dh = self.h - other.h;
+        dl.abs() + dc.abs() + dh.abs()
+    }
+}
+
+impl Add<Luv> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn add(self, rhs: Luv) -> Luv {
+        Luv::new(self.l + rhs.l, self.u + rhs.u, self.v + rhs.v)
+    }
+}
+
+impl Add<LCh> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn add(self, rhs: LCh) -> LCh {
+        LCh::new(self.l + rhs.l, self.c + rhs.c, self.h + rhs.h)
+    }
+}
+
+impl Sub<Luv> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn sub(self, rhs: Luv) -> Luv {
+        Luv::new(self.l - rhs.l, self.u - rhs.u, self.v - rhs.v)
+    }
+}
+
+impl Sub<LCh> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn sub(self, rhs: LCh) -> LCh {
+        LCh::new(self.l - rhs.l, self.c - rhs.c, self.h - rhs.h)
+    }
+}
+
+impl Mul<Luv> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn mul(self, rhs: Luv) -> Luv {
+        Luv::new(self.l * rhs.l, self.u * rhs.u, self.v * rhs.v)
+    }
+}
+
+impl Mul<LCh> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn mul(self, rhs: LCh) -> LCh {
+        LCh::new(self.l * rhs.l, self.c * rhs.c, self.h * rhs.h)
+    }
+}
+
+impl Div<Luv> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn div(self, rhs: Luv) -> Luv {
+        Luv::new(self.l / rhs.l, self.u / rhs.u, self.v / rhs.v)
+    }
+}
+
+impl Div<LCh> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn div(self, rhs: LCh) -> LCh {
+        LCh::new(self.l / rhs.l, self.c / rhs.c, self.h / rhs.h)
+    }
+}
+
+impl Add<f32> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn add(self, rhs: f32) -> Self::Output {
+        Luv::new(self.l + rhs, self.u + rhs, self.v + rhs)
+    }
+}
+
+impl Add<f32> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn add(self, rhs: f32) -> Self::Output {
+        LCh::new(self.l + rhs, self.c + rhs, self.h + rhs)
+    }
+}
+
+impl Sub<f32> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn sub(self, rhs: f32) -> Self::Output {
+        Luv::new(self.l - rhs, self.u - rhs, self.v - rhs)
+    }
+}
+
+impl Sub<f32> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn sub(self, rhs: f32) -> Self::Output {
+        LCh::new(self.l - rhs, self.c - rhs, self.h - rhs)
+    }
+}
+
+impl Mul<f32> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Self::Output {
+        Luv::new(self.l * rhs, self.u * rhs, self.v * rhs)
+    }
+}
+
+impl Mul<f32> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Self::Output {
+        LCh::new(self.l * rhs, self.c * rhs, self.h * rhs)
+    }
+}
+
+impl Div<f32> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn div(self, rhs: f32) -> Self::Output {
+        Luv::new(self.l / rhs, self.u / rhs, self.v / rhs)
+    }
+}
+
+impl Div<f32> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn div(self, rhs: f32) -> Self::Output {
+        LCh::new(self.l / rhs, self.c / rhs, self.h / rhs)
+    }
+}
+
+impl AddAssign<Luv> for Luv {
+    #[inline]
+    fn add_assign(&mut self, rhs: Luv) {
+        self.l += rhs.l;
+        self.u += rhs.u;
+        self.v += rhs.v;
+    }
+}
+
+impl AddAssign<LCh> for LCh {
+    #[inline]
+    fn add_assign(&mut self, rhs: LCh) {
+        self.l += rhs.l;
+        self.c += rhs.c;
+        self.h += rhs.h;
+    }
+}
+
+impl SubAssign<Luv> for Luv {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Luv) {
+        self.l -= rhs.l;
+        self.u -= rhs.u;
+        self.v -= rhs.v;
+    }
+}
+
+impl SubAssign<LCh> for LCh {
+    #[inline]
+    fn sub_assign(&mut self, rhs: LCh) {
+        self.l -= rhs.l;
+        self.c -= rhs.c;
+        self.h -= rhs.h;
+    }
+}
+
+impl MulAssign<Luv> for Luv {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Luv) {
+        self.l *= rhs.l;
+        self.u *= rhs.u;
+        self.v *= rhs.v;
+    }
+}
+
+impl MulAssign<LCh> for LCh {
+    #[inline]
+    fn mul_assign(&mut self, rhs: LCh) {
+        self.l *= rhs.l;
+        self.c *= rhs.c;
+        self.h *= rhs.h;
+    }
+}
+
+impl DivAssign<Luv> for Luv {
+    #[inline]
+    fn div_assign(&mut self, rhs: Luv) {
+        self.l /= rhs.l;
+        self.u /= rhs.u;
+        self.v /= rhs.v;
+    }
+}
+
+impl DivAssign<LCh> for LCh {
+    #[inline]
+    fn div_assign(&mut self, rhs: LCh) {
+        self.l /= rhs.l;
+        self.c /= rhs.c;
+        self.h /= rhs.h;
+    }
+}
+
+impl AddAssign<f32> for Luv {
+    #[inline]
+    fn add_assign(&mut self, rhs: f32) {
+        self.l += rhs;
+        self.u += rhs;
+        self.v += rhs;
+    }
+}
+
+impl AddAssign<f32> for LCh {
+    #[inline]
+    fn add_assign(&mut self, rhs: f32) {
+        self.l += rhs;
+        self.c += rhs;
+        self.h += rhs;
+    }
+}
+
+impl SubAssign<f32> for Luv {
+    #[inline]
+    fn sub_assign(&mut self, rhs: f32) {
+        self.l -= rhs;
+        self.u -= rhs;
+        self.v -= rhs;
+    }
+}
+
+impl SubAssign<f32> for LCh {
+    #[inline]
+    fn sub_assign(&mut self, rhs: f32) {
+        self.l -= rhs;
+        self.c -= rhs;
+        self.h -= rhs;
+    }
+}
+
+impl MulAssign<f32> for Luv {
+    #[inline]
+    fn mul_assign(&mut self, rhs: f32) {
+        self.l *= rhs;
+        self.u *= rhs;
+        self.v *= rhs;
+    }
+}
+
+impl MulAssign<f32> for LCh {
+    #[inline]
+    fn mul_assign(&mut self, rhs: f32) {
+        self.l *= rhs;
+        self.c *= rhs;
+        self.h *= rhs;
+    }
+}
+
+impl DivAssign<f32> for Luv {
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        self.l /= rhs;
+        self.u /= rhs;
+        self.v /= rhs;
+    }
+}
+
+impl DivAssign<f32> for LCh {
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        self.l /= rhs;
+        self.c /= rhs;
+        self.h /= rhs;
+    }
+}
+
+impl Neg for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        LCh::new(-self.l, -self.c, -self.h)
+    }
+}
+
+impl Neg for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Luv::new(-self.l, -self.u, -self.v)
+    }
+}
+
+impl Pow<f32> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn pow(self, rhs: f32) -> Self::Output {
+        Luv::new(self.l.powf(rhs), self.u.powf(rhs), self.v.powf(rhs))
+    }
+}
+
+impl Pow<f32> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn pow(self, rhs: f32) -> Self::Output {
+        LCh::new(self.l.powf(rhs), self.c.powf(rhs), self.h.powf(rhs))
+    }
+}
+
+impl Pow<Luv> for Luv {
+    type Output = Luv;
+
+    #[inline]
+    fn pow(self, rhs: Luv) -> Self::Output {
+        Luv::new(self.l.powf(rhs.l), self.u.pow(rhs.u), self.v.powf(rhs.v))
+    }
+}
+
+impl Pow<LCh> for LCh {
+    type Output = LCh;
+
+    #[inline]
+    fn pow(self, rhs: LCh) -> Self::Output {
+        LCh::new(self.l.powf(rhs.l), self.c.powf(rhs.c), self.h.powf(rhs.h))
+    }
+}
+
+impl Luv {
+    #[inline]
+    pub fn sqrt(&self) -> Luv {
+        Luv::new(
+            if self.l < 0. { 0. } else { self.l.sqrt() },
+            if self.u < 0. { 0. } else { self.u.sqrt() },
+            if self.v < 0. { 0. } else { self.v.sqrt() },
+        )
+    }
+
+    #[inline]
+    pub fn cbrt(&self) -> Luv {
+        Luv::new(self.l.cbrt(), self.u.cbrt(), self.v.cbrt())
+    }
+}
+
+impl LCh {
+    #[inline]
+    pub fn sqrt(&self) -> LCh {
+        LCh::new(
+            if self.l < 0. { 0. } else { self.l.sqrt() },
+            if self.c < 0. { 0. } else { self.c.sqrt() },
+            if self.h < 0. { 0. } else { self.h.sqrt() },
+        )
+    }
+
+    #[inline]
+    pub fn cbrt(&self) -> LCh {
+        LCh::new(self.l.cbrt(), self.c.cbrt(), self.h.cbrt())
     }
 }

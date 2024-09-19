@@ -51,7 +51,7 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
 
-    if target == OklabTarget::OKLCH {
+    if target == OklabTarget::Oklch {
         let a0 = vmulq_f32(a, vcosq_f32(b));
         let b0 = vmulq_f32(a, vsinq_f32(b));
         a = a0;

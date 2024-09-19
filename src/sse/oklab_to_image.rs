@@ -58,7 +58,7 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 
     let (l, mut a, mut b, mut a_f32) = load_f32_and_deinterleave!(src, image_configuration);
 
-    if oklab_target == OklabTarget::OKLCH {
+    if oklab_target == OklabTarget::Oklch {
         let a0 = _mm_mul_ps(a, _mm_cos_ps(b));
         let b0 = _mm_mul_ps(a, _mm_sin_ps(b));
         a = a0;

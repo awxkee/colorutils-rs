@@ -14,14 +14,11 @@ use crate::image_to_hsv_support::HsvTarget;
     target_feature = "neon"
 ))]
 use crate::neon::neon_hsv_u16_to_image;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_hsv_u16_to_image;
 use crate::{Hsl, Hsv};
 
-#[inline(always)]
+#[allow(clippy::type_complexity)]
 fn hsv_u16_to_channels<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
@@ -37,21 +34,16 @@ fn hsv_u16_to_channels<
 ) {
     let target: HsvTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let mut _wide_row_handler: Option<
         unsafe fn(usize, *const u16, usize, u32, *mut u8, usize, f32) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = Some(sse_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
@@ -104,17 +96,16 @@ fn hsv_u16_to_channels<
             let v_f = v as f32 * scale;
 
             let hx = x * channels;
-            let rgb;
-            match target {
-                HsvTarget::HSV => {
+            let rgb = match target {
+                HsvTarget::Hsv => {
                     let hsv = Hsv::from_components(h as f32, s_f, v_f);
-                    rgb = hsv.to_rgb8();
+                    hsv.to_rgb8()
                 }
-                HsvTarget::HSL => {
+                HsvTarget::Hsl => {
                     let hsl = Hsl::from_components(h as f32, s_f, v_f);
-                    rgb = hsl.to_rgb8();
+                    hsl.to_rgb8()
                 }
-            }
+            };
 
             unsafe {
                 *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
@@ -158,7 +149,7 @@ pub fn hsv_to_rgb(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::HSV as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::Hsv as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }
@@ -182,7 +173,7 @@ pub fn hsv_to_bgra(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::HSV as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::Hsv as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }
@@ -206,7 +197,7 @@ pub fn hsv_to_rgba(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::HSV as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::Hsv as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }
@@ -230,7 +221,7 @@ pub fn hsl_to_rgb(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::HSL as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::Hsl as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }
@@ -254,7 +245,7 @@ pub fn hsl_to_bgra(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::HSL as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::Hsl as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }
@@ -278,7 +269,7 @@ pub fn hsl_to_rgba(
     height: u32,
     scale: f32,
 ) {
-    hsv_u16_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::HSL as u8 }>(
+    hsv_u16_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::Hsl as u8 }>(
         src, src_stride, dst, dst_stride, width, height, scale,
     );
 }

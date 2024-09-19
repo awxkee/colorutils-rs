@@ -65,7 +65,7 @@ unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     let (l, mut a, mut b, mut a_f32) =
         avx_vld_f32_and_deinterleave_direct::<CHANNELS_CONFIGURATION>(src);
 
-    if oklab_target == OklabTarget::OKLCH {
+    if oklab_target == OklabTarget::Oklch {
         let a0 = _mm256_mul_ps(a, _mm256_cos_ps(b));
         let b0 = _mm256_mul_ps(a, _mm256_sin_ps(b));
         a = a0;

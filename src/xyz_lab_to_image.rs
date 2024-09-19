@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "avx2"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_xyz_to_channels;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
@@ -17,10 +14,7 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_xyz_to_channels;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_xyz_to_channels;
 use crate::xyz_target::XyzTarget;
 use crate::{LCh, Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
@@ -39,10 +33,8 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 ) {
     let source: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Alpha may be set only on images with alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Alpha may be set only on images with alpha");
     }
 
     let mut src_offset = 0usize;
@@ -51,6 +43,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
     let channels = image_configuration.get_channels_count();
 
+    #[allow(clippy::type_complexity)]
     let mut _wide_row_handler: Option<
         unsafe fn(
             usize,
@@ -66,11 +59,8 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         ) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
-    if is_x86_feature_detected!("sse4.1") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(
                 sse_xyz_to_channels::<
@@ -107,11 +97,8 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "avx2"
-    ))]
-    if is_x86_feature_detected!("avx2") {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::arch::is_x86_feature_detected!("avx2") {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(
                 avx_xyz_to_channels::<
@@ -203,7 +190,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                     dst.as_mut_ptr(),
                     dst_offset,
                     width,
-                    &matrix,
+                    matrix,
                     transfer_function,
                 );
             }
@@ -217,25 +204,24 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
             let l_x = unsafe { src_slice.read_unaligned() };
             let l_y = unsafe { src_slice.add(1).read_unaligned() };
             let l_z = unsafe { src_slice.add(2).read_unaligned() };
-            let rgb;
-            match source {
-                XyzTarget::LAB => {
+            let rgb = match source {
+                XyzTarget::Lab => {
                     let lab = Lab::new(l_x, l_y, l_z);
-                    rgb = lab.to_rgb();
+                    lab.to_rgb()
                 }
-                XyzTarget::XYZ => {
+                XyzTarget::Xyz => {
                     let xyz = Xyz::new(l_x, l_y, l_z);
-                    rgb = xyz.to_rgb(&matrix, transfer_function);
+                    xyz.to_rgb(matrix, transfer_function)
                 }
-                XyzTarget::LUV => {
+                XyzTarget::Luv => {
                     let luv = Luv::new(l_x, l_y, l_z);
-                    rgb = luv.to_rgb();
+                    luv.to_rgb()
                 }
-                XyzTarget::LCH => {
+                XyzTarget::Lch => {
                     let lch = LCh::new(l_x, l_y, l_z);
-                    rgb = lch.to_rgb();
+                    lch.to_rgb()
                 }
-            }
+            };
 
             let dst = unsafe { dst_ptr.add(x * channels) };
 
@@ -287,7 +273,7 @@ pub fn xyz_to_rgb(
     transfer_function: TransferFunction,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -319,7 +305,7 @@ pub fn xyz_to_srgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -351,7 +337,7 @@ pub fn lab_to_srgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LAB as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -386,10 +372,10 @@ pub fn laba_to_srgb(
     width: u32,
     height: u32,
 ) {
-    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::LAB as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
-        &a_plane,
+        a_plane,
         a_stride,
         dst,
         dst_stride,
@@ -423,10 +409,10 @@ pub fn xyza_to_rgba(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) {
-    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::XYZ as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
-        &a_plane,
+        a_plane,
         a_stride,
         dst,
         dst_stride,
@@ -455,7 +441,7 @@ pub fn luv_to_rgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LUV as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -487,7 +473,7 @@ pub fn luv_to_bgr(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LUV as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -519,7 +505,7 @@ pub fn lch_to_rgb(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::LCH as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         &empty_vec,
@@ -551,7 +537,7 @@ pub fn lch_to_bgr(
     height: u32,
 ) {
     let empty_vec = vec![];
-    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::LCH as u8 }>(
+    xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         &empty_vec,

@@ -7,19 +7,19 @@
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum XyzTarget {
-    LAB = 0,
-    XYZ = 1,
-    LUV = 2,
-    LCH = 3,
+    Lab = 0,
+    Xyz = 1,
+    Luv = 2,
+    Lch = 3,
 }
 
 impl From<u8> for XyzTarget {
     fn from(value: u8) -> Self {
         match value {
-            0 => XyzTarget::LAB,
-            1 => XyzTarget::XYZ,
-            2 => XyzTarget::LUV,
-            3 => XyzTarget::LCH,
+            0 => XyzTarget::Lab,
+            1 => XyzTarget::Xyz,
+            2 => XyzTarget::Luv,
+            3 => XyzTarget::Lch,
             _ => {
                 panic!("Not implemented")
             }

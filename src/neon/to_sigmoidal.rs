@@ -7,7 +7,9 @@
 
 use crate::image::ImageConfiguration;
 use crate::neon::sigmoidal::neon_rgb_to_sigmoidal;
-use crate::{load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter};
+use crate::{
+    load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
+};
 use std::arch::aarch64::*;
 
 #[inline(always)]
@@ -19,10 +21,8 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
-    if USE_ALPHA {
-        if !image_configuration.has_alpha() {
-            panic!("Use alpha flag used on image without alpha");
-        }
+    if USE_ALPHA && !image_configuration.has_alpha() {
+        panic!("Use alpha flag used on image without alpha");
     }
 
     let channels = image_configuration.get_channels_count();

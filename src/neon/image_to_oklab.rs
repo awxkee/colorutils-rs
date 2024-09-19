@@ -42,7 +42,7 @@ macro_rules! triple_to_oklab {
         let (l, mut a, mut b) =
             vcolorq_matrix_f32(l_, m_, s_, $m0, $m1, $m2, $m3, $m4, $m5, $m6, $m7, $m8);
 
-        if $target == OklabTarget::OKLCH {
+        if $target == OklabTarget::Oklch {
             let c = vhypotq_fast_f32(a, b);
             let h = vatan2q_f32(b, a);
             a = c;

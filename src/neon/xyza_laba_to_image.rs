@@ -33,19 +33,19 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     let (mut r_f32, mut g_f32, mut b_f32) = (lab_pixel.0, lab_pixel.1, lab_pixel.2);
 
     match target {
-        XyzTarget::LAB => {
+        XyzTarget::Lab => {
             let (x, y, z) = neon_lab_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LUV => {
+        XyzTarget::Luv => {
             let (x, y, z) = neon_luv_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;
             b_f32 = z;
         }
-        XyzTarget::LCH => {
+        XyzTarget::Lch => {
             let (x, y, z) = neon_lch_to_xyz(r_f32, g_f32, b_f32);
             r_f32 = x;
             g_f32 = y;

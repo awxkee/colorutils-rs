@@ -15,7 +15,7 @@ pub(crate) unsafe fn neon_color_to_sigmoidal(x: float32x4_t) -> float32x4_t {
     let den = vaddq_f32(vdupq_n_f32(1f32), vexpq_f32(negg));
     let erase_nan_mask = vceqzq_f32(den);
     let rcp = vrecpeq_f32(den);
-    return vbslq_f32(erase_nan_mask, vdupq_n_f32(0f32), rcp);
+    vbslq_f32(erase_nan_mask, vdupq_n_f32(0f32), rcp)
 }
 
 #[inline(always)]
@@ -26,8 +26,7 @@ pub(crate) unsafe fn neon_sigmoidal_to_color(x: float32x4_t) -> float32x4_t {
     let zeros = vdupq_n_f32(0f32);
     let zero_mask_2 = vcleq_f32(k, zeros);
     let ln = vlnq_fast_f32(k);
-    let rs = vbslq_f32(vandq_u32(zero_mask_1, zero_mask_2), zeros, ln);
-    return rs;
+    vbslq_f32(vandq_u32(zero_mask_1, zero_mask_2), zeros, ln)
 }
 
 #[inline(always)]

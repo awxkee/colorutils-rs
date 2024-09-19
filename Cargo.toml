@@ -2,7 +2,7 @@ workspace = { members = ["src/app"] }
 
 [package]
 name = "colorutils-rs"
-version = "0.5.9"
+version = "0.5.10"
 edition = "2021"
 description = "High performance utilities for color format handling and conversion."
 readme = "README.md"
@@ -18,6 +18,7 @@ exclude = ["*.jpg"]
 [dependencies]
 erydanos = "0.2.12"
 half = "2.4.1"
+num-traits = "0.2.19"
 
 [features]
 default = []

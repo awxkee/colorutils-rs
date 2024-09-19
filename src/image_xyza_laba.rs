@@ -11,15 +11,12 @@ use crate::image::ImageConfiguration;
     target_feature = "neon"
 ))]
 use crate::neon::neon_channels_to_xyza_or_laba;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "x86"),
-    target_feature = "sse4.1"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_xyza_laba;
 use crate::xyz_target::XyzTarget;
 use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
 
-#[inline(always)]
+#[allow(clippy::type_complexity)]
 fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &[u8],
     src_stride: u32,
@@ -52,12 +49,9 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         ) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        target_feature = "sse4.1"
-    ))]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
-        if is_x86_feature_detected!("sse4.1") {
+        if std::arch::is_x86_feature_detected!("sse4.1") {
             _wide_row_handler = match transfer_function {
                 TransferFunction::Srgb => Some(
                     sse_channels_to_xyza_laba::<
@@ -142,7 +136,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     width,
                     dst.as_mut_ptr(),
                     dst_offset,
-                    &matrix,
+                    matrix,
                     transfer_function,
                 );
             }
@@ -171,7 +165,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             let px = x * channels;
             let dst_store = unsafe { dst_ptr.add(px) };
             match target {
-                XyzTarget::LAB => {
+                XyzTarget::Lab => {
                     let lab = rgb.to_lab();
                     unsafe {
                         dst_store.write_unaligned(lab.l);
@@ -179,15 +173,15 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                         dst_store.add(2).write_unaligned(lab.b);
                     }
                 }
-                XyzTarget::XYZ => {
-                    let xyz = Xyz::from_rgb(rgb, &matrix, transfer_function);
+                XyzTarget::Xyz => {
+                    let xyz = Xyz::from_rgb(rgb, matrix, transfer_function);
                     unsafe {
                         dst_store.write_unaligned(xyz.x);
                         dst_store.add(1).write_unaligned(xyz.y);
                         dst_store.add(2).write_unaligned(xyz.z);
                     }
                 }
-                XyzTarget::LUV => {
+                XyzTarget::Luv => {
                     let luv = rgb.to_luv();
                     unsafe {
                         dst_store.write_unaligned(luv.l);
@@ -195,7 +189,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                         dst_store.add(2).write_unaligned(luv.v);
                     }
                 }
-                XyzTarget::LCH => {
+                XyzTarget::Lch => {
                     let lch = rgb.to_lch();
                     unsafe {
                         dst_store.write_unaligned(lch.l);
@@ -220,7 +214,12 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     }
 }
 
-/// This function converts RGBA to CIE L*ab against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+/// This function converts RGBA to CIE L*ab.
+///
+/// This function converts RGBA to CIE L*ab against D65 white point and preserving
+/// and normalizing alpha channels keeping it at last positions.
+/// This is much more effective than naive direct transformation
+///
 ///
 /// # Arguments
 /// * `src` - A slice contains RGBA data
@@ -237,7 +236,7 @@ pub fn rgba_to_lab_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LAB as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         dst,
@@ -249,7 +248,11 @@ pub fn rgba_to_lab_with_alpha(
     );
 }
 
-/// This function converts BGRA to CIE L*ab against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+/// This function converts BGRA to CIE L*ab.
+///
+/// This function converts BGRA to CIE L*ab against D65 white point
+/// and preserving and normalizing alpha channels keeping it at last positions.
+/// This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGRA data
@@ -266,7 +269,7 @@ pub fn bgra_to_lab_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LAB as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
         src_stride,
         dst,
@@ -278,7 +281,11 @@ pub fn bgra_to_lab_with_alpha(
     );
 }
 
-/// This function converts RGBA to CIE L*uv against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+/// This function converts RGBA to CIE L*uv.
+///
+/// This function converts RGBA to CIE L*uv against D65 white point and preserving
+/// and normalizing alpha channels keeping it at last positions.
+/// This is much more effective than naive direct transformation.
 ///
 /// # Arguments
 /// * `src` - A slice contains RGBA data
@@ -295,7 +302,7 @@ pub fn rgba_to_luv_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LUV as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Luv as u8 }>(
         src,
         src_stride,
         dst,
@@ -307,7 +314,11 @@ pub fn rgba_to_luv_with_alpha(
     );
 }
 
-/// This function converts BGRA to CIE L*uv against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
+/// This function converts BGRA to CIE L*uv.
+///
+/// This function converts BGRA to CIE L*uv against D65 white point
+/// and preserving and normalizing alpha channels keeping it at last positions.
+/// This is much more effective than naive direct transformation
 ///
 /// # Arguments
 /// * `src` - A slice contains BGRA data
@@ -324,7 +335,7 @@ pub fn bgra_to_luv_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LUV as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Luv as u8 }>(
         src,
         src_stride,
         dst,
@@ -353,7 +364,7 @@ pub fn rgba_to_xyz_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::XYZ as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         dst,
@@ -382,7 +393,7 @@ pub fn bgra_to_xyz_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::XYZ as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
         src_stride,
         dst,
@@ -411,7 +422,7 @@ pub fn rgba_to_lch_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::LCH as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         dst,
@@ -440,7 +451,7 @@ pub fn bgra_to_lch_with_alpha(
     width: u32,
     height: u32,
 ) {
-    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::LCH as u8 }>(
+    channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lch as u8 }>(
         src,
         src_stride,
         dst,

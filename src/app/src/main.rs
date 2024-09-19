@@ -20,13 +20,14 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 65;
-    let g = 65;
-    let b = 65;
+    let r = 42;
+    let g = 255;
+    let b = 62;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let xyb = LAlphaBeta::from_rgb(rgb, TransferFunction::Srgb);
-    println!("XYB {:?}", xyb);
-    println!("Rgb {:?}", xyb.to_rgb(TransferFunction::Srgb));
+    let xyb = Xyb::from_rgb(rgb, TransferFunction::Srgb);
+    println!("xyb {:?}", xyb);
+    let restored_rgb = xyb.to_rgb(TransferFunction::Srgb);
+    println!("restored {:?}", restored_rgb);
     // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
     // println!("Restored RGB {:?}", restored);
 

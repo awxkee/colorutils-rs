@@ -52,7 +52,7 @@ macro_rules! triple_to_oklab {
         let (l, mut a, mut b) =
             _mm256_color_matrix_ps(l_, m_, s_, $m0, $m1, $m2, $m3, $m4, $m5, $m6, $m7, $m8);
 
-        if $target == OklabTarget::OKLCH {
+        if $target == OklabTarget::Oklch {
             let c = _mm256_hypot_fast_ps(a, b);
             let h = _mm256_atan2_ps(b, a);
             a = c;

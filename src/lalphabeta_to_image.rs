@@ -21,10 +21,6 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    let mut _wide_row_handle: Option<
-        unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
-    > = None;
-
     let channels = image_configuration.get_channels_count();
 
     for _ in 0..height as usize {

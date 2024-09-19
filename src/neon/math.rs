@@ -16,11 +16,11 @@ pub(crate) unsafe fn prefer_vfmaq_f32(
 ) -> float32x4_t {
     #[cfg(target_arch = "aarch64")]
     {
-        return vfmaq_f32(a, b, c);
+        vfmaq_f32(a, b, c)
     }
     #[cfg(target_arch = "arm")]
     {
-        return vmlaq_f32(a, b, c);
+        vmlaq_f32(a, b, c)
     }
 }
 
@@ -31,7 +31,7 @@ pub unsafe fn vpowjq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
 
 #[inline(always)]
 pub unsafe fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
-    return vpowjq_f32(t, vdupq_n_f32(power));
+    vpowjq_f32(t, vdupq_n_f32(power))
 }
 
 #[inline(always)]

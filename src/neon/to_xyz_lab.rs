@@ -35,10 +35,8 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     matrix: &[[f32; 3]; 3],
     _: TransferFunction,
 ) -> usize {
-    if USE_ALPHA {
-        if a_linearized.is_null() {
-            panic!("Null alpha channel with requirements of linearized alpha if not supported");
-        }
+    if USE_ALPHA && a_linearized.is_null() {
+        panic!("Null alpha channel with requirements of linearized alpha if not supported");
     }
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
@@ -78,20 +76,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = a;
                 z_low_low = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = u;
                 z_low_low = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = c;
@@ -112,20 +110,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = a;
                 z_low_high = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = u;
                 z_low_high = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = c;
@@ -150,20 +148,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_high_low, y_high_low, z_high_low);
                 x_high_low = l;
                 y_high_low = a;
                 z_high_low = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_high_low, y_high_low, z_high_low);
                 x_high_low = l;
                 y_high_low = u;
                 z_high_low = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_high_low, y_high_low, z_high_low);
                 x_high_low = l;
                 y_high_low = c;
@@ -195,20 +193,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_high_high, y_high_high, z_high_high);
                 x_high_high = l;
                 y_high_high = a;
                 z_high_high = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_high_high, y_high_high, z_high_high);
                 x_high_high = l;
                 y_high_high = u;
                 z_high_high = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_high_high, y_high_high, z_high_high);
                 x_high_high = l;
                 y_high_high = c;
@@ -268,20 +266,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = a;
                 z_low_low = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = u;
                 z_low_low = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = c;
@@ -302,20 +300,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = a;
                 z_low_high = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = u;
                 z_low_high = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_low_high, y_low_high, z_low_high);
                 x_low_high = l;
                 y_low_high = c;
@@ -362,20 +360,20 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         );
 
         match target {
-            XyzTarget::LAB => {
+            XyzTarget::Lab => {
                 let (l, a, b) = neon_triple_to_lab(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = a;
                 z_low_low = b;
             }
-            XyzTarget::XYZ => {}
-            XyzTarget::LUV => {
+            XyzTarget::Xyz => {}
+            XyzTarget::Luv => {
                 let (l, u, v) = neon_triple_to_luv(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = u;
                 z_low_low = v;
             }
-            XyzTarget::LCH => {
+            XyzTarget::Lch => {
                 let (l, c, h) = neon_triple_to_lch(x_low_low, y_low_low, z_low_low);
                 x_low_low = l;
                 y_low_low = c;
