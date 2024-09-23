@@ -19,6 +19,7 @@ use num_traits::{clamp, AsPrimitive, Bounded, Float, Num, Pow};
 use std::cmp::{max, min, Ordering};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Neg, Sub};
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Represents any RGBA values, Rgba<u8>, Rgba<u16> etc.
 pub struct Rgba<T> {

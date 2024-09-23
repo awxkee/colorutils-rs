@@ -20,6 +20,7 @@ use num_traits::{AsPrimitive, Bounded, Float, Num, Pow};
 use std::cmp::{max, min, Ordering};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
+#[repr(C)]
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 /// Represents any RGB values, Rgb<u8>, Rgb<u16> etc.
 pub struct Rgb<T> {

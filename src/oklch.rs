@@ -10,6 +10,7 @@ use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Represents *Oklch* colorspace
+#[repr(C)]
 #[derive(Copy, Clone, PartialOrd, PartialEq)]
 pub struct Oklch {
     /// Lightness

@@ -11,6 +11,7 @@ use crate::{
 use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Struct that represent *Oklab* colorspace
 pub struct Oklab {

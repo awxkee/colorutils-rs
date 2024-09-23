@@ -12,6 +12,7 @@ use std::ops::{
 };
 
 /// Represents Jzazbz in polar coordinates as Jzczhz
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Jzczhz {
     /// Jz(lightness) generally expects to be between [0;1]

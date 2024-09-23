@@ -20,14 +20,14 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 fn main() {
-    let r = 42;
-    let g = 255;
-    let b = 62;
+    let r = 255;
+    let g = 0;
+    let b = 0;
     let rgb = Rgb::<u8>::new(r, g, b);
-    let xyb = Xyb::from_rgb(rgb, TransferFunction::Srgb);
-    println!("xyb {:?}", xyb);
-    let restored_rgb = xyb.to_rgb(TransferFunction::Srgb);
-    println!("restored {:?}", restored_rgb);
+    // let xyb = Okhsv::from_oklab(rgb.to_oklab(TransferFunction::Srgb));
+    // println!("xyb {:?}", xyb);
+    let hsv_new = okhsl::Okhsv::from(okhsl::Rgb::new(255, 0, 0));
+    println!("hsv {:?}", hsv_new);
     // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
     // println!("Restored RGB {:?}", restored);
 

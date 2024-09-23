@@ -14,6 +14,7 @@ use std::ops::{
 };
 
 /// A CIE 1931 XYZ color.
+#[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Xyz {
     pub x: f32,

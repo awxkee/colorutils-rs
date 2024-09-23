@@ -46,6 +46,7 @@ fn perceptual_quantizer_inverse(x: f32) -> f32 {
     rs
 }
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 /// Represents Jzazbz
 pub struct Jzazbz {

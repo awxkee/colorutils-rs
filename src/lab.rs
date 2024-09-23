@@ -14,6 +14,7 @@ use std::ops::{
 };
 
 /// Represents CIELAB color space.
+#[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
 pub struct Lab {
     /// `l`: lightness component (0 to 100)

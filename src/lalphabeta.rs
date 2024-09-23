@@ -8,6 +8,7 @@ use crate::{Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
 use std::ops::{Index, IndexMut, Neg};
 
 /// Represents l-alpha-beta (lαβ) colorspace
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct LAlphaBeta {
     pub l: f32,

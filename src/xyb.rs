@@ -13,6 +13,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 ///
 /// It is an LMS-based color model inspired by the human visual system, facilitating perceptually uniform quantization.
 /// It uses a gamma of 3 for computationally efficient decoding.
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Xyb {
     pub x: f32,

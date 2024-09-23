@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 colorutils-rs = { path = "../../" }
 image = "0.25.1"
-
+okhsl = "1.0.1"
