@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::linear_to_planar::neon_linear_plane_to_gamma;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_linear_plane_to_gamma;
@@ -33,10 +30,7 @@ fn linear_to_gamma_channels(
         unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler = Some(neon_linear_plane_to_gamma);
     }

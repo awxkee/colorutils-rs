@@ -9,10 +9,7 @@ use std::slice;
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
@@ -82,10 +79,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler = match transfer_function {
             TransferFunction::Srgb => Some(

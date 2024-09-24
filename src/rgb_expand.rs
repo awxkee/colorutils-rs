@@ -9,10 +9,7 @@
 use crate::avx::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::*;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 #[allow(unused_imports)]
@@ -62,10 +59,7 @@ pub fn rgb_to_rgba(
             }
         }
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
+        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
         unsafe {
             let v_alpha = vdupq_n_u8(default_alpha);
             let src_ptr = src.as_ptr().add(src_offset);

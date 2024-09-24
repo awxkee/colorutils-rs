@@ -170,7 +170,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "colorutils-rs"
-version = "0.5.11"
+version = "0.5.13"
 dependencies = [
  "erydanos",
  "half",
@@ -231,9 +231,9 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "erydanos"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be3ce2ff34323f7dfdbc720a54ce2158825f199fc9edc2657e8ce8fce162f0ef"
+checksum = "d60718e8a3b1adb22e0789c1ff070dfc68ab53a37a1202348ef252d9c836635d"
 dependencies = [
  "num-traits",
 ]

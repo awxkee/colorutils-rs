@@ -7,10 +7,7 @@
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_image_to_oklab;
 use crate::image::ImageConfiguration;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_image_to_oklab;
 use crate::oklch::Oklch;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -54,10 +51,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(

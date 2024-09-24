@@ -6,10 +6,7 @@
  */
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_jzazbz_to_image;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_jzazbz_to_image;
@@ -38,10 +35,7 @@ fn jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         _wide_row_handle = Some(sse_jzazbz_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handle = Some(neon_jzazbz_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }

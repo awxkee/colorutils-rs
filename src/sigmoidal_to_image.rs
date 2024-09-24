@@ -8,10 +8,7 @@
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::avx::avx_from_sigmoidal_row;
 use crate::image::ImageConfiguration;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_from_sigmoidal_row;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_from_sigmoidal_row;
@@ -48,10 +45,7 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _wide_row_handler = Some(avx_from_sigmoidal_row::<CHANNELS_CONFIGURATION>);
     }
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler = Some(neon_from_sigmoidal_row::<CHANNELS_CONFIGURATION>);
     }

@@ -7,10 +7,7 @@
 
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_channels_to_hsv_u16;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_hsv_u16;
@@ -40,10 +37,7 @@ fn channels_to_hsv_u16<
         unsafe fn(usize, *const u8, usize, u32, *mut u16, usize, f32) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler =
             Some(neon_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);

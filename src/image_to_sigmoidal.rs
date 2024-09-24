@@ -9,10 +9,7 @@
 use crate::avx::avx_image_to_sigmoidal_row;
 
 use crate::image::ImageConfiguration;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_image_to_sigmoidal;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_sigmoidal_row;
@@ -39,10 +36,7 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let mut _wide_row_handler: Option<unsafe fn(usize, *const u8, u32, *mut f32) -> usize> = None;
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler = Some(neon_image_to_sigmoidal::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }

@@ -8,10 +8,7 @@
 use crate::avx::avx_oklab_to_image;
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_oklab_to_image;
 use crate::oklch::Oklch;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -106,10 +103,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         };
     }
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handle = match transfer_function {
             TransferFunction::Srgb => Some(

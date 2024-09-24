@@ -9,10 +9,7 @@ use std::slice;
 
 use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_hsv_u16_to_image;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_hsv_u16_to_image;
@@ -47,10 +44,7 @@ fn hsv_u16_to_channels<
         _wide_row_handler = Some(sse_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handler =
             Some(neon_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);

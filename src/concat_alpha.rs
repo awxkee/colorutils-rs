@@ -9,10 +9,7 @@
 use crate::avx::*;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::*;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 #[allow(unused_imports)]
@@ -63,10 +60,7 @@ pub fn append_alpha(
             }
         }
 
-        #[cfg(all(
-            any(target_arch = "aarch64", target_arch = "arm"),
-            target_feature = "neon"
-        ))]
+        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
         unsafe {
             while _cx + 4 < width as usize {
                 let xyz_pixel = vld3q_f32(src_ptr.add(_cx * 3usize));

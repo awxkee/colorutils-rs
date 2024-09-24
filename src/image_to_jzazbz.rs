@@ -5,10 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
-#[cfg(all(
-    any(target_arch = "aarch64", target_arch = "arm"),
-    target_feature = "neon"
-))]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_image_to_jzazbz;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_jzazbz;
@@ -53,10 +50,7 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, f32, TransferFunction) -> usize,
     > = None;
 
-    #[cfg(all(
-        any(target_arch = "aarch64", target_arch = "arm"),
-        target_feature = "neon"
-    ))]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
         _wide_row_handle = Some(neon_image_to_jzazbz::<CHANNELS_CONFIGURATION, TARGET>);
     }
