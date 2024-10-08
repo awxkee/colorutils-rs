@@ -106,11 +106,10 @@ impl Xyz {
         matrix: &[[f32; 3]; 3],
         transfer_function: TransferFunction,
     ) -> Self {
-        let linear_function = transfer_function.get_linearize_function();
         unsafe {
-            let r = linear_function(rgb.r as f32 * XYZ_SCALE_U8);
-            let g = linear_function(rgb.g as f32 * XYZ_SCALE_U8);
-            let b = linear_function(rgb.b as f32 * XYZ_SCALE_U8);
+            let r = transfer_function.linearize(rgb.r as f32 * XYZ_SCALE_U8);
+            let g = transfer_function.linearize(rgb.g as f32 * XYZ_SCALE_U8);
+            let b = transfer_function.linearize(rgb.b as f32 * XYZ_SCALE_U8);
             Self::new(
                 (*(*matrix.get_unchecked(0)).get_unchecked(0)) * r
                     + (*(*matrix.get_unchecked(0)).get_unchecked(1)) * g
@@ -169,7 +168,6 @@ impl Xyz {
     /// * `transfer_function` - Transfer functions for current colorspace
     #[inline]
     pub fn to_rgb(&self, matrix: &[[f32; 3]; 3], transfer_function: TransferFunction) -> Rgb<u8> {
-        let gamma_function = transfer_function.get_gamma_function();
         let x = self.x;
         let y = self.y;
         let z = self.z;
@@ -183,7 +181,7 @@ impl Xyz {
             let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
                 + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
                 + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
-            Rgb::<f32>::new(gamma_function(r), gamma_function(g), gamma_function(b)).to_u8()
+            Rgb::<f32>::new(transfer_function.gamma(r), transfer_function.gamma(g), transfer_function.gamma(b)).to_u8()
         }
     }
 

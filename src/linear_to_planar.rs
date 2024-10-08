@@ -24,8 +24,6 @@ fn linear_to_gamma_channels(
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    let transfer = transfer_function.get_gamma_function();
-
     let mut _wide_row_handler: Option<
         unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
     > = None;
@@ -66,7 +64,7 @@ fn linear_to_gamma_channels(
             let pixel = unsafe { src_slice.read_unaligned() }.min(1f32).max(0f32);
 
             let dst = unsafe { dst_ptr.add(px) };
-            let transferred = transfer(pixel);
+            let transferred = transfer_function.gamma(pixel);
             let rgb8 = (transferred * 255f32).min(255f32).max(0f32) as u8;
 
             unsafe {

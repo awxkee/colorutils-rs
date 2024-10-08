@@ -39,8 +39,7 @@ impl Rgb<u8> {
     /// `transfer_function` - Transfer function to convert RGB into linear RGB
     #[inline]
     pub fn to_linear(&self, transfer_function: TransferFunction) -> Rgb<f32> {
-        let linear_transfer = transfer_function.get_linearize_function();
-        self.to_rgb_f32().apply(linear_transfer)
+        self.to_rgb_f32().linearize(transfer_function)
     }
 
     /// Converts gamma corrected RGB to linear RGB
@@ -49,8 +48,7 @@ impl Rgb<u8> {
     /// `transfer_function` - Transfer function to convert RGB into linear RGB
     #[inline]
     pub fn from_linear(linear_rgb: Rgb<f32>, transfer_function: TransferFunction) -> Rgb<u8> {
-        let linear_transfer = transfer_function.get_gamma_function();
-        linear_rgb.apply(linear_transfer).to_u8()
+        linear_rgb.gamma(transfer_function).to_u8()
     }
 
     /// Converts rgb to Jzazbz
@@ -295,6 +293,24 @@ impl Rgb<f32> {
             r: gen(self.r),
             g: gen(self.g),
             b: gen(self.b),
+        }
+    }
+
+    #[inline]
+    pub fn gamma(&self, transfer_function: TransferFunction) -> Self {
+        Self {
+            r: transfer_function.gamma(self.r),
+            g: transfer_function.gamma(self.g),
+            b: transfer_function.gamma(self.b),
+        }
+    }
+
+    #[inline]
+    pub fn linearize(&self, transfer_function: TransferFunction) -> Self {
+        Self {
+            r: transfer_function.linearize(self.r),
+            g: transfer_function.linearize(self.g),
+            b: transfer_function.linearize(self.b),
         }
     }
 

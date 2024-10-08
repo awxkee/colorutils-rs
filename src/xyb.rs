@@ -103,9 +103,7 @@ impl Xyb {
     /// Converts [Xyb] to [Rgb] using provided [TransferFunction]
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
         let linear_rgb = self.to_linear_rgb();
-        linear_rgb
-            .apply(transfer_function.get_gamma_function())
-            .to_u8()
+        linear_rgb.gamma(transfer_function).to_u8()
     }
 }
 

@@ -39,7 +39,6 @@ fn channels_to_linear(
         _wide_row_handler = Some(neon_plane_to_linear);
     }
 
-    let transfer = transfer_function.get_linearize_function();
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
@@ -65,7 +64,7 @@ fn channels_to_linear(
             let dst = unsafe { dst_ptr.add(px) };
             let src = unsafe { src_ptr.add(px) };
             let pixel_f = unsafe { src.read_unaligned() as f32 } * (1. / 255.);
-            let transferred = transfer(pixel_f);
+            let transferred = transfer_function.linearize(pixel_f);
 
             unsafe {
                 dst.write_unaligned(transferred);

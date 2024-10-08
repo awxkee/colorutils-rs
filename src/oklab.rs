@@ -40,9 +40,8 @@ impl Oklab {
     #[inline]
     /// Converts from Rgb to [Oklab] using provided [TransferFunction]
     pub fn from_rgb(rgb: Rgb<u8>, transfer_function: TransferFunction) -> Oklab {
-        let transfer = transfer_function.get_linearize_function();
         let rgb_float = rgb.to_rgb_f32();
-        let linearized = rgb_float.apply(transfer);
+        let linearized = rgb_float.linearize(transfer_function);
         Self::linear_rgb_to_oklab(linearized)
     }
 
@@ -58,8 +57,7 @@ impl Oklab {
     /// Converts [Oklab] to [Rgb] using provided [TransferFunction]
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
         let linear_rgb = self.to_linear_srgb();
-        let transfer = transfer_function.get_gamma_function();
-        let transferred = linear_rgb.apply(transfer);
+        let transferred = linear_rgb.gamma(transfer_function);
         transferred.to_u8()
     }
 
@@ -74,8 +72,7 @@ impl Oklab {
     /// Converts [Oklab] to [Rgb] using provided [TransferFunction]
     pub fn to_rgb_f32(&self, transfer_function: TransferFunction) -> Rgb<f32> {
         let linear_rgb = self.to_linear_srgb();
-        let transfer = transfer_function.get_gamma_function();
-        linear_rgb.apply(transfer)
+        linear_rgb.gamma(transfer_function)
     }
 
     #[inline]

@@ -161,12 +161,10 @@ impl Jzazbz {
         xyz.to_linear_rgb(&XYZ_TO_SRGB_D65)
     }
 
-    /// Converts to RGB with requested transfer function
+    /// Converts Linear to RGB with requested transfer function
     #[inline]
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
-        let linear_rgb = self
-            .to_linear_rgb()
-            .apply(transfer_function.get_gamma_function());
+        let linear_rgb = self.to_linear_rgb().gamma(transfer_function);
         linear_rgb.to_u8()
     }
 

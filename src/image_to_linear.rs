@@ -30,11 +30,6 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let mut src_offset = 0usize;
-    let mut dst_offset = 0usize;
-
-    let transfer = transfer_function.get_linearize_function();
-
     let channels = image_configuration.get_channels_count();
 
     let mut _wide_row_handle: Option<
@@ -56,6 +51,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _wide_row_handle = Some(neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
+    let mut src_offset = 0usize;
+    let mut dst_offset = 0usize;
     for _ in 0..height as usize {
         let mut _cx = 0usize;
 
@@ -97,9 +94,11 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             let rgb_f32 = rgb.to_rgb_f32();
 
             unsafe {
-                dst.write_unaligned(transfer(rgb_f32.r));
-                dst.add(1).write_unaligned(transfer(rgb_f32.g));
-                dst.add(2).write_unaligned(transfer(rgb_f32.b));
+                dst.write_unaligned(transfer_function.linearize(rgb_f32.r));
+                dst.add(1)
+                    .write_unaligned(transfer_function.linearize(rgb_f32.g));
+                dst.add(2)
+                    .write_unaligned(transfer_function.linearize(rgb_f32.b));
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {

@@ -33,8 +33,6 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    let transfer = transfer_function.get_gamma_function();
-
     let channels = image_configuration.get_channels_count();
 
     let mut _wide_row_handler: Option<
@@ -91,7 +89,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             let rgb = Rgb::<u8>::new(r, g, b);
             let mut rgb = rgb.to_rgb_f32();
 
-            rgb = rgb.apply(transfer);
+            rgb = rgb.gamma(transfer_function);
             let new_rgb = rgb.to_u8();
 
             unsafe {

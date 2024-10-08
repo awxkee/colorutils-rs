@@ -42,8 +42,6 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    let transfer = transfer_function.get_gamma_function();
-
     let channels = image_configuration.get_channels_count();
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -102,7 +100,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             );
 
             let dst = unsafe { dst_ptr.add(px) };
-            let transferred = rgb.apply(transfer);
+            let transferred = rgb.gamma(transfer_function);
             let rgb8 = transferred.to_u8();
 
             unsafe {

@@ -772,12 +772,11 @@ impl Rgba<u8> {
     /// `transfer_function` - Transfer function to convert RGB into linear RGB
     #[inline]
     pub fn to_linear(&self, transfer_function: TransferFunction) -> Rgba<f32> {
-        let linear_transfer = transfer_function.get_linearize_function();
         let rgba = self.to_rgba_f32();
         Rgba::<f32>::new(
-            linear_transfer(rgba.r),
-            linear_transfer(rgba.g),
-            linear_transfer(rgba.b),
+            transfer_function.linearize(rgba.r),
+            transfer_function.linearize(rgba.g),
+            transfer_function.linearize(rgba.b),
             rgba.a,
         )
     }
@@ -788,11 +787,10 @@ impl Rgba<u8> {
     /// `transfer_function` - Transfer function to convert RGB into linear RGB
     #[inline]
     pub fn from_linear(linear_rgb: Rgba<f32>, transfer_function: TransferFunction) -> Rgba<u8> {
-        let gamma_transfer = transfer_function.get_gamma_function();
         let gamma = Rgba::<f32>::new(
-            gamma_transfer(linear_rgb.r),
-            gamma_transfer(linear_rgb.g),
-            gamma_transfer(linear_rgb.b),
+            transfer_function.gamma(linear_rgb.r),
+            transfer_function.gamma(linear_rgb.g),
+            transfer_function.gamma(linear_rgb.b),
             linear_rgb.a,
         );
         gamma.to_rgba8()

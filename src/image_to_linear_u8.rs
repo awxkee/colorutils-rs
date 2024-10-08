@@ -33,8 +33,6 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     let mut src_offset = 0usize;
     let mut dst_offset = 0usize;
 
-    let transfer = transfer_function.get_linearize_function();
-
     let channels = image_configuration.get_channels_count();
 
     let mut _wide_row_handler: Option<
@@ -91,7 +89,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
             let rgb = Rgb::<u8>::new(r, g, b);
             let mut rgb_f32 = rgb.to_rgb_f32();
-            rgb_f32 = rgb_f32.apply(transfer);
+            rgb_f32 = rgb_f32.linearize(transfer_function);
             let rgb = rgb_f32.to_u8();
 
             unsafe {

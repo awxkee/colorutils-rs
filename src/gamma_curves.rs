@@ -125,22 +125,22 @@ impl From<u8> for TransferFunction {
 
 impl TransferFunction {
     #[inline]
-    pub fn get_linearize_function(&self) -> fn(f32) -> f32 {
+    pub fn linearize(&self, v: f32) -> f32 {
         match self {
-            TransferFunction::Srgb => srgb_to_linear,
-            TransferFunction::Rec709 => rec709_to_linear,
-            TransferFunction::Gamma2p8 => gamma2p8_to_linear,
-            TransferFunction::Gamma2p2 => gamma2p2_to_linear,
+            TransferFunction::Srgb => srgb_to_linear(v),
+            TransferFunction::Rec709 => rec709_to_linear(v),
+            TransferFunction::Gamma2p8 => gamma2p8_to_linear(v),
+            TransferFunction::Gamma2p2 => gamma2p2_to_linear(v),
         }
     }
 
     #[inline]
-    pub fn get_gamma_function(&self) -> fn(f32) -> f32 {
+    pub fn gamma(&self, v: f32) -> f32 {
         match self {
-            TransferFunction::Srgb => srgb_from_linear,
-            TransferFunction::Rec709 => rec709_from_linear,
-            TransferFunction::Gamma2p2 => gamma2p2_from_linear,
-            TransferFunction::Gamma2p8 => gamma2p8_from_linear,
+            TransferFunction::Srgb => srgb_from_linear(v),
+            TransferFunction::Rec709 => rec709_from_linear(v),
+            TransferFunction::Gamma2p2 => gamma2p2_from_linear(v),
+            TransferFunction::Gamma2p8 => gamma2p8_from_linear(v),
         }
     }
 }
