@@ -7,6 +7,7 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::sse::*;
+use erydanos::_mm_pow_ps;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -104,6 +105,27 @@ pub unsafe fn sse_pure_gamma(gamma: __m128, value: f32) -> __m128 {
 }
 
 #[inline(always)]
+pub unsafe fn sse_smpte428_from_linear(linear: __m128) -> __m128 {
+    const POWER_VALUE: f32 = 1.0f32 / 2.6f32;
+    _mm_pow_ps(
+        _mm_mul_ps(
+            _mm_max_ps(linear, _mm_setzero_ps()),
+            _mm_set1_ps(0.91655527974030934f32),
+        ),
+        _mm_set1_ps(POWER_VALUE),
+    )
+}
+
+#[inline(always)]
+pub unsafe fn sse_smpte428_to_linear(gamma: __m128) -> __m128 {
+    const SCALE: f32 = 1. / 0.91655527974030934f32;
+    _mm_mul_ps(
+        _mm_pow_ps(_mm_max_ps(gamma, _mm_setzero_ps()), _mm_set1_ps(2.6f32)),
+        _mm_set1_ps(SCALE),
+    )
+}
+
+#[inline(always)]
 pub unsafe fn sse_gamma2p2_to_linear(gamma: __m128) -> __m128 {
     sse_pure_gamma(gamma, 2.2f32)
 }
@@ -133,6 +155,7 @@ pub unsafe fn perform_sse_linear_transfer(
         TransferFunction::Rec709 => sse_rec709_to_linear(v),
         TransferFunction::Gamma2p2 => sse_gamma2p2_to_linear(v),
         TransferFunction::Gamma2p8 => sse_gamma2p8_to_linear(v),
+        TransferFunction::Smpte428 => sse_smpte428_from_linear(v),
     }
 }
 
@@ -143,5 +166,6 @@ pub unsafe fn perform_sse_gamma_transfer(transfer_function: TransferFunction, v:
         TransferFunction::Rec709 => sse_rec709_from_linear(v),
         TransferFunction::Gamma2p2 => sse_gamma2p2_from_linear(v),
         TransferFunction::Gamma2p8 => sse_gamma2p8_from_linear(v),
+        TransferFunction::Smpte428 => sse_smpte428_to_linear(v),
     }
 }

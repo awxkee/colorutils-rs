@@ -106,6 +106,30 @@ pub unsafe fn avx2_pure_gamma(x: __m256, value: f32) -> __m256 {
 }
 
 #[inline(always)]
+pub unsafe fn avx2_smpte428_from_linear(linear: __m256) -> __m256 {
+    const POWER_VALUE: f32 = 1.0f32 / 2.6f32;
+    _mm256_pow_ps(
+        _mm256_mul_ps(
+            _mm256_max_ps(linear, _mm256_setzero_ps()),
+            _mm256_set1_ps(0.91655527974030934f32),
+        ),
+        _mm256_set1_ps(POWER_VALUE),
+    )
+}
+
+#[inline(always)]
+pub unsafe fn avx2_smpte428_to_linear(gamma: __m256) -> __m256 {
+    const SCALE: f32 = 1. / 0.91655527974030934f32;
+    _mm256_mul_ps(
+        _mm256_pow_ps(
+            _mm256_max_ps(gamma, _mm256_setzero_ps()),
+            _mm256_set1_ps(2.6f32),
+        ),
+        _mm256_set1_ps(SCALE),
+    )
+}
+
+#[inline(always)]
 pub unsafe fn avx2_gamma2p2_to_linear(gamma: __m256) -> __m256 {
     avx2_pure_gamma(gamma, 2.2f32)
 }
@@ -132,6 +156,7 @@ pub unsafe fn perform_avx_gamma_transfer(transfer_function: TransferFunction, v:
         TransferFunction::Rec709 => avx2_rec709_from_linear(v),
         TransferFunction::Gamma2p2 => avx2_gamma2p2_from_linear(v),
         TransferFunction::Gamma2p8 => avx2_gamma2p8_from_linear(v),
+        TransferFunction::Smpte428 => avx2_smpte428_from_linear(v),
     }
 }
 
@@ -145,5 +170,6 @@ pub unsafe fn perform_avx2_linear_transfer(
         TransferFunction::Rec709 => avx2_rec709_to_linear(v),
         TransferFunction::Gamma2p2 => avx2_gamma2p2_to_linear(v),
         TransferFunction::Gamma2p8 => avx2_gamma2p8_to_linear(v),
+        TransferFunction::Smpte428 => avx2_smpte428_to_linear(v),
     }
 }
