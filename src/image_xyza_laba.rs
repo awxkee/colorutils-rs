@@ -49,71 +49,13 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     {
         if std::arch::is_x86_feature_detected!("sse4.1") {
-            _wide_row_handler = match transfer_function {
-                TransferFunction::Srgb => Some(
-                    sse_channels_to_xyza_laba::<
-                        CHANNELS_CONFIGURATION,
-                        TARGET,
-                        { TransferFunction::Srgb as u8 },
-                    >,
-                ),
-                TransferFunction::Rec709 => Some(
-                    sse_channels_to_xyza_laba::<
-                        CHANNELS_CONFIGURATION,
-                        TARGET,
-                        { TransferFunction::Rec709 as u8 },
-                    >,
-                ),
-                TransferFunction::Gamma2p2 => Some(
-                    sse_channels_to_xyza_laba::<
-                        CHANNELS_CONFIGURATION,
-                        TARGET,
-                        { TransferFunction::Gamma2p2 as u8 },
-                    >,
-                ),
-                TransferFunction::Gamma2p8 => Some(
-                    sse_channels_to_xyza_laba::<
-                        CHANNELS_CONFIGURATION,
-                        TARGET,
-                        { TransferFunction::Gamma2p8 as u8 },
-                    >,
-                ),
-            };
+            _wide_row_handler = Some(sse_channels_to_xyza_laba::<CHANNELS_CONFIGURATION, TARGET>);
         }
     }
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
-        _wide_row_handler = match transfer_function {
-            TransferFunction::Srgb => Some(
-                neon_channels_to_xyza_or_laba::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Srgb as u8 },
-                >,
-            ),
-            TransferFunction::Rec709 => Some(
-                neon_channels_to_xyza_or_laba::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                neon_channels_to_xyza_or_laba::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                neon_channels_to_xyza_or_laba::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handler = Some(neon_channels_to_xyza_or_laba::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let channels = image_configuration.get_channels_count();

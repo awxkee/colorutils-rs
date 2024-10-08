@@ -13,7 +13,6 @@ use std::arch::x86_64::*;
 use crate::avx::cie::{
     avx2_triple_to_lab, avx2_triple_to_luv, avx2_triple_to_xyz, avx_triple_to_lch,
 };
-use crate::avx::gamma_curves::get_avx2_linear_transfer;
 use crate::avx::routines::{avx_vld_u8_and_deinterleave, avx_vld_u8_and_deinterleave_half};
 use crate::avx::*;
 use crate::avx_store_and_interleave_v3_direct_f32;
@@ -21,12 +20,11 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::xyz_target::XyzTarget;
 
-#[inline(always)]
+#[target_feature(enable = "avx2")]
 pub unsafe fn avx2_image_to_xyz_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
 >(
     start_cx: usize,
     src: *const u8,
@@ -37,7 +35,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
     a_linearized: *mut f32,
     a_offset: usize,
     matrix: &[[f32; 3]; 3],
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     if USE_ALPHA && a_linearized.is_null() {
         panic!("Null alpha channel with requirements of linearized alpha if not supported");
@@ -46,9 +44,6 @@ pub unsafe fn avx2_image_to_xyz_lab<
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_avx2_linear_transfer(transfer_function);
 
     let cq1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
     let cq2 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
@@ -76,7 +71,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = avx2_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -109,8 +116,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = avx2_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -147,8 +165,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let b_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_high));
 
         let (mut x_high_low, mut y_high_low, mut z_high_low) = avx2_triple_to_xyz(
-            r_high_low, g_high_low, b_high_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -193,7 +222,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
             cq7,
             cq8,
             cq9,
-            &transfer,
+            transfer_function,
         );
 
         match target {
@@ -276,7 +305,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = avx2_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -308,8 +349,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
         let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
         let (mut x_low_high, mut y_low_high, mut z_low_high) = avx2_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -376,7 +428,19 @@ pub unsafe fn avx2_image_to_xyz_lab<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = avx2_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {

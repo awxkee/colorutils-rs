@@ -41,7 +41,7 @@ unsafe fn vld_sigmoidal<const CHANNELS_CONFIGURATION: u8>(
     }
 }
 
-#[inline(always)]
+#[target_feature(enable = "avx2")]
 pub unsafe fn avx_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
     start_cx: usize,
     src: *const f32,

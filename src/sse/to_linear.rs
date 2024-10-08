@@ -22,38 +22,31 @@ unsafe fn sse_triple_to_linear(
     r: __m128i,
     g: __m128i,
     b: __m128i,
-    transfer: &unsafe fn(__m128) -> __m128,
+    transfer_function: TransferFunction,
 ) -> (__m128, __m128, __m128) {
     let u8_scale = _mm_set1_ps(1f32 / 255f32);
     let r_f = _mm_mul_ps(_mm_cvtepi32_ps(r), u8_scale);
     let g_f = _mm_mul_ps(_mm_cvtepi32_ps(g), u8_scale);
     let b_f = _mm_mul_ps(_mm_cvtepi32_ps(b), u8_scale);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
+    let r_linear = perform_sse_linear_transfer(transfer_function, r_f);
+    let g_linear = perform_sse_linear_transfer(transfer_function, g_f);
+    let b_linear = perform_sse_linear_transfer(transfer_function, b_f);
     (r_linear, g_linear, b_linear)
 }
 
-#[inline(always)]
-pub unsafe fn sse_channels_to_linear<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TRANSFER_FUNCTION: u8,
->(
+#[target_feature(enable = "sse4.1")]
+pub unsafe fn sse_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_sse_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
@@ -73,7 +66,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (x_low_low, y_low_low, z_low_low) =
-            sse_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            sse_triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -101,7 +94,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (x_low_high, y_low_high, z_low_high) =
-            sse_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            sse_triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high =
@@ -136,7 +129,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
         let (x_high_low, y_high_low, z_high_low) =
-            sse_triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
+            sse_triple_to_linear(r_high_low, g_high_low, b_high_low, transfer_function);
 
         let a_high = _mm_unpackhi_epi8(a_chan, zeros);
 
@@ -168,7 +161,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_high_high = _mm_unpackhi_epi16(b_high, zeros);
 
         let (x_high_high, y_high_high, z_high_high) =
-            sse_triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
+            sse_triple_to_linear(r_high_high, g_high_high, b_high_high, transfer_function);
 
         if USE_ALPHA {
             let a_high_high = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
@@ -210,7 +203,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (x_low_low, y_low_low, z_low_low) =
-            sse_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            sse_triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -238,7 +231,7 @@ pub unsafe fn sse_channels_to_linear<
         let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (x_low_high, y_low_high, z_low_high) =
-            sse_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            sse_triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high =

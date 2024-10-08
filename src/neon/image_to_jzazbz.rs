@@ -6,8 +6,8 @@
  */
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
-use crate::neon::get_neon_linear_transfer;
 use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
+use crate::neon::neon_perform_linear_transfer;
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
     TransferFunction, SRGB_TO_XYZ_D65,
@@ -37,9 +37,9 @@ macro_rules! triple_to_jzazbz {
         let r_f = vmulq_n_f32(vcvtq_f32_u32($r), 1f32 / 255f32);
         let g_f = vmulq_n_f32(vcvtq_f32_u32($g), 1f32 / 255f32);
         let b_f = vmulq_n_f32(vcvtq_f32_u32($b), 1f32 / 255f32);
-        let dl_l = $transfer(r_f);
-        let dl_m = $transfer(g_f);
-        let dl_s = $transfer(b_f);
+        let dl_l = neon_perform_linear_transfer($transfer, r_f);
+        let dl_m = neon_perform_linear_transfer($transfer, g_f);
+        let dl_s = neon_perform_linear_transfer($transfer, b_f);
 
         let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
             vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
@@ -124,8 +124,6 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
 
-    let transfer = get_neon_linear_transfer(transfer_function);
-
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     while cx + 16 < width as usize {
@@ -145,7 +143,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_low_low,
             g_low_low,
             b_low_low,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -170,7 +168,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_low_high,
             g_low_high,
             b_low_high,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -196,7 +194,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_high_low,
             g_high_low,
             b_high_low,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -224,7 +222,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_high_high,
             g_high_high,
             b_high_high,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -258,7 +256,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_low_low,
             g_low_low,
             b_low_low,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -283,7 +281,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_low_high,
             g_low_high,
             b_low_high,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );
@@ -317,7 +315,7 @@ pub unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
             r_low_low,
             g_low_low,
             b_low_low,
-            &transfer,
+            transfer_function,
             target,
             display_luminance
         );

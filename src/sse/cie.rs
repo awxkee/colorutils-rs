@@ -9,7 +9,10 @@ use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
-use crate::sse::{_mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps};
+use crate::sse::{
+    _mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps, perform_sse_linear_transfer,
+};
+use crate::TransferFunction;
 use erydanos::{_mm_atan2_ps, _mm_cbrt_fast_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -30,15 +33,15 @@ pub(crate) unsafe fn sse_triple_to_xyz(
     c7: __m128,
     c8: __m128,
     c9: __m128,
-    transfer: &unsafe fn(__m128) -> __m128,
+    transfer_function: TransferFunction,
 ) -> (__m128, __m128, __m128) {
     let u8_scale = _mm_set1_ps(1f32 / 255f32);
     let r_f = _mm_mul_ps(_mm_cvtepi32_ps(r), u8_scale);
     let g_f = _mm_mul_ps(_mm_cvtepi32_ps(g), u8_scale);
     let b_f = _mm_mul_ps(_mm_cvtepi32_ps(b), u8_scale);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
+    let r_linear = perform_sse_linear_transfer(transfer_function, r_f);
+    let g_linear = perform_sse_linear_transfer(transfer_function, g_f);
+    let b_linear = perform_sse_linear_transfer(transfer_function, b_f);
 
     let (x, y, z) = _mm_color_matrix_ps(
         r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,

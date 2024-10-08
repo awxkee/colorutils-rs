@@ -17,7 +17,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline]
+#[target_feature(enable = "sse4.1")]
 pub unsafe fn sse_hsv_u16_to_image<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,

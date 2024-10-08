@@ -47,7 +47,7 @@ unsafe fn vld_sigmoidal<const CHANNELS_CONFIGURATION: u8>(
     }
 }
 
-#[inline(always)]
+#[target_feature(enable = "sse4.1")]
 pub unsafe fn sse_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
     start_cx: usize,
     src: *const f32,

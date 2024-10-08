@@ -48,96 +48,17 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
-        _wide_row_handler = match transfer_function {
-            TransferFunction::Srgb => Some(
-                neon_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Srgb as u8 },
-                >,
-            ),
-            TransferFunction::Rec709 => Some(
-                neon_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                neon_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                neon_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handler = Some(neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("sse4.1") {
-        _wide_row_handler = match transfer_function {
-            TransferFunction::Srgb => Some(
-                sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET, { TransferFunction::Srgb as u8 }>,
-            ),
-            TransferFunction::Rec709 => Some(
-                sse_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                sse_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                sse_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handler = Some(sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("avx2") {
-        _wide_row_handler = match transfer_function {
-            TransferFunction::Srgb => Some(
-                avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET, { TransferFunction::Srgb as u8 }>,
-            ),
-            TransferFunction::Rec709 => Some(
-                avx_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                avx_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                avx_xyza_to_image::<
-                    CHANNELS_CONFIGURATION,
-                    TARGET,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handler = Some(avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     let mut src_offset = 0usize;

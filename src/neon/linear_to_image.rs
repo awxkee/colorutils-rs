@@ -13,16 +13,16 @@ use std::arch::aarch64::*;
 #[inline(always)]
 unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
-    transfer: &unsafe fn(float32x4_t) -> float32x4_t,
+    transfer_function: TransferFunction,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
         load_f32_and_deinterleave!(src, image_configuration);
 
-    r_f32 = transfer(r_f32);
-    g_f32 = transfer(g_f32);
-    b_f32 = transfer(b_f32);
+    r_f32 = neon_perform_gamma_transfer(transfer_function, r_f32);
+    g_f32 = neon_perform_gamma_transfer(transfer_function, g_f32);
+    b_f32 = neon_perform_gamma_transfer(transfer_function, b_f32);
     r_f32 = vmulq_f32(r_f32, v_scale_alpha);
     g_f32 = vmulq_f32(g_f32, v_scale_alpha);
     b_f32 = vmulq_f32(b_f32, v_scale_alpha);
@@ -37,25 +37,18 @@ unsafe fn neon_gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool
     )
 }
 
-#[inline(always)]
-pub unsafe fn neon_linear_to_gamma<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TRANSFER_FUNCTION: u8,
->(
+pub unsafe fn neon_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_neon_gamma_transfer(transfer_function);
 
     while cx + 16 < width as usize {
         let offset_src_ptr =
@@ -64,22 +57,22 @@ pub unsafe fn neon_linear_to_gamma<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, transfer_function);
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, transfer_function);
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
         let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));
@@ -130,12 +123,12 @@ pub unsafe fn neon_linear_to_gamma<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
         let g_row01 = vcombine_u16(vqmovn_u32(g_row0_), vqmovn_u32(g_row1_));
@@ -181,7 +174,7 @@ pub unsafe fn neon_linear_to_gamma<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
+            neon_gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
 
         let zero = vdup_n_u16(0);
 

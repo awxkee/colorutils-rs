@@ -10,7 +10,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use crate::avx::gamma_curves::get_avx_gamma_transfer;
+use crate::avx::gamma_curves::perform_avx_gamma_transfer;
 use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::{avx2_interleave_rgb, avx2_interleave_rgba_epi8, avx2_pack_u16, avx2_pack_u32};
 use crate::image::ImageConfiguration;
@@ -22,14 +22,14 @@ use crate::{
 #[inline(always)]
 unsafe fn gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     src: *const f32,
-    transfer: &unsafe fn(__m256) -> __m256,
+    transfer_function: TransferFunction,
 ) -> (__m256i, __m256i, __m256i, __m256i) {
     let v_scale_alpha = _mm256_set1_ps(255f32);
     let (mut r_f32, mut g_f32, mut b_f32, mut a_f32) =
         avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(src);
-    r_f32 = transfer(r_f32);
-    g_f32 = transfer(g_f32);
-    b_f32 = transfer(b_f32);
+    r_f32 = perform_avx_gamma_transfer(transfer_function, r_f32);
+    g_f32 = perform_avx_gamma_transfer(transfer_function, g_f32);
+    b_f32 = perform_avx_gamma_transfer(transfer_function, b_f32);
     r_f32 = _mm256_mul_ps(r_f32, v_scale_alpha);
     g_f32 = _mm256_mul_ps(g_f32, v_scale_alpha);
     b_f32 = _mm256_mul_ps(b_f32, v_scale_alpha);
@@ -44,26 +44,19 @@ unsafe fn gamma_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     )
 }
 
-#[inline(always)]
-pub unsafe fn avx_linear_to_gamma<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TRANSFER_FUNCTION: u8,
->(
+#[target_feature(enable = "avx2")]
+pub unsafe fn avx_linear_to_gamma<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_avx_gamma_transfer(transfer_function);
 
     while cx + 32 < width as usize {
         let offset_src_ptr =
@@ -72,22 +65,22 @@ pub unsafe fn avx_linear_to_gamma<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
 
         let src_ptr_2 = offset_src_ptr.add(8 * 2 * channels);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_2, transfer_function);
 
         let src_ptr_3 = offset_src_ptr.add(8 * 3 * channels);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_3, transfer_function);
 
         let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
         let g_row01 = avx2_pack_u32(g_row0_, g_row1_);
@@ -131,12 +124,12 @@ pub unsafe fn avx_linear_to_gamma<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_0, transfer_function);
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
-            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, &transfer);
+            gamma_vld::<CHANNELS_CONFIGURATION, USE_ALPHA>(src_ptr_1, transfer_function);
 
         let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
         let g_row01 = avx2_pack_u32(g_row0_, g_row1_);

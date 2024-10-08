@@ -15,7 +15,7 @@ use erydanos::{_mm_cos_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_pow_ps, _mm_sin_ps};
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::sse::{
-    _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, get_sse_gamma_transfer,
+    _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, perform_sse_gamma_transfer,
     sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps, sse_interleave_rgb, sse_interleave_rgba,
 };
 use crate::{
@@ -50,7 +50,6 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     luminance_scale: __m128,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
     let target: JzazbzTarget = TARGET.into();
-    let transfer = get_sse_gamma_transfer(transfer_function);
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
@@ -122,9 +121,9 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 
     let (r_l, g_l, b_l) = _mm_color_matrix_ps(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
-    let mut r_f32 = transfer(r_l);
-    let mut g_f32 = transfer(g_l);
-    let mut b_f32 = transfer(b_l);
+    let mut r_f32 = perform_sse_gamma_transfer(transfer_function, r_l);
+    let mut g_f32 = perform_sse_gamma_transfer(transfer_function, g_l);
+    let mut b_f32 = perform_sse_gamma_transfer(transfer_function, b_l);
     r_f32 = _mm_mul_ps(r_f32, v_scale_alpha);
     g_f32 = _mm_mul_ps(g_f32, v_scale_alpha);
     b_f32 = _mm_mul_ps(b_f32, v_scale_alpha);
@@ -151,7 +150,7 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     }
 }
 
-#[inline(always)]
+#[target_feature(enable = "sse4.1")]
 pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,

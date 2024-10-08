@@ -18,38 +18,29 @@ pub(crate) unsafe fn neon_triple_to_linear(
     r: uint32x4_t,
     g: uint32x4_t,
     b: uint32x4_t,
-    transfer: &unsafe fn(float32x4_t) -> float32x4_t,
+    transfer_function: TransferFunction,
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
     let r_f = vmulq_n_f32(vcvtq_f32_u32(r), 1f32 / 255f32);
     let g_f = vmulq_n_f32(vcvtq_f32_u32(g), 1f32 / 255f32);
     let b_f = vmulq_n_f32(vcvtq_f32_u32(b), 1f32 / 255f32);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
+    let r_linear = neon_perform_linear_transfer(transfer_function, r_f);
+    let g_linear = neon_perform_linear_transfer(transfer_function, g_f);
+    let b_linear = neon_perform_linear_transfer(transfer_function, b_f);
     (r_linear, g_linear, b_linear)
 }
 
-#[inline(always)]
-pub unsafe fn neon_channels_to_linear<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TRANSFER_FUNCTION: u8,
->(
+pub unsafe fn neon_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-
-    let transfer = get_neon_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
@@ -67,7 +58,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
 
@@ -100,7 +91,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) =
-            neon_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            neon_triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -134,7 +125,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
         let (x_high_low, y_high_low, z_high_low) =
-            neon_triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
+            neon_triple_to_linear(r_high_low, g_high_low, b_high_low, transfer_function);
 
         let a_high = vmovl_high_u8(a_chan);
 
@@ -169,7 +160,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_high_high = vmovl_high_u16(b_high);
 
         let (x_high_high, y_high_high, z_high_high) =
-            neon_triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
+            neon_triple_to_linear(r_high_high, g_high_high, b_high_high, transfer_function);
 
         if USE_ALPHA {
             let a_high_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_high)), 1f32 / 255f32);
@@ -211,7 +202,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
 
@@ -244,7 +235,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) =
-            neon_triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            neon_triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high = vmulq_n_f32(vcvtq_f32_u32(vmovl_high_u16(a_low)), 1f32 / 255f32);
@@ -286,7 +277,7 @@ pub unsafe fn neon_channels_to_linear<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            neon_triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
 

@@ -14,10 +14,7 @@ use erydanos::{_mm_atan2_ps, _mm_hypot_fast_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_p
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
-use crate::sse::{
-    _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, get_sse_linear_transfer,
-    sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba,
-};
+use crate::sse::{_mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, perform_sse_linear_transfer, sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba};
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v3_direct_f32,
     store_and_interleave_v4_direct_f32, TransferFunction, SRGB_TO_XYZ_D65,
@@ -47,9 +44,9 @@ macro_rules! triple_to_jzazbz {
         let r_f = _mm_mul_ps(_mm_cvtepi32_ps($r), u8_scale);
         let g_f = _mm_mul_ps(_mm_cvtepi32_ps($g), u8_scale);
         let b_f = _mm_mul_ps(_mm_cvtepi32_ps($b), u8_scale);
-        let r_linear = $transfer(r_f);
-        let g_linear = $transfer(g_f);
-        let b_linear = $transfer(b_f);
+        let r_linear = perform_sse_linear_transfer($transfer, r_f);
+        let g_linear = perform_sse_linear_transfer($transfer,g_f);
+        let b_linear = perform_sse_linear_transfer($transfer,b_f);
 
         let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
             _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
@@ -121,7 +118,7 @@ macro_rules! triple_to_jzazbz {
     }};
 }
 
-#[inline(always)]
+#[target_feature(enable = "sse4.1")]
 pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const u8,
@@ -136,8 +133,6 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer = get_sse_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
@@ -157,7 +152,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, &transfer, target, luminance);
+            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, transfer_function, target, luminance);
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -177,7 +172,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
-            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, &transfer, target, luminance);
+            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, transfer_function, target, luminance);
 
         if image_configuration.has_alpha() {
             let a_low_high = _mm_mul_ps(
@@ -203,7 +198,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
         let (x_high_low, y_high_low, z_high_low) =
-            triple_to_jzazbz!(r_high_low, g_high_low, b_high_low, &transfer, target, luminance);
+            triple_to_jzazbz!(r_high_low, g_high_low, b_high_low, transfer_function, target, luminance);
 
         let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
 
@@ -226,7 +221,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
             r_high_high,
             g_high_high,
             b_high_high,
-            &transfer,
+            transfer_function,
             target,
             luminance
         );
@@ -266,7 +261,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, &transfer, target, luminance);
+            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, transfer_function, target, luminance);
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -286,7 +281,7 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
-            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, &transfer, target, luminance);
+            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, transfer_function, target, luminance);
 
         if image_configuration.has_alpha() {
             let a_low_high = _mm_mul_ps(

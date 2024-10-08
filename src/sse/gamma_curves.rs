@@ -124,25 +124,24 @@ pub unsafe fn sse_gamma2p8_from_linear(linear: __m128) -> __m128 {
 }
 
 #[inline(always)]
-pub unsafe fn get_sse_linear_transfer(
+pub unsafe fn perform_sse_linear_transfer(
     transfer_function: TransferFunction,
-) -> unsafe fn(__m128) -> __m128 {
+    v: __m128,
+) -> __m128 {
     match transfer_function {
-        TransferFunction::Srgb => sse_srgb_to_linear,
-        TransferFunction::Rec709 => sse_rec709_to_linear,
-        TransferFunction::Gamma2p2 => sse_gamma2p2_to_linear,
-        TransferFunction::Gamma2p8 => sse_gamma2p8_to_linear,
+        TransferFunction::Srgb => sse_srgb_to_linear(v),
+        TransferFunction::Rec709 => sse_rec709_to_linear(v),
+        TransferFunction::Gamma2p2 => sse_gamma2p2_to_linear(v),
+        TransferFunction::Gamma2p8 => sse_gamma2p8_to_linear(v),
     }
 }
 
 #[inline(always)]
-pub unsafe fn get_sse_gamma_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m128) -> __m128 {
+pub unsafe fn perform_sse_gamma_transfer(transfer_function: TransferFunction, v: __m128) -> __m128 {
     match transfer_function {
-        TransferFunction::Srgb => sse_srgb_from_linear,
-        TransferFunction::Rec709 => sse_rec709_from_linear,
-        TransferFunction::Gamma2p2 => sse_gamma2p2_from_linear,
-        TransferFunction::Gamma2p8 => sse_gamma2p8_from_linear,
+        TransferFunction::Srgb => sse_srgb_from_linear(v),
+        TransferFunction::Rec709 => sse_rec709_from_linear(v),
+        TransferFunction::Gamma2p2 => sse_gamma2p2_from_linear(v),
+        TransferFunction::Gamma2p8 => sse_gamma2p8_from_linear(v),
     }
 }

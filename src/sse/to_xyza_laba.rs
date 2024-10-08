@@ -16,12 +16,8 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline(always)]
-pub unsafe fn sse_channels_to_xyza_laba<
-    const CHANNELS_CONFIGURATION: u8,
-    const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
->(
+#[target_feature(enable = "sse4.1")]
+pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
@@ -29,7 +25,7 @@ pub unsafe fn sse_channels_to_xyza_laba<
     dst: *mut f32,
     dst_offset: usize,
     matrix: &[[f32; 3]; 3],
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     const CHANNELS: usize = 4;
     let target: XyzTarget = TARGET.into();
@@ -39,9 +35,6 @@ pub unsafe fn sse_channels_to_xyza_laba<
         panic!("Null alpha channel with requirements of linearized alpha if not supported");
     }
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_sse_linear_transfer(transfer_function);
 
     let cq1 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
     let cq2 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
@@ -71,7 +64,19 @@ pub unsafe fn sse_channels_to_xyza_laba<
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -111,8 +116,19 @@ pub unsafe fn sse_channels_to_xyza_laba<
         let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = sse_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -158,8 +174,19 @@ pub unsafe fn sse_channels_to_xyza_laba<
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
         let (mut x_high_low, mut y_high_low, mut z_high_low) = sse_triple_to_xyz(
-            r_high_low, g_high_low, b_high_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -212,7 +239,7 @@ pub unsafe fn sse_channels_to_xyza_laba<
             cq7,
             cq8,
             cq9,
-            &transfer,
+            transfer_function,
         );
 
         match target {
@@ -266,7 +293,19 @@ pub unsafe fn sse_channels_to_xyza_laba<
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -306,8 +345,19 @@ pub unsafe fn sse_channels_to_xyza_laba<
         let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = sse_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {

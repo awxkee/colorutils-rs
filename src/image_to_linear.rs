@@ -43,104 +43,17 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("sse4.1") {
-        _wide_row_handle = match transfer_function {
-            TransferFunction::Srgb => Some(
-                sse_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Srgb as u8 },
-                >,
-            ),
-            TransferFunction::Rec709 => Some(
-                sse_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                sse_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                sse_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handle = Some(sse_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("avx2") {
-        _wide_row_handle = match transfer_function {
-            TransferFunction::Srgb => Some(
-                avx_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Srgb as u8 },
-                >,
-            ),
-            TransferFunction::Rec709 => Some(
-                avx_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                avx_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                avx_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handle = Some(avx_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
-        _wide_row_handle = match transfer_function {
-            TransferFunction::Srgb => Some(
-                neon_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Srgb as u8 },
-                >,
-            ),
-            TransferFunction::Rec709 => Some(
-                neon_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Rec709 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p2 => Some(
-                neon_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p2 as u8 },
-                >,
-            ),
-            TransferFunction::Gamma2p8 => Some(
-                neon_channels_to_linear::<
-                    CHANNELS_CONFIGURATION,
-                    USE_ALPHA,
-                    { TransferFunction::Gamma2p8 as u8 },
-                >,
-            ),
-        };
+        _wide_row_handle = Some(neon_channels_to_linear::<CHANNELS_CONFIGURATION, USE_ALPHA>);
     }
 
     for _ in 0..height as usize {

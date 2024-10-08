@@ -11,7 +11,7 @@ use std::arch::x86_64::*;
 
 use erydanos::{_mm256_cos_ps, _mm256_sin_ps};
 
-use crate::avx::gamma_curves::get_avx_gamma_transfer;
+use crate::avx::gamma_curves::perform_avx_gamma_transfer;
 use crate::avx::routines::avx_vld_f32_and_deinterleave_direct;
 use crate::avx::{
     _mm256_color_matrix_ps, _mm256_cube_ps, avx2_interleave_rgb, avx2_interleave_rgba_epi8,
@@ -29,7 +29,7 @@ use crate::{
 #[inline(always)]
 unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
-    transfer: &unsafe fn(__m256) -> __m256,
+    transfer_function: TransferFunction,
     oklab_target: OklabTarget,
     m0: __m256,
     m1: __m256,
@@ -83,9 +83,9 @@ unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 
     let (r_l, g_l, b_l) = _mm256_color_matrix_ps(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
-    let mut r_f32 = transfer(r_l);
-    let mut g_f32 = transfer(g_l);
-    let mut b_f32 = transfer(b_l);
+    let mut r_f32 = perform_avx_gamma_transfer(transfer_function, r_l);
+    let mut g_f32 = perform_avx_gamma_transfer(transfer_function, g_l);
+    let mut b_f32 = perform_avx_gamma_transfer(transfer_function, b_l);
 
     r_f32 = _mm256_mul_ps(r_f32, v_scale_alpha);
     g_f32 = _mm256_mul_ps(g_f32, v_scale_alpha);
@@ -111,22 +111,16 @@ unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     }
 }
 
-#[inline(always)]
-pub unsafe fn avx_oklab_to_image<
-    const CHANNELS_CONFIGURATION: u8,
-    const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
->(
+#[target_feature(enable = "avx2")]
+pub unsafe fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,
     src_offset: u32,
     dst: *mut u8,
     dst_offset: u32,
     width: u32,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_avx_gamma_transfer(transfer_function);
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
@@ -178,29 +172,141 @@ pub unsafe fn avx_oklab_to_image<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_0,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_1, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_1,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_2 = offset_src_ptr.add(8 * 2 * channels);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_2, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_2,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_3 = offset_src_ptr.add(8 * 3 * channels);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_3, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_3,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
@@ -243,15 +349,71 @@ pub unsafe fn avx_oklab_to_image<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_0,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let src_ptr_1 = offset_src_ptr.add(8 * channels);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_1, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_1,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let r_row01 = avx2_pack_u32(r_row0_, r_row1_);
@@ -289,8 +451,36 @@ pub unsafe fn avx_oklab_to_image<
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0, &transfer, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4,
-            c5, c6, c7, c8, x0, x1, x2, x3, x4, x5, x6, x7, x8,
+            src_ptr_0,
+            transfer_function,
+            target,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
         );
 
         let r_row01 = avx2_pack_u32(r_row0_, zeros);

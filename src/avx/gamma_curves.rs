@@ -126,25 +126,24 @@ pub unsafe fn avx2_gamma2p8_from_linear(linear: __m256) -> __m256 {
 }
 
 #[inline(always)]
-pub unsafe fn get_avx_gamma_transfer(
-    transfer_function: TransferFunction,
-) -> unsafe fn(__m256) -> __m256 {
+pub unsafe fn perform_avx_gamma_transfer(transfer_function: TransferFunction, v: __m256) -> __m256 {
     match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_from_linear,
-        TransferFunction::Rec709 => avx2_rec709_from_linear,
-        TransferFunction::Gamma2p2 => avx2_gamma2p2_from_linear,
-        TransferFunction::Gamma2p8 => avx2_gamma2p8_from_linear,
+        TransferFunction::Srgb => avx2_srgb_from_linear(v),
+        TransferFunction::Rec709 => avx2_rec709_from_linear(v),
+        TransferFunction::Gamma2p2 => avx2_gamma2p2_from_linear(v),
+        TransferFunction::Gamma2p8 => avx2_gamma2p8_from_linear(v),
     }
 }
 
 #[inline(always)]
-pub unsafe fn get_avx2_linear_transfer(
+pub unsafe fn perform_avx2_linear_transfer(
     transfer_function: TransferFunction,
-) -> unsafe fn(__m256) -> __m256 {
+    v: __m256,
+) -> __m256 {
     match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_to_linear,
-        TransferFunction::Rec709 => avx2_rec709_to_linear,
-        TransferFunction::Gamma2p2 => avx2_gamma2p2_to_linear,
-        TransferFunction::Gamma2p8 => avx2_gamma2p8_to_linear,
+        TransferFunction::Srgb => avx2_srgb_to_linear(v),
+        TransferFunction::Rec709 => avx2_rec709_to_linear(v),
+        TransferFunction::Gamma2p2 => avx2_gamma2p2_to_linear(v),
+        TransferFunction::Gamma2p8 => avx2_gamma2p8_to_linear(v),
     }
 }

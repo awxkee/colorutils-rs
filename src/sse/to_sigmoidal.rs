@@ -20,7 +20,7 @@ use crate::{
     store_and_interleave_v4_f32,
 };
 
-#[inline]
+#[target_feature(enable = "sse4.1")]
 pub unsafe fn sse_image_to_sigmoidal_row<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,

@@ -10,7 +10,6 @@ use crate::image::ImageConfiguration;
 use crate::neon::cie::{
     neon_triple_to_lab, neon_triple_to_lch, neon_triple_to_luv, neon_triple_to_xyz,
 };
-use crate::neon::*;
 use crate::xyz_target::XyzTarget;
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
@@ -22,7 +21,6 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
 >(
     start_cx: usize,
     src: *const u8,
@@ -33,7 +31,7 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     a_linearized: *mut f32,
     a_offset: usize,
     matrix: &[[f32; 3]; 3],
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     if USE_ALPHA && a_linearized.is_null() {
         panic!("Null alpha channel with requirements of linearized alpha if not supported");
@@ -42,9 +40,6 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_neon_linear_transfer(transfer_function);
 
     let cq1 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(0));
     let cq2 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(1));
@@ -72,7 +67,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = neon_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -105,8 +112,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = neon_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -143,8 +161,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
         let (mut x_high_low, mut y_high_low, mut z_high_low) = neon_triple_to_xyz(
-            r_high_low, g_high_low, b_high_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -189,7 +218,7 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
             cq7,
             cq8,
             cq9,
-            &transfer,
+            transfer_function,
         );
 
         match target {
@@ -262,7 +291,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = neon_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -295,8 +336,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (mut x_low_high, mut y_low_high, mut z_low_high) = neon_triple_to_xyz(
-            r_low_high, g_low_high, b_low_high, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-            &transfer,
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {
@@ -356,7 +408,19 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = neon_triple_to_xyz(
-            r_low_low, g_low_low, b_low_low, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9, &transfer,
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            cq1,
+            cq2,
+            cq3,
+            cq4,
+            cq5,
+            cq6,
+            cq7,
+            cq8,
+            cq9,
+            transfer_function,
         );
 
         match target {

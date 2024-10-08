@@ -11,8 +11,8 @@ use erydanos::{vcosq_f32, visnanq_f32, vmlafq_f32, vpowq_f32, vsinq_f32};
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
-use crate::neon::get_neon_gamma_transfer;
 use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
+use crate::neon::neon_perform_gamma_transfer;
 use crate::{load_f32_and_deinterleave_direct, TransferFunction, XYZ_TO_SRGB_D65};
 
 macro_rules! perceptual_quantizer_inverse {
@@ -41,7 +41,6 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     target: JzazbzTarget,
     luminance: f32,
 ) -> (uint32x4_t, uint32x4_t, uint32x4_t, uint32x4_t) {
-    let transfer = get_neon_gamma_transfer(transfer_function);
     let v_scale_alpha = vdupq_n_f32(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let (jz, mut az, mut bz, mut a_f32) =
@@ -112,9 +111,9 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
 
     let (r_l, g_l, b_l) = vcolorq_matrix_f32(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
 
-    let mut r_f32 = transfer(r_l);
-    let mut g_f32 = transfer(g_l);
-    let mut b_f32 = transfer(b_l);
+    let mut r_f32 = neon_perform_gamma_transfer(transfer_function, r_l);
+    let mut g_f32 = neon_perform_gamma_transfer(transfer_function, g_l);
+    let mut b_f32 = neon_perform_gamma_transfer(transfer_function, b_l);
     r_f32 = vmulq_f32(r_f32, v_scale_alpha);
     g_f32 = vmulq_f32(g_f32, v_scale_alpha);
     b_f32 = vmulq_f32(b_f32, v_scale_alpha);
@@ -129,7 +128,6 @@ unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     )
 }
 
-#[inline(always)]
 pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,

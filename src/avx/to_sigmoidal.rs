@@ -19,7 +19,7 @@ use crate::avx::{avx2_interleave_rgb_ps, avx2_interleave_rgba_ps};
 use crate::image::ImageConfiguration;
 use crate::{avx_store_and_interleave_v3_f32, avx_store_and_interleave_v4_f32};
 
-#[inline]
+#[target_feature(enable = "avx2")]
 pub unsafe fn avx_image_to_sigmoidal_row<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,

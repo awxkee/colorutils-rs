@@ -16,7 +16,7 @@ use std::arch::aarch64::*;
 #[inline(always)]
 pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
-    transfer: &unsafe fn(float32x4_t) -> float32x4_t,
+    transfer_function: TransferFunction,
     c1: float32x4_t,
     c2: float32x4_t,
     c3: float32x4_t,
@@ -61,9 +61,9 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     g_f32 = linear_g;
     b_f32 = linear_b;
 
-    r_f32 = transfer(r_f32);
-    g_f32 = transfer(g_f32);
-    b_f32 = transfer(b_f32);
+    r_f32 = neon_perform_gamma_transfer(transfer_function, r_f32);
+    g_f32 = neon_perform_gamma_transfer(transfer_function, g_f32);
+    b_f32 = neon_perform_gamma_transfer(transfer_function, b_f32);
     r_f32 = vmulq_f32(r_f32, v_scale_color);
     g_f32 = vmulq_f32(g_f32, v_scale_color);
     b_f32 = vmulq_f32(b_f32, v_scale_color);
@@ -77,11 +77,7 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
 }
 
 #[inline(always)]
-pub unsafe fn neon_xyza_to_image<
-    const CHANNELS_CONFIGURATION: u8,
-    const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
->(
+pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const f32,
     src_offset: usize,
@@ -89,10 +85,8 @@ pub unsafe fn neon_xyza_to_image<
     dst_offset: usize,
     width: u32,
     matrix: &[[f32; 3]; 3],
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_neon_gamma_transfer(transfer_function);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if !image_configuration.has_alpha() {
         panic!("Alpha may be set only on images with alpha");
@@ -121,28 +115,68 @@ pub unsafe fn neon_xyza_to_image<
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_0,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_1,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * CHANNELS);
 
         let (r_row2_, g_row2_, b_row2_, a_row2_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_2, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_2,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * CHANNELS);
 
         let (r_row3_, g_row3_, b_row3_, a_row3_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_3, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_3,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
@@ -182,14 +216,34 @@ pub unsafe fn neon_xyza_to_image<
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_0,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let src_ptr_1 = offset_src_ptr.add(4 * CHANNELS);
 
         let (r_row1_, g_row1_, b_row1_, a_row1_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_1, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_1,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let r_row01 = vcombine_u16(vqmovn_u32(r_row0_), vqmovn_u32(r_row1_));
@@ -224,7 +278,17 @@ pub unsafe fn neon_xyza_to_image<
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_0, &transfer, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+                src_ptr_0,
+                transfer_function,
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+                c8,
+                c9,
             );
 
         let zeros = vdup_n_u16(0);

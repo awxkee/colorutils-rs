@@ -10,7 +10,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use crate::avx::gamma_curves::get_avx2_linear_transfer;
+use crate::avx::gamma_curves::perform_avx2_linear_transfer;
 use crate::avx::routines::{
     avx_vld_u8_and_deinterleave, avx_vld_u8_and_deinterleave_half,
     avx_vld_u8_and_deinterleave_quarter,
@@ -25,38 +25,31 @@ unsafe fn triple_to_linear(
     r: __m256i,
     g: __m256i,
     b: __m256i,
-    transfer: &unsafe fn(__m256) -> __m256,
+    transfer_function: TransferFunction,
 ) -> (__m256, __m256, __m256) {
     let u8_scale = _mm256_set1_ps(1f32 / 255f32);
     let r_f = _mm256_mul_ps(_mm256_cvtepi32_ps(r), u8_scale);
     let g_f = _mm256_mul_ps(_mm256_cvtepi32_ps(g), u8_scale);
     let b_f = _mm256_mul_ps(_mm256_cvtepi32_ps(b), u8_scale);
-    let r_linear = transfer(r_f);
-    let g_linear = transfer(g_f);
-    let b_linear = transfer(b_f);
+    let r_linear = perform_avx2_linear_transfer(transfer_function, r_f);
+    let g_linear = perform_avx2_linear_transfer(transfer_function, g_f);
+    let b_linear = perform_avx2_linear_transfer(transfer_function, b_f);
     (r_linear, g_linear, b_linear)
 }
 
-#[inline(always)]
-pub unsafe fn avx_channels_to_linear<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TRANSFER_FUNCTION: u8,
->(
+#[target_feature(enable = "avx2")]
+pub unsafe fn avx_channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-    let transfer = get_avx2_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
@@ -74,7 +67,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
 
@@ -111,7 +104,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
-            triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high = _mm256_mul_ps(
@@ -148,7 +141,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_high));
 
         let (x_high_low, y_high_low, z_high_low) =
-            triple_to_linear(r_high_low, g_high_low, b_high_low, &transfer);
+            triple_to_linear(r_high_low, g_high_low, b_high_low, transfer_function);
 
         let a_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(a_chan));
 
@@ -183,7 +176,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
 
         let (x_high_high, y_high_high, z_high_high) =
-            triple_to_linear(r_high_high, g_high_high, b_high_high, &transfer);
+            triple_to_linear(r_high_high, g_high_high, b_high_high, transfer_function);
 
         if USE_ALPHA {
             let a_high_high = _mm256_mul_ps(
@@ -227,7 +220,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
 
@@ -264,7 +257,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
 
         let (x_low_high, y_low_high, z_low_high) =
-            triple_to_linear(r_low_high, g_low_high, b_low_high, &transfer);
+            triple_to_linear(r_low_high, g_low_high, b_low_high, transfer_function);
 
         if USE_ALPHA {
             let a_low_high = _mm256_mul_ps(
@@ -309,7 +302,7 @@ pub unsafe fn avx_channels_to_linear<
         let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
 
         let (x_low_low, y_low_low, z_low_low) =
-            triple_to_linear(r_low_low, g_low_low, b_low_low, &transfer);
+            triple_to_linear(r_low_low, g_low_low, b_low_low, transfer_function);
 
         let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
 

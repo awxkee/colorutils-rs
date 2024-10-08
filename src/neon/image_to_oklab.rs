@@ -6,8 +6,8 @@
  */
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-use crate::neon::get_neon_linear_transfer;
 use crate::neon::math::vcolorq_matrix_f32;
+use crate::neon::neon_perform_linear_transfer;
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
     TransferFunction, SRGB_TO_XYZ_D65,
@@ -24,9 +24,9 @@ macro_rules! triple_to_oklab {
         let r_f = vmulq_n_f32(vcvtq_f32_u32($r), 1f32 / 255f32);
         let g_f = vmulq_n_f32(vcvtq_f32_u32($g), 1f32 / 255f32);
         let b_f = vmulq_n_f32(vcvtq_f32_u32($b), 1f32 / 255f32);
-        let dl_l = $transfer(r_f);
-        let dl_m = $transfer(g_f);
-        let dl_s = $transfer(b_f);
+        let dl_l = neon_perform_linear_transfer($transfer, r_f);
+        let dl_m = neon_perform_linear_transfer($transfer, g_f);
+        let dl_s = neon_perform_linear_transfer($transfer, b_f);
 
         let (x, y, z) = vcolorq_matrix_f32(
             dl_l, dl_m, dl_s, $x0, $x1, $x2, $x3, $x4, $x5, $x6, $x7, $x8,
@@ -54,27 +54,19 @@ macro_rules! triple_to_oklab {
 }
 
 #[inline(always)]
-pub unsafe fn neon_image_to_oklab<
-    const CHANNELS_CONFIGURATION: u8,
-    const TARGET: u8,
-    const TRANSFER_FUNCTION: u8,
->(
+pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: *const u8,
     src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    _: TransferFunction,
+    transfer_function: TransferFunction,
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let transfer_function: TransferFunction = TRANSFER_FUNCTION.into();
-
-    let transfer = get_neon_linear_transfer(transfer_function);
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
@@ -129,8 +121,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low, g_low_low, b_low_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7, x8,
-            c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -150,8 +172,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
-            r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
-            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         if image_configuration.has_alpha() {
@@ -172,8 +224,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_high_low = vmovl_u16(vget_low_u16(b_high));
 
         let (x_high_low, y_high_low, z_high_low) = triple_to_oklab!(
-            r_high_low, g_high_low, b_high_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
-            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         let a_high = vmovl_high_u8(a_chan);
@@ -199,7 +281,7 @@ pub unsafe fn neon_image_to_oklab<
             r_high_high,
             g_high_high,
             b_high_high,
-            &transfer,
+            transfer_function,
             target,
             x0,
             x1,
@@ -256,8 +338,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low, g_low_low, b_low_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7, x8,
-            c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
@@ -277,8 +389,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_low_high = vmovl_high_u16(b_low);
 
         let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
-            r_low_high, g_low_high, b_low_high, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7,
-            x8, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         if image_configuration.has_alpha() {
@@ -307,8 +449,38 @@ pub unsafe fn neon_image_to_oklab<
         let b_low_low = vmovl_u16(vget_low_u16(b_low));
 
         let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low, g_low_low, b_low_low, &transfer, target, x0, x1, x2, x3, x4, x5, x6, x7, x8,
-            c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4, m5, m6, m7, m8
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            transfer_function,
+            target,
+            x0,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            x8,
+            c0,
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            m0,
+            m1,
+            m2,
+            m3,
+            m4,
+            m5,
+            m6,
+            m7,
+            m8
         );
 
         let a_low = vmovl_u8(vget_low_u8(a_chan));
