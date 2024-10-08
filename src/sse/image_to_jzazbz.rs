@@ -14,7 +14,10 @@ use erydanos::{_mm_atan2_ps, _mm_hypot_fast_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_p
 
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
-use crate::sse::{_mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, perform_sse_linear_transfer, sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba};
+use crate::sse::{
+    _mm_color_matrix_ps, _mm_pow_n_ps, _mm_select_ps, perform_sse_linear_transfer,
+    sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb, sse_interleave_ps_rgba,
+};
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v3_direct_f32,
     store_and_interleave_v4_direct_f32, TransferFunction, SRGB_TO_XYZ_D65,
@@ -151,8 +154,14 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let g_low_low = _mm_cvtepu16_epi32(g_low);
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
-        let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, transfer_function, target, luminance);
+        let (x_low_low, y_low_low, z_low_low) = triple_to_jzazbz!(
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            transfer_function,
+            target,
+            luminance
+        );
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -171,8 +180,14 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let g_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_low));
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
-        let (x_low_high, y_low_high, z_low_high) =
-            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, transfer_function, target, luminance);
+        let (x_low_high, y_low_high, z_low_high) = triple_to_jzazbz!(
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            transfer_function,
+            target,
+            luminance
+        );
 
         if image_configuration.has_alpha() {
             let a_low_high = _mm_mul_ps(
@@ -197,8 +212,14 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let g_high_low = _mm_cvtepu16_epi32(g_high);
         let b_high_low = _mm_cvtepu16_epi32(b_high);
 
-        let (x_high_low, y_high_low, z_high_low) =
-            triple_to_jzazbz!(r_high_low, g_high_low, b_high_low, transfer_function, target, luminance);
+        let (x_high_low, y_high_low, z_high_low) = triple_to_jzazbz!(
+            r_high_low,
+            g_high_low,
+            b_high_low,
+            transfer_function,
+            target,
+            luminance
+        );
 
         let a_high = _mm_cvtepu8_epi16(_mm_srli_si128::<8>(a_chan));
 
@@ -260,8 +281,14 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let g_low_low = _mm_cvtepu16_epi32(g_low);
         let b_low_low = _mm_cvtepu16_epi32(b_low);
 
-        let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_low_low, g_low_low, b_low_low, transfer_function, target, luminance);
+        let (x_low_low, y_low_low, z_low_low) = triple_to_jzazbz!(
+            r_low_low,
+            g_low_low,
+            b_low_low,
+            transfer_function,
+            target,
+            luminance
+        );
 
         let a_low = _mm_cvtepu8_epi16(a_chan);
 
@@ -280,8 +307,14 @@ pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET
         let g_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(g_low));
         let b_low_high = _mm_cvtepu16_epi32(_mm_srli_si128::<8>(b_low));
 
-        let (x_low_high, y_low_high, z_low_high) =
-            triple_to_jzazbz!(r_low_high, g_low_high, b_low_high, transfer_function, target, luminance);
+        let (x_low_high, y_low_high, z_low_high) = triple_to_jzazbz!(
+            r_low_high,
+            g_low_high,
+            b_low_high,
+            transfer_function,
+            target,
+            luminance
+        );
 
         if image_configuration.has_alpha() {
             let a_low_high = _mm_mul_ps(

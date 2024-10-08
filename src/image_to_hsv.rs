@@ -12,6 +12,12 @@ use crate::neon::neon_channels_to_hsv_u16;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_hsv_u16;
 use crate::Rgb;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{ParallelSlice, ParallelSliceMut};
+#[cfg(feature = "rayon")]
+use std::slice;
 
 #[allow(clippy::type_complexity)]
 fn channels_to_hsv_u16<
@@ -49,82 +55,157 @@ fn channels_to_hsv_u16<
             Some(sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let mut src_offset = 0usize;
-    let mut dst_offset = 0usize;
-
     let channels = image_configuration.get_channels_count();
 
-    for _ in 0..height as usize {
-        let mut _cx = 0usize;
+    #[cfg(feature = "rayon")]
+    {
+        let dst_slice_safe_align = unsafe {
+            slice::from_raw_parts_mut(
+                dst.as_mut_ptr() as *mut u8,
+                dst_stride as usize * height as usize,
+            )
+        };
+        dst_slice_safe_align
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src.par_chunks_exact(src_stride as usize))
+            .for_each(|(dst, src)| unsafe {
+                let mut _cx = 0usize;
 
-        if let Some(dispatcher) = _wide_row_handler {
-            unsafe {
-                _cx = dispatcher(
-                    _cx,
-                    src.as_ptr(),
-                    src_offset,
-                    width,
-                    dst.as_mut_ptr(),
-                    dst_offset,
-                    scale,
-                )
-            }
-        }
+                if let Some(dispatcher) = _wide_row_handler {
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr(),
+                        0,
+                        width,
+                        dst.as_mut_ptr() as *mut u16,
+                        0,
+                        scale,
+                    );
+                }
 
-        let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-        let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
+                let src_ptr = src.as_ptr();
+                let dst_ptr = dst.as_mut_ptr() as *mut u16;
 
-        for x in _cx..width as usize {
-            let px = x * channels;
-            let src = unsafe { src_ptr.add(px) };
-            let r = unsafe {
-                src.add(image_configuration.get_r_channel_offset())
-                    .read_unaligned()
-            };
-            let g = unsafe {
-                src.add(image_configuration.get_g_channel_offset())
-                    .read_unaligned()
-            };
-            let b = unsafe {
-                src.add(image_configuration.get_b_channel_offset())
-                    .read_unaligned()
-            };
+                for x in _cx..width as usize {
+                    let px = x * channels;
+                    let src = src_ptr.add(px);
+                    let r = src
+                        .add(image_configuration.get_r_channel_offset())
+                        .read_unaligned();
+                    let g = src
+                        .add(image_configuration.get_g_channel_offset())
+                        .read_unaligned();
+                    let b = src
+                        .add(image_configuration.get_b_channel_offset())
+                        .read_unaligned();
 
-            let rgb = Rgb::<u8>::new(r, g, b);
-            let hx = x * channels;
-            let dst = unsafe { dst_ptr.add(hx) };
-            match target {
-                HsvTarget::Hsv => {
-                    let hsv = rgb.to_hsv();
-                    unsafe {
-                        dst.write_unaligned(hsv.h as u16);
-                        dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
-                        dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
+                    let rgb = Rgb::<u8>::new(r, g, b);
+                    let hx = x * channels;
+                    let dst = dst_ptr.add(hx);
+                    match target {
+                        HsvTarget::Hsv => {
+                            let hsv = rgb.to_hsv();
+
+                            dst.write_unaligned(hsv.h as u16);
+                            dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
+                            dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
+                        }
+                        HsvTarget::Hsl => {
+                            let hsl = rgb.to_hsl();
+
+                            dst.write_unaligned(hsl.h as u16);
+                            dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
+                            dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
+                        }
+                    }
+
+                    if image_configuration.has_alpha() {
+                        let a = src
+                            .add(image_configuration.get_a_channel_offset())
+                            .read_unaligned();
+                        dst.add(3).write_unaligned(a as u16);
                     }
                 }
-                HsvTarget::Hsl => {
-                    let hsl = rgb.to_hsl();
-                    unsafe {
-                        dst.write_unaligned(hsl.h as u16);
-                        dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
-                        dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
-                    }
+            });
+    }
+
+    #[cfg(not(feature = "rayon"))]
+    {
+        let mut src_offset = 0usize;
+        let mut dst_offset = 0usize;
+
+        for _ in 0..height as usize {
+            let mut _cx = 0usize;
+
+            if let Some(dispatcher) = _wide_row_handler {
+                unsafe {
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        scale,
+                    )
                 }
             }
 
-            if image_configuration.has_alpha() {
-                let a = unsafe {
-                    src.add(image_configuration.get_a_channel_offset())
+            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
+            let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
+
+            for x in _cx..width as usize {
+                let px = x * channels;
+                let src = unsafe { src_ptr.add(px) };
+                let r = unsafe {
+                    src.add(image_configuration.get_r_channel_offset())
                         .read_unaligned()
                 };
-                unsafe {
-                    dst.add(3).write_unaligned(a as u16);
+                let g = unsafe {
+                    src.add(image_configuration.get_g_channel_offset())
+                        .read_unaligned()
+                };
+                let b = unsafe {
+                    src.add(image_configuration.get_b_channel_offset())
+                        .read_unaligned()
+                };
+
+                let rgb = Rgb::<u8>::new(r, g, b);
+                let hx = x * channels;
+                let dst = unsafe { dst_ptr.add(hx) };
+                match target {
+                    HsvTarget::Hsv => {
+                        let hsv = rgb.to_hsv();
+                        unsafe {
+                            dst.write_unaligned(hsv.h as u16);
+                            dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
+                            dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
+                        }
+                    }
+                    HsvTarget::Hsl => {
+                        let hsl = rgb.to_hsl();
+                        unsafe {
+                            dst.write_unaligned(hsl.h as u16);
+                            dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
+                            dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
+                        }
+                    }
+                }
+
+                if image_configuration.has_alpha() {
+                    let a = unsafe {
+                        src.add(image_configuration.get_a_channel_offset())
+                            .read_unaligned()
+                    };
+                    unsafe {
+                        dst.add(3).write_unaligned(a as u16);
+                    }
                 }
             }
-        }
 
-        src_offset += src_stride as usize;
-        dst_offset += dst_stride as usize;
+            src_offset += src_stride as usize;
+            dst_offset += dst_stride as usize;
+        }
     }
 }
 

@@ -8,8 +8,8 @@
 use crate::image::ImageConfiguration;
 use crate::sse::cie::{sse_lab_to_xyz, sse_lch_to_xyz, sse_luv_to_xyz};
 use crate::sse::{
-    _mm_color_matrix_ps, perform_sse_gamma_transfer,
-    sse_deinterleave_rgb_ps, sse_interleave_rgb, sse_interleave_rgba,
+    _mm_color_matrix_ps, perform_sse_gamma_transfer, sse_deinterleave_rgb_ps, sse_interleave_rgb,
+    sse_interleave_rgba,
 };
 use crate::xyz_target::XyzTarget;
 use crate::TransferFunction;

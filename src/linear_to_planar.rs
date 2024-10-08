@@ -10,6 +10,12 @@ use crate::neon::linear_to_planar::neon_linear_plane_to_gamma;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_linear_plane_to_gamma;
 use crate::TransferFunction;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{ParallelSlice, ParallelSliceMut};
+#[cfg(feature = "rayon")]
+use std::slice;
 
 #[allow(clippy::type_complexity)]
 fn linear_to_gamma_channels(
@@ -21,9 +27,6 @@ fn linear_to_gamma_channels(
     height: u32,
     transfer_function: TransferFunction,
 ) {
-    let mut src_offset = 0usize;
-    let mut dst_offset = 0usize;
-
     let mut _wide_row_handler: Option<
         unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
     > = None;
@@ -38,42 +41,90 @@ fn linear_to_gamma_channels(
         _wide_row_handler = Some(sse_linear_plane_to_gamma);
     }
 
-    for _ in 0..height as usize {
-        let mut _cx = 0usize;
+    #[cfg(feature = "rayon")]
+    {
+        let src_slice_safe_align = unsafe {
+            slice::from_raw_parts(
+                src.as_ptr() as *const u8,
+                src_stride as usize * height as usize,
+            )
+        };
+        dst.par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
+            .for_each(|(dst, src)| unsafe {
+                let mut _cx = 0usize;
 
-        if let Some(dispatcher) = _wide_row_handler {
-            unsafe {
-                _cx = dispatcher(
-                    _cx,
-                    src.as_ptr(),
-                    src_offset as u32,
-                    dst.as_mut_ptr(),
-                    dst_offset as u32,
-                    width,
-                    transfer_function,
-                );
+                if let Some(dispatcher) = _wide_row_handler {
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr() as *const f32,
+                        0,
+                        dst.as_mut_ptr(),
+                        0,
+                        width,
+                        transfer_function,
+                    );
+                }
+
+                let src_ptr = src.as_ptr() as *const f32;
+                let dst_ptr = dst.as_mut_ptr();
+
+                for x in _cx..width as usize {
+                    let px = x;
+                    let src_slice = src_ptr.add(px);
+                    let pixel = src_slice.read_unaligned().min(1f32).max(0f32);
+
+                    let dst = dst_ptr.add(px);
+                    let transferred = transfer_function.gamma(pixel);
+                    let rgb8 = (transferred * 255f32).min(255f32).max(0f32) as u8;
+
+                    dst.write_unaligned(rgb8);
+                }
+            });
+    }
+
+    #[cfg(not(feature = "rayon"))]
+    {
+        let mut src_offset = 0usize;
+        let mut dst_offset = 0usize;
+
+        for _ in 0..height as usize {
+            let mut _cx = 0usize;
+
+            if let Some(dispatcher) = _wide_row_handler {
+                unsafe {
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr(),
+                        src_offset as u32,
+                        dst.as_mut_ptr(),
+                        dst_offset as u32,
+                        width,
+                        transfer_function,
+                    );
+                }
             }
-        }
 
-        let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
-        let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
+            let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
+            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
 
-        for x in _cx..width as usize {
-            let px = x;
-            let src_slice = unsafe { src_ptr.add(px) };
-            let pixel = unsafe { src_slice.read_unaligned() }.min(1f32).max(0f32);
+            for x in _cx..width as usize {
+                let px = x;
+                let src_slice = unsafe { src_ptr.add(px) };
+                let pixel = unsafe { src_slice.read_unaligned() }.min(1f32).max(0f32);
 
-            let dst = unsafe { dst_ptr.add(px) };
-            let transferred = transfer_function.gamma(pixel);
-            let rgb8 = (transferred * 255f32).min(255f32).max(0f32) as u8;
+                let dst = unsafe { dst_ptr.add(px) };
+                let transferred = transfer_function.gamma(pixel);
+                let rgb8 = (transferred * 255f32).min(255f32).max(0f32) as u8;
 
-            unsafe {
-                dst.write_unaligned(rgb8);
+                unsafe {
+                    dst.write_unaligned(rgb8);
+                }
             }
-        }
 
-        src_offset += src_stride as usize;
-        dst_offset += dst_stride as usize;
+            src_offset += src_stride as usize;
+            dst_offset += dst_stride as usize;
+        }
     }
 }
 

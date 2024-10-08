@@ -2,12 +2,12 @@ workspace = { members = ["src/app"] }
 
 [package]
 name = "colorutils-rs"
-version = "0.5.12"
+version = "0.6.0"
 edition = "2021"
 description = "High performance utilities for color format handling and conversion."
 readme = "README.md"
 keywords = ["lab", "hsv", "xyz", "color", "colorspace"]
-license = "Apache-2.0 OR BSD-3-Clause"
+license = "BSD-3-Clause OR Apache-2.0"
 authors = ["Radzivon Bartoshyk"]
 documentation = "https://github.com/awxkee/colorutils-rs"
 categories = ["multimedia::images", "multimedia::video"]
@@ -19,7 +19,8 @@ exclude = ["*.jpg"]
 erydanos = "0.2.15"
 half = "2.4.1"
 num-traits = "0.2.19"
+rayon = { version = "1.10.0", optional = true }
 
 [features]
-default = []
-rayon = []
+default = ["rayon"]
+rayon = ["dep:rayon"]

@@ -14,6 +14,10 @@ use crate::neon::neon_hsv_u16_to_image;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_hsv_u16_to_image;
 use crate::{Hsl, Hsv};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{ParallelSlice, ParallelSliceMut};
 
 #[allow(clippy::type_complexity)]
 fn hsv_u16_to_channels<
@@ -50,77 +54,151 @@ fn hsv_u16_to_channels<
             Some(neon_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let mut src_offset = 0usize;
-    let mut dst_offset = 0usize;
-
     let channels = image_configuration.get_channels_count();
 
     let scale = 1f32 / scale;
 
-    for _ in 0..height as usize {
-        let mut _cx = 0usize;
+    #[cfg(feature = "rayon")]
+    {
+        let src_slice_safe_align = unsafe {
+            slice::from_raw_parts(
+                src.as_ptr() as *const u8,
+                src_stride as usize * height as usize,
+            )
+        };
+        dst.par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
+            .for_each(|(dst, src)| unsafe {
+                let mut _cx = 0usize;
 
-        if let Some(dispatcher) = _wide_row_handler {
-            unsafe {
-                _cx = dispatcher(
-                    _cx,
-                    src.as_ptr(),
-                    src_offset,
-                    width,
-                    dst.as_mut_ptr(),
-                    dst_offset,
-                    scale,
-                );
-            }
-        }
-
-        let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const u16 };
-        let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
-
-        let dst_slice = unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
-
-        for x in _cx..width as usize {
-            let px = x * channels;
-            let src = unsafe { src_ptr.add(px) };
-            let h = unsafe { src.read_unaligned() };
-            let s = unsafe { src.add(1).read_unaligned() };
-            let v = unsafe { src.add(2).read_unaligned() };
-
-            let s_f = s as f32 * scale;
-            let v_f = v as f32 * scale;
-
-            let hx = x * channels;
-            let rgb = match target {
-                HsvTarget::Hsv => {
-                    let hsv = Hsv::from_components(h as f32, s_f, v_f);
-                    hsv.to_rgb8()
+                if let Some(dispatcher) = _wide_row_handler {
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr() as *const u16,
+                        0,
+                        width,
+                        dst.as_mut_ptr(),
+                        0,
+                        scale,
+                    );
                 }
-                HsvTarget::Hsl => {
-                    let hsl = Hsl::from_components(h as f32, s_f, v_f);
-                    hsl.to_rgb8()
+
+                let src_ptr = src.as_ptr() as *const u16;
+                let dst_ptr = dst.as_mut_ptr();
+
+                let dst_slice = slice::from_raw_parts_mut(dst_ptr, width as usize * channels);
+
+                for x in _cx..width as usize {
+                    let px = x * channels;
+                    let src = src_ptr.add(px);
+                    let h = src.read_unaligned();
+                    let s = src.add(1).read_unaligned();
+                    let v = src.add(2).read_unaligned();
+
+                    let s_f = s as f32 * scale;
+                    let v_f = v as f32 * scale;
+
+                    let hx = x * channels;
+                    let rgb = match target {
+                        HsvTarget::Hsv => {
+                            let hsv = Hsv::from_components(h as f32, s_f, v_f);
+                            hsv.to_rgb8()
+                        }
+                        HsvTarget::Hsl => {
+                            let hsl = Hsl::from_components(h as f32, s_f, v_f);
+                            hsl.to_rgb8()
+                        }
+                    };
+
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
+                        rgb.r;
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_g_channel_offset()) =
+                        rgb.g;
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_b_channel_offset()) =
+                        rgb.b;
+
+                    if image_configuration.has_alpha() {
+                        let a = src.add(3).read_unaligned();
+                        *dst_slice
+                            .get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
+                            a as u8;
+                    }
                 }
-            };
+            });
+    }
 
-            unsafe {
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
-                    rgb.r;
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_g_channel_offset()) =
-                    rgb.g;
-                *dst_slice.get_unchecked_mut(hx + image_configuration.get_b_channel_offset()) =
-                    rgb.b;
-            }
+    #[cfg(not(feature = "rayon"))]
+    {
+        let mut src_offset = 0usize;
+        let mut dst_offset = 0usize;
 
-            if image_configuration.has_alpha() {
-                let a = unsafe { src.add(3).read_unaligned() };
+        for _ in 0..height as usize {
+            let mut _cx = 0usize;
+
+            if let Some(dispatcher) = _wide_row_handler {
                 unsafe {
-                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
-                        a as u8;
+                    _cx = dispatcher(
+                        _cx,
+                        src.as_ptr(),
+                        src_offset,
+                        width,
+                        dst.as_mut_ptr(),
+                        dst_offset,
+                        scale,
+                    );
                 }
             }
-        }
 
-        src_offset += src_stride as usize;
-        dst_offset += dst_stride as usize;
+            let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const u16 };
+            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
+
+            let dst_slice =
+                unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
+
+            for x in _cx..width as usize {
+                let px = x * channels;
+                let src = unsafe { src_ptr.add(px) };
+                let h = unsafe { src.read_unaligned() };
+                let s = unsafe { src.add(1).read_unaligned() };
+                let v = unsafe { src.add(2).read_unaligned() };
+
+                let s_f = s as f32 * scale;
+                let v_f = v as f32 * scale;
+
+                let hx = x * channels;
+                let rgb = match target {
+                    HsvTarget::Hsv => {
+                        let hsv = Hsv::from_components(h as f32, s_f, v_f);
+                        hsv.to_rgb8()
+                    }
+                    HsvTarget::Hsl => {
+                        let hsl = Hsl::from_components(h as f32, s_f, v_f);
+                        hsl.to_rgb8()
+                    }
+                };
+
+                unsafe {
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
+                        rgb.r;
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_g_channel_offset()) =
+                        rgb.g;
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_b_channel_offset()) =
+                        rgb.b;
+                }
+
+                if image_configuration.has_alpha() {
+                    let a = unsafe { src.add(3).read_unaligned() };
+                    unsafe {
+                        *dst_slice
+                            .get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
+                            a as u8;
+                    }
+                }
+            }
+
+            src_offset += src_stride as usize;
+            dst_offset += dst_stride as usize;
+        }
     }
 }
 

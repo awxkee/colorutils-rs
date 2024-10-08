@@ -94,15 +94,23 @@ pub mod sse_image_to_linear_unsigned {
             let g_low_low = _mm_cvtepu16_epi32(g_low);
             let b_low_low = _mm_cvtepu16_epi32(b_low);
 
-            let (x_low_low, y_low_low, z_low_low) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_low_low, g_low_low, b_low_low, transfer_function);
+            let (x_low_low, y_low_low, z_low_low) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_low_low,
+                g_low_low,
+                b_low_low,
+                transfer_function,
+            );
 
             let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
             let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
             let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
-            let (x_low_high, y_low_high, z_low_high) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_low_high, g_low_high, b_low_high, transfer_function);
+            let (x_low_high, y_low_high, z_low_high) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_low_high,
+                g_low_high,
+                b_low_high,
+                transfer_function,
+            );
 
             let r_high = _mm_unpackhi_epi8(r_chan, zeros);
             let g_high = _mm_unpackhi_epi8(g_chan, zeros);
@@ -112,15 +120,23 @@ pub mod sse_image_to_linear_unsigned {
             let g_high_low = _mm_cvtepu16_epi32(g_high);
             let b_high_low = _mm_cvtepu16_epi32(b_high);
 
-            let (x_high_low, y_high_low, z_high_low) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_high_low, g_high_low, b_high_low, transfer_function);
+            let (x_high_low, y_high_low, z_high_low) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_high_low,
+                g_high_low,
+                b_high_low,
+                transfer_function,
+            );
 
             let r_high_high = _mm_unpackhi_epi16(r_high, zeros);
             let g_high_high = _mm_unpackhi_epi16(g_high, zeros);
             let b_high_high = _mm_unpackhi_epi16(b_high, zeros);
 
-            let (x_high_high, y_high_high, z_high_high) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_high_high, g_high_high, b_high_high, transfer_function);
+            let (x_high_high, y_high_high, z_high_high) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_high_high,
+                g_high_high,
+                b_high_high,
+                transfer_function,
+            );
 
             let r_u_norm = _mm_packus_epi16(
                 _mm_packus_epi32(x_low_low, x_low_high),
@@ -168,15 +184,23 @@ pub mod sse_image_to_linear_unsigned {
             let g_low_low = _mm_cvtepu16_epi32(g_low);
             let b_low_low = _mm_cvtepu16_epi32(b_low);
 
-            let (x_low_low, y_low_low, z_low_low) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_low_low, g_low_low, b_low_low, transfer_function);
+            let (x_low_low, y_low_low, z_low_low) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_low_low,
+                g_low_low,
+                b_low_low,
+                transfer_function,
+            );
 
             let r_low_high = _mm_unpackhi_epi16(r_low, zeros);
             let g_low_high = _mm_unpackhi_epi16(g_low, zeros);
             let b_low_high = _mm_unpackhi_epi16(b_low, zeros);
 
-            let (x_low_high, y_low_high, z_low_high) =
-                sse_triple_to_linear_u8::<INTO_LINEAR>(r_low_high, g_low_high, b_low_high, transfer_function);
+            let (x_low_high, y_low_high, z_low_high) = sse_triple_to_linear_u8::<INTO_LINEAR>(
+                r_low_high,
+                g_low_high,
+                b_low_high,
+                transfer_function,
+            );
 
             let r_u_norm = _mm_packus_epi16(_mm_packus_epi32(x_low_low, x_low_high), zeros);
 

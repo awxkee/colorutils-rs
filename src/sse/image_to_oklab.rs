@@ -14,8 +14,8 @@ use std::arch::x86_64::*;
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::sse::{
-    _mm_color_matrix_ps, sse_deinterleave_rgb, sse_deinterleave_rgba,
-    sse_interleave_ps_rgb, sse_interleave_ps_rgba,
+    _mm_color_matrix_ps, sse_deinterleave_rgb, sse_deinterleave_rgba, sse_interleave_ps_rgb,
+    sse_interleave_ps_rgba,
 };
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, store_and_interleave_v3_direct_f32,

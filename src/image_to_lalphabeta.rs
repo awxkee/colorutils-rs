@@ -6,6 +6,12 @@
  */
 use crate::image::ImageConfiguration;
 use crate::{Rgb, TransferFunction};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{ParallelSlice, ParallelSliceMut};
+#[cfg(feature = "rayon")]
+use std::slice;
 
 #[inline(always)]
 fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
@@ -21,55 +27,107 @@ fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
 
     let channels = image_configuration.get_channels_count();
 
-    let mut src_offset = 0usize;
-    let mut dst_offset = 0usize;
+    #[cfg(feature = "rayon")]
+    {
+        let dst_slice_safe_align = unsafe {
+            slice::from_raw_parts_mut(
+                dst.as_mut_ptr() as *mut u8,
+                dst_stride as usize * height as usize,
+            )
+        };
+        dst_slice_safe_align
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src.par_chunks_exact(src_stride as usize))
+            .for_each(|(dst, src)| unsafe {
+                let mut _cx = 0usize;
 
-    for _ in 0..height as usize {
-        let mut _cx = 0usize;
+                let src_ptr = src.as_ptr();
+                let dst_ptr = dst.as_mut_ptr() as *mut f32;
 
-        let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-        let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
+                for x in _cx..width as usize {
+                    let px = x * channels;
 
-        for x in _cx..width as usize {
-            let px = x * channels;
+                    let src = src_ptr.add(px);
+                    let r = src
+                        .add(image_configuration.get_r_channel_offset())
+                        .read_unaligned();
+                    let g = src
+                        .add(image_configuration.get_g_channel_offset())
+                        .read_unaligned();
+                    let b = src
+                        .add(image_configuration.get_b_channel_offset())
+                        .read_unaligned();
 
-            let src = unsafe { src_ptr.add(px) };
-            let r = unsafe {
-                src.add(image_configuration.get_r_channel_offset())
-                    .read_unaligned()
-            };
-            let g = unsafe {
-                src.add(image_configuration.get_g_channel_offset())
-                    .read_unaligned()
-            };
-            let b = unsafe {
-                src.add(image_configuration.get_b_channel_offset())
-                    .read_unaligned()
-            };
+                    let rgb = Rgb::<u8>::new(r, g, b);
+                    let dst_store = dst_ptr.add(px);
+                    let lalphabeta = rgb.to_lalphabeta(transfer_function);
+                    dst_store.write_unaligned(lalphabeta.l);
+                    dst_store.add(1).write_unaligned(lalphabeta.alpha);
+                    dst_store.add(2).write_unaligned(lalphabeta.beta);
 
-            let rgb = Rgb::<u8>::new(r, g, b);
-            let dst_store = unsafe { dst_ptr.add(px) };
-            let lalphabeta = rgb.to_lalphabeta(transfer_function);
-            unsafe {
-                dst_store.write_unaligned(lalphabeta.l);
-                dst_store.add(1).write_unaligned(lalphabeta.alpha);
-                dst_store.add(2).write_unaligned(lalphabeta.beta);
-            }
+                    if image_configuration.has_alpha() {
+                        let a = src
+                            .add(image_configuration.get_a_channel_offset())
+                            .read_unaligned();
+                        let a_lin = a as f32 * (1f32 / 255f32);
+                        dst_store.add(3).write_unaligned(a_lin);
+                    }
+                }
+            });
+    }
 
-            if image_configuration.has_alpha() {
-                let a = unsafe {
-                    src.add(image_configuration.get_a_channel_offset())
+    #[cfg(not(feature = "rayon"))]
+    {
+        let mut src_offset = 0usize;
+        let mut dst_offset = 0usize;
+
+        for _ in 0..height as usize {
+            let mut _cx = 0usize;
+
+            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
+            let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
+
+            for x in _cx..width as usize {
+                let px = x * channels;
+
+                let src = unsafe { src_ptr.add(px) };
+                let r = unsafe {
+                    src.add(image_configuration.get_r_channel_offset())
                         .read_unaligned()
                 };
-                let a_lin = a as f32 * (1f32 / 255f32);
+                let g = unsafe {
+                    src.add(image_configuration.get_g_channel_offset())
+                        .read_unaligned()
+                };
+                let b = unsafe {
+                    src.add(image_configuration.get_b_channel_offset())
+                        .read_unaligned()
+                };
+
+                let rgb = Rgb::<u8>::new(r, g, b);
+                let dst_store = unsafe { dst_ptr.add(px) };
+                let lalphabeta = rgb.to_lalphabeta(transfer_function);
                 unsafe {
-                    dst_store.add(3).write_unaligned(a_lin);
+                    dst_store.write_unaligned(lalphabeta.l);
+                    dst_store.add(1).write_unaligned(lalphabeta.alpha);
+                    dst_store.add(2).write_unaligned(lalphabeta.beta);
+                }
+
+                if image_configuration.has_alpha() {
+                    let a = unsafe {
+                        src.add(image_configuration.get_a_channel_offset())
+                            .read_unaligned()
+                    };
+                    let a_lin = a as f32 * (1f32 / 255f32);
+                    unsafe {
+                        dst_store.add(3).write_unaligned(a_lin);
+                    }
                 }
             }
-        }
 
-        src_offset += src_stride as usize;
-        dst_offset += dst_stride as usize;
+            src_offset += src_stride as usize;
+            dst_offset += dst_stride as usize;
+        }
     }
 }
 

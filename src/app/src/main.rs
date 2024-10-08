@@ -39,6 +39,7 @@ fn main() {
     println!("dimensions {:?}", img.dimensions());
 
     println!("{:?}", img.color());
+    // let img = img.to_rgba8();
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
@@ -57,8 +58,7 @@ fn main() {
     // );
     // src_bytes = &dst_rgba;
 
-    let mut dst_slice: Vec<u8> = Vec::new();
-    dst_slice.resize(width as usize * components * height as usize, 0u8);
+    let mut dst_slice: Vec<u8> = vec![0u8; width as usize * components * height as usize];
 
     {
         let mut lab_store: Vec<f32> = vec![];
@@ -66,14 +66,15 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_linear(
+        rgb_to_jzazbz(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            TransferFunction::Srgb,
+            200.,
+            TransferFunction::Smpte428,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -101,14 +102,15 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        linear_to_rgb(
+        jzazbz_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            TransferFunction::Srgb,
+            200.,
+            TransferFunction::Smpte428,
         );
 
         let elapsed_time = start_time.elapsed();

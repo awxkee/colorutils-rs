@@ -181,7 +181,12 @@ impl Xyz {
             let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
                 + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
                 + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
-            Rgb::<f32>::new(transfer_function.gamma(r), transfer_function.gamma(g), transfer_function.gamma(b)).to_u8()
+            Rgb::<f32>::new(
+                transfer_function.gamma(r),
+                transfer_function.gamma(g),
+                transfer_function.gamma(b),
+            )
+            .to_u8()
         }
     }
 

@@ -61,6 +61,20 @@ pub fn rec709_from_linear(linear: f32) -> f32 {
     }
 }
 
+#[inline]
+/// Linear transfer function for Smpte 428
+pub fn smpte428_to_linear(gamma: f32) -> f32 {
+    const SCALE: f32 = 1. / 0.91655527974030934f32;
+    gamma.max(0.).powf(2.6f32) * SCALE
+}
+
+#[inline]
+/// Gamma transfer function for Smpte 428
+pub fn smpte428_from_linear(linear: f32) -> f32 {
+    const POWER_VALUE: f32 = 1.0f32 / 2.6f32;
+    (0.91655527974030934f32 * linear.max(0.)).powf(POWER_VALUE)
+}
+
 #[inline(always)]
 /// Pure gamma transfer function for gamma 2.2
 pub fn pure_gamma_function(x: f32, gamma: f32) -> f32 {
@@ -109,15 +123,19 @@ pub enum TransferFunction {
     Gamma2p2,
     /// Pure gamma 2.8 Transfer function
     Gamma2p8,
+    /// Smpte 428 Transfer function
+    Smpte428,
 }
 
 impl From<u8> for TransferFunction {
+    #[inline]
     fn from(value: u8) -> Self {
         match value {
             0 => TransferFunction::Srgb,
             1 => TransferFunction::Rec709,
             2 => TransferFunction::Gamma2p2,
             3 => TransferFunction::Gamma2p8,
+            4 => TransferFunction::Smpte428,
             _ => TransferFunction::Srgb,
         }
     }
@@ -131,6 +149,7 @@ impl TransferFunction {
             TransferFunction::Rec709 => rec709_to_linear(v),
             TransferFunction::Gamma2p8 => gamma2p8_to_linear(v),
             TransferFunction::Gamma2p2 => gamma2p2_to_linear(v),
+            TransferFunction::Smpte428 => smpte428_to_linear(v),
         }
     }
 
@@ -141,6 +160,7 @@ impl TransferFunction {
             TransferFunction::Rec709 => rec709_from_linear(v),
             TransferFunction::Gamma2p2 => gamma2p2_from_linear(v),
             TransferFunction::Gamma2p8 => gamma2p8_from_linear(v),
+            TransferFunction::Smpte428 => smpte428_to_linear(v),
         }
     }
 }
