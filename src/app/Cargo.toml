@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-colorutils-rs = { path = "../../", features = ["rayon"] }
+colorutils-rs = { path = "../../", features = [] }
 image = "0.25.1"
 okhsl = "1.0.1"
