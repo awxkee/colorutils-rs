@@ -19,6 +19,7 @@ Allows conversion between
 - [x] Jzazbz
 - [x] Jzczhz
 - [x] lαβ (l-alpha-beta)
+- [x] XYB
 
 ### Performance
 
