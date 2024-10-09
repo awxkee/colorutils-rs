@@ -7,8 +7,8 @@
 
 use crate::avx::sigmoidal::avx_sigmoidal_to_rgb;
 use crate::avx::{
-    avx2_deinterleave_rgb_ps, avx2_deinterleave_rgba_ps, avx2_interleave_rgb,
-    avx2_interleave_rgba_epi8, avx2_pack_s32, avx2_pack_u16,
+    _mm256_packus_four_epi32, avx2_deinterleave_rgb_ps, avx2_deinterleave_rgba_ps,
+    avx2_interleave_rgb, avx2_interleave_rgba_epi8,
 };
 use crate::avx_store_and_interleave_u8;
 use crate::image::ImageConfiguration;
@@ -77,20 +77,10 @@ pub unsafe fn avx_from_sigmoidal_row<const CHANNELS_CONFIGURATION: u8>(
         let (r_row3_, g_row3_, b_row3_, a_row3_) =
             vld_sigmoidal::<CHANNELS_CONFIGURATION>(src_ptr_3);
 
-        let r_row01 = avx2_pack_s32(r_row0_, r_row1_);
-        let g_row01 = avx2_pack_s32(g_row0_, g_row1_);
-        let b_row01 = avx2_pack_s32(b_row0_, b_row1_);
-        let a_row01 = avx2_pack_s32(a_row0_, a_row1_);
-
-        let r_row23 = avx2_pack_s32(r_row2_, r_row3_);
-        let g_row23 = avx2_pack_s32(g_row2_, g_row3_);
-        let b_row23 = avx2_pack_s32(b_row2_, b_row3_);
-        let a_row23 = avx2_pack_s32(a_row2_, a_row3_);
-
-        let r_row = avx2_pack_u16(r_row01, r_row23);
-        let g_row = avx2_pack_u16(g_row01, g_row23);
-        let b_row = avx2_pack_u16(b_row01, b_row23);
-        let a_row = avx2_pack_u16(a_row01, a_row23);
+        let r_row = _mm256_packus_four_epi32(r_row0_, r_row1_, r_row2_, r_row3_);
+        let g_row = _mm256_packus_four_epi32(g_row0_, g_row1_, g_row2_, g_row3_);
+        let b_row = _mm256_packus_four_epi32(b_row0_, b_row1_, b_row2_, b_row3_);
+        let a_row = _mm256_packus_four_epi32(a_row0_, a_row1_, a_row2_, a_row3_);
 
         let dst_ptr = dst.add(cx * channels);
 

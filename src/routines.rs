@@ -215,6 +215,7 @@ macro_rules! adjust_saturation {
     }};
 }
 
+#[inline]
 pub(crate) fn op_color_dodge(a: f32, b: f32) -> f32 {
     if b == 1.0 {
         b
@@ -223,30 +224,37 @@ pub(crate) fn op_color_dodge(a: f32, b: f32) -> f32 {
     }
 }
 
+#[inline]
 pub(crate) fn op_screen(a: f32, b: f32) -> f32 {
     color_screen!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_color_burn(a: f32, b: f32) -> f32 {
     color_burn!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_darken(a: f32, b: f32) -> f32 {
     a.min(b)
 }
 
+#[inline]
 pub(crate) fn op_lighten(a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
+#[inline]
 pub(crate) fn op_linear_burn(a: f32, b: f32) -> f32 {
     color_linear_burn!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_reflect(a: f32, b: f32) -> f32 {
     color_reflect!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_overlay(a: f32, b: f32) -> f32 {
     if b < 0.5 {
         2.0 * a * b
@@ -255,34 +263,42 @@ pub(crate) fn op_overlay(a: f32, b: f32) -> f32 {
     }
 }
 
+#[inline]
 pub(crate) fn op_difference(a: f32, b: f32) -> f32 {
     color_difference!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_exclusion(a: f32, b: f32) -> f32 {
     color_exclusion!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_linear_light(a: f32, b: f32) -> f32 {
     color_linear_light!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_vivid_light(a: f32, b: f32) -> f32 {
     color_vivid_light!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_pin_light(a: f32, b: f32) -> f32 {
     color_pin_light!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_hard_mix(a: f32, b: f32) -> f32 {
     color_hard_mix!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_hard_light(a: f32, b: f32) -> f32 {
     color_hard_light!(a, b)
 }
 
+#[inline]
 pub(crate) fn op_soft_light(a: f32, b: f32) -> f32 {
     color_soft_light!(a, b)
 }

@@ -155,7 +155,7 @@ pub unsafe fn perform_sse_linear_transfer(
         TransferFunction::Rec709 => sse_rec709_to_linear(v),
         TransferFunction::Gamma2p2 => sse_gamma2p2_to_linear(v),
         TransferFunction::Gamma2p8 => sse_gamma2p8_to_linear(v),
-        TransferFunction::Smpte428 => sse_smpte428_from_linear(v),
+        TransferFunction::Smpte428 => sse_smpte428_to_linear(v),
     }
 }
 
@@ -166,6 +166,6 @@ pub unsafe fn perform_sse_gamma_transfer(transfer_function: TransferFunction, v:
         TransferFunction::Rec709 => sse_rec709_from_linear(v),
         TransferFunction::Gamma2p2 => sse_gamma2p2_from_linear(v),
         TransferFunction::Gamma2p8 => sse_gamma2p8_from_linear(v),
-        TransferFunction::Smpte428 => sse_smpte428_to_linear(v),
+        TransferFunction::Smpte428 => sse_smpte428_from_linear(v),
     }
 }

@@ -77,6 +77,7 @@ impl Hsv {
         (self.v * 100f32).max(0f32).min(100f32) as u16
     }
 }
+
 #[inline]
 fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let c_max = r.max(g).max(b);

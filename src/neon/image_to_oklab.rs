@@ -10,14 +10,13 @@ use crate::neon::math::vcolorq_matrix_f32;
 use crate::neon::neon_perform_linear_transfer;
 use crate::{
     load_u8_and_deinterleave, load_u8_and_deinterleave_half, load_u8_and_deinterleave_quarter,
-    TransferFunction, SRGB_TO_XYZ_D65,
+    TransferFunction,
 };
 use erydanos::{vatan2q_f32, vcbrtq_fast_f32, vhypotq_fast_f32};
 use std::arch::aarch64::*;
 
 macro_rules! triple_to_oklab {
     ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr,
-    $x0: expr, $x1: expr, $x2: expr, $x3: expr, $x4: expr, $x5: expr, $x6: expr, $x7: expr, $x8: expr,
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
     ) => {{
@@ -28,12 +27,9 @@ macro_rules! triple_to_oklab {
         let dl_m = neon_perform_linear_transfer($transfer, g_f);
         let dl_s = neon_perform_linear_transfer($transfer, b_f);
 
-        let (x, y, z) = vcolorq_matrix_f32(
-            dl_l, dl_m, dl_s, $x0, $x1, $x2, $x3, $x4, $x5, $x6, $x7, $x8,
+        let (l_l, l_m, l_s) = vcolorq_matrix_f32(
+            dl_l, dl_m, dl_s, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8,
         );
-
-        let (l_l, l_m, l_s) =
-            vcolorq_matrix_f32(x, y, z, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8);
 
         let l_ = vcbrtq_fast_f32(l_l);
         let m_ = vcbrtq_fast_f32(l_m);
@@ -69,19 +65,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
     let mut cx = start_cx;
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
-
-    // Matrix To XYZ
-    let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(1)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(2)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(0)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(1)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(2)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(0)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(1)),
-        vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(2)),
-    );
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
         vdupq_n_f32(0.4122214708f32),
@@ -126,15 +109,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -177,15 +151,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_low_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -229,15 +194,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_high_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -283,15 +239,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_high_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -343,15 +290,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -394,15 +332,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_low_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -454,15 +383,6 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,

@@ -14,7 +14,7 @@ use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::{
     avx_store_and_interleave_v3_direct_f32, avx_store_and_interleave_v4_direct_f32,
-    TransferFunction, SRGB_TO_XYZ_D65,
+    TransferFunction,
 };
 use erydanos::{_mm256_atan2_ps, _mm256_cbrt_fast_ps, _mm256_hypot_fast_ps};
 #[cfg(target_arch = "x86")]
@@ -24,7 +24,6 @@ use std::arch::x86_64::*;
 
 macro_rules! triple_to_oklab {
     ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr,
-        $x0: expr, $x1: expr, $x2: expr, $x3: expr, $x4: expr, $x5: expr, $x6: expr, $x7: expr, $x8: expr,
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
     ) => {{
@@ -32,16 +31,14 @@ macro_rules! triple_to_oklab {
         let r_f = _mm256_mul_ps(_mm256_cvtepi32_ps($r), u8_scale);
         let g_f = _mm256_mul_ps(_mm256_cvtepi32_ps($g), u8_scale);
         let b_f = _mm256_mul_ps(_mm256_cvtepi32_ps($b), u8_scale);
+
         let r_linear = perform_avx2_linear_transfer($transfer, r_f);
         let g_linear = perform_avx2_linear_transfer($transfer, g_f);
         let b_linear = perform_avx2_linear_transfer($transfer, b_f);
 
-        let (x, y, z) = _mm256_color_matrix_ps(
-            r_linear, g_linear, b_linear, $x0, $x1, $x2, $x3, $x4, $x5, $x6, $x7, $x8,
+        let (l_l, l_m, l_s) = _mm256_color_matrix_ps(
+            r_linear, g_linear, b_linear, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8,
         );
-
-        let (l_l, l_m, l_s) =
-            _mm256_color_matrix_ps(x, y, z, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8);
 
         let l_ = _mm256_cbrt_fast_ps(l_l);
         let m_ = _mm256_cbrt_fast_ps(l_m);
@@ -77,19 +74,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
     let mut cx = start_cx;
 
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
-
-    // Matrix To XYZ
-    let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(1)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(2)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(0)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(1)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(2)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(0)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(1)),
-        _mm256_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(2)),
-    );
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
         _mm256_set1_ps(0.4122214708f32),
@@ -134,15 +118,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -191,15 +166,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_low_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -249,15 +215,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_high_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -304,15 +261,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_high_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -373,15 +321,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -430,15 +369,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_low_high,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,
@@ -496,15 +426,6 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             b_low_low,
             transfer_function,
             target,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
             c0,
             c1,
             c2,

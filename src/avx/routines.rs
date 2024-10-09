@@ -14,7 +14,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn avx_vld_u8_and_deinterleave<const CHANNELS_CONFIGURATION: u8>(
     ptr: *const u8,
 ) -> (__m256i, __m256i, __m256i, __m256i) {
@@ -58,7 +58,7 @@ pub(crate) unsafe fn avx_vld_u8_and_deinterleave<const CHANNELS_CONFIGURATION: u
     (r_chan, g_chan, b_chan, a_chan)
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn avx_vld_u8_and_deinterleave_half<const CHANNELS_CONFIGURATION: u8>(
     ptr: *const u8,
 ) -> (__m256i, __m256i, __m256i, __m256i) {
@@ -101,7 +101,7 @@ pub(crate) unsafe fn avx_vld_u8_and_deinterleave_half<const CHANNELS_CONFIGURATI
     (r_chan, g_chan, b_chan, a_chan)
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn avx_vld_u8_and_deinterleave_quarter<const CHANNELS_CONFIGURATION: u8>(
     ptr: *const u8,
 ) -> (__m256i, __m256i, __m256i, __m256i) {
@@ -144,7 +144,7 @@ pub(crate) unsafe fn avx_vld_u8_and_deinterleave_quarter<const CHANNELS_CONFIGUR
     (r_chan, g_chan, b_chan, a_chan)
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn avx_vld_f32_and_deinterleave<const CHANNELS_CONFIGURATION: u8>(
     ptr: *const f32,
 ) -> (__m256, __m256, __m256, __m256) {
@@ -188,7 +188,7 @@ pub(crate) unsafe fn avx_vld_f32_and_deinterleave<const CHANNELS_CONFIGURATION: 
     (r_f32, g_f32, b_f32, a_f32)
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn avx_vld_f32_and_deinterleave_direct<const CHANNELS_CONFIGURATION: u8>(
     ptr: *const f32,
 ) -> (__m256, __m256, __m256, __m256) {

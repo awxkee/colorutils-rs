@@ -12,7 +12,7 @@ use crate::sse::{
 };
 use crate::{
     load_f32_and_deinterleave, store_and_interleave_v3_half_u8, store_and_interleave_v3_u8,
-    store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction, XYZ_TO_SRGB_D65,
+    store_and_interleave_v4_half_u8, store_and_interleave_v4_u8, TransferFunction,
 };
 use erydanos::{_mm_cos_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
@@ -43,15 +43,6 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     c6: __m128,
     c7: __m128,
     c8: __m128,
-    x0: __m128,
-    x1: __m128,
-    x2: __m128,
-    x3: __m128,
-    x4: __m128,
-    x5: __m128,
-    x6: __m128,
-    x7: __m128,
-    x8: __m128,
 ) -> (__m128i, __m128i, __m128i, __m128i) {
     let v_scale_alpha = _mm_set1_ps(255f32);
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
@@ -72,9 +63,7 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     l_m = _mm_cube_ps(l_m);
     l_s = _mm_cube_ps(l_s);
 
-    let (x, y, z) = _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
-
-    let (r_l, g_l, b_l) = _mm_color_matrix_ps(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
+    let (r_l, g_l, b_l) = _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
 
     let mut r_f32 = perform_sse_gamma_transfer(transfer, r_l);
     let mut g_f32 = perform_sse_gamma_transfer(transfer, g_l);
@@ -119,19 +108,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    // Matrix from XYZ
-    let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(2)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(2)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(2)),
-    );
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
         _mm_set1_ps(1f32),
@@ -187,15 +163,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
@@ -222,15 +189,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let src_ptr_2 = offset_src_ptr.add(4 * 2 * channels);
@@ -257,15 +215,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let src_ptr_3 = offset_src_ptr.add(4 * 3 * channels);
@@ -292,15 +241,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);
@@ -357,15 +297,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let src_ptr_1 = offset_src_ptr.add(4 * channels);
@@ -392,15 +323,6 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c6,
             c7,
             c8,
-            x0,
-            x1,
-            x2,
-            x3,
-            x4,
-            x5,
-            x6,
-            x7,
-            x8,
         );
 
         let r_row01 = _mm_packus_epi32(r_row0_, r_row1_);

@@ -21,13 +21,15 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 
 fn main() {
     let r = 255;
-    let g = 0;
-    let b = 0;
+    let g = 15;
+    let b = 7;
     let rgb = Rgb::<u8>::new(r, g, b);
-    // let xyb = Okhsv::from_oklab(rgb.to_oklab(TransferFunction::Srgb));
-    // println!("xyb {:?}", xyb);
-    let hsv_new = okhsl::Okhsv::from(okhsl::Rgb::new(255, 0, 0));
-    println!("hsv {:?}", hsv_new);
+    let m_lab = rgb.to_oklab(TransferFunction::Srgb);
+    println!("cl oklab {:?}", m_lab);
+    println!(
+        "round trip oklab {:?}",
+        m_lab.to_rgb(TransferFunction::Srgb)
+    );
     // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
     // println!("Restored RGB {:?}", restored);
 
@@ -66,15 +68,14 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_jzazbz(
+        rgb_to_oklch(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            200.,
-            TransferFunction::Smpte428,
+            TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
@@ -102,15 +103,14 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        jzazbz_to_rgb(
+        oklch_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            200.,
-            TransferFunction::Smpte428,
+            TransferFunction::Srgb,
         );
 
         let elapsed_time = start_time.elapsed();

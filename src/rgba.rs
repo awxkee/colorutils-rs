@@ -167,7 +167,7 @@ impl Rgba<f32> {
     /// Using alpha blend over algorithm where current color is on bottom ( destination )
     /// aR = aA + aB·(1−aA)
     /// xR = 1/aR · [ (1−aB)·xaA + (1−aA)·xaB + aA·aB·f(xA,xB) ]
-    #[inline]
+    #[inline(always)]
     pub fn blend_over_with_op(
         &self,
         color_foreground: Rgba<f32>,
