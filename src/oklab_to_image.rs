@@ -115,10 +115,17 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     .zip(transient_row.chunks_exact_mut(channels))
                 {
                     let rgb = (Rgb::<f32>::new(
-                        src_chunks[image_configuration.get_r_channel_offset()],
-                        src_chunks[image_configuration.get_g_channel_offset()],
-                        src_chunks[image_configuration.get_b_channel_offset()],
+                        src_chunks[image_configuration.get_r_channel_offset()]
+                            .max(0.)
+                            .min(1.),
+                        src_chunks[image_configuration.get_g_channel_offset()]
+                            .max(0.)
+                            .min(1.),
+                        src_chunks[image_configuration.get_b_channel_offset()]
+                            .max(0.)
+                            .min(1.),
                     ) * Rgb::<f32>::dup(2048f32))
+                    .round()
                     .cast::<u16>();
 
                     dst_chunks[image_configuration.get_r_channel_offset()] =
@@ -183,11 +190,18 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     .chunks_exact_mut(channels)
                     .zip(transient_row.chunks_exact_mut(channels))
                 {
-                    let rgb = (Rgb::<f32>::new(
-                        src_chunks[image_configuration.get_r_channel_offset()],
-                        src_chunks[image_configuration.get_g_channel_offset()],
-                        src_chunks[image_configuration.get_b_channel_offset()],
-                    ) * Rgb::<f32>::dup(2048f32))
+                    let rgb = (Rgb::new(
+                        src_chunks[image_configuration.get_r_channel_offset()]
+                            .max(0.)
+                            .min(1.),
+                        src_chunks[image_configuration.get_g_channel_offset()]
+                            .max(0.)
+                            .min(1.),
+                        src_chunks[image_configuration.get_b_channel_offset()]
+                            .max(0.)
+                            .min(1.),
+                    ) * Rgb::dup(2048f32))
+                    .round()
                     .cast::<u16>();
 
                     dst_chunks[image_configuration.get_r_channel_offset()] =

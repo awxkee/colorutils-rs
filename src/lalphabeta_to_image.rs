@@ -102,42 +102,65 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
 
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
+        for (dst, src) in dst
+            .chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize))
+        {
+            unsafe {
+                let mut _cx = 0usize;
 
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
+                let src_ptr = src.as_ptr() as *mut f32;
 
-            let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *mut f32 };
-            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
+                let mut transient_row = vec![0f32; width as usize * channels];
 
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let l_x = unsafe { src_ptr.add(px).read_unaligned() };
-                let l_y = unsafe { src_ptr.add(px + 1).read_unaligned() };
-                let l_z = unsafe { src_ptr.add(px + 2).read_unaligned() };
-                let lalphabeta = LAlphaBeta::new(l_x, l_y, l_z);
-                let rgb = lalphabeta.to_rgb(transfer_function);
+                for x in _cx..width as usize {
+                    let px = x * channels;
+                    let l_x = src_ptr.add(px).read_unaligned();
+                    let l_y = src_ptr.add(px + 1).read_unaligned();
+                    let l_z = src_ptr.add(px + 2).read_unaligned();
+                    let lalphabeta = LAlphaBeta::new(l_x, l_y, l_z);
+                    let rgb = lalphabeta.to_linear_rgb(&XYZ_TO_SRGB_D65);
 
-                unsafe {
-                    let dst = dst_ptr.add(x * channels);
-                    dst.add(image_configuration.get_r_channel_offset())
-                        .write_unaligned(rgb.r);
-                    dst.add(image_configuration.get_g_channel_offset())
-                        .write_unaligned(rgb.g);
-                    dst.add(image_configuration.get_b_channel_offset())
-                        .write_unaligned(rgb.b);
+                    let dst = transient_row.get_unchecked_mut((x * channels)..);
+                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
+                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
+                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
                     if image_configuration.has_alpha() {
                         let l_a = src_ptr.add(px + 3).read_unaligned();
                         let a_value = (l_a * 255f32).max(0f32);
-                        dst.add(image_configuration.get_a_channel_offset())
-                            .write_unaligned(a_value as u8);
+                        *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) =
+                            a_value;
+                    }
+                }
+
+                for (dst, src) in dst
+                    .chunks_exact_mut(channels)
+                    .zip(transient_row.chunks_exact(channels))
+                {
+                    let r = src[image_configuration.get_r_channel_offset()];
+                    let g = src[image_configuration.get_g_channel_offset()];
+                    let b = src[image_configuration.get_b_channel_offset()];
+
+                    let rgb = (Rgb::<f32>::new(
+                        r.min(1f32).max(0f32),
+                        g.min(1f32).max(0f32),
+                        b.min(1f32).max(0f32),
+                    ) * Rgb::<f32>::dup(2048f32))
+                    .round()
+                    .cast::<u16>();
+
+                    dst[image_configuration.get_r_channel_offset()] =
+                        *lut_table.get_unchecked(rgb.r.min(2048) as usize);
+                    dst[image_configuration.get_g_channel_offset()] =
+                        *lut_table.get_unchecked(rgb.g.min(2048) as usize);
+                    dst[image_configuration.get_b_channel_offset()] =
+                        *lut_table.get_unchecked(rgb.b.min(2048) as usize);
+                    if image_configuration.has_alpha() {
+                        dst[image_configuration.get_a_channel_offset()] =
+                            src[image_configuration.get_a_channel_offset()] as u8;
                     }
                 }
             }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
         }
     }
 }

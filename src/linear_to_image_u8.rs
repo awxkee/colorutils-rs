@@ -54,13 +54,18 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
                     let rgb = Rgb::<u8>::new(r, g, b);
 
-                    *dst.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
-                    *dst.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
-                    *dst.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
+                    let dst = dst.get_unchecked_mut(px..);
+
+                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.r as usize);
+                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.g as usize);
+                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.b as usize);
 
                     if USE_ALPHA && image_configuration.has_alpha() {
                         let a = src.get_unchecked(px + image_configuration.get_a_channel_offset());
-                        *dst.get_unchecked_mut(px + 3) = *a;
+                        *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = *a;
                     }
                 }
             });
@@ -68,54 +73,36 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
+        for (dst, src) in dst
+            .chunks_exact_mut(dst_stride as usize)
+            .zip(src.chunks_exact(src_stride as usize))
+        {
+            unsafe {
+                let mut _cx = 0usize;
 
-        for _ in 0.._height as usize {
-            let mut _cx = 0usize;
+                for x in _cx..width as usize {
+                    let px = x * channels;
+                    let r = *src.get_unchecked(px + image_configuration.get_r_channel_offset());
+                    let g = *src.get_unchecked(px + image_configuration.get_g_channel_offset());
+                    let b = *src.get_unchecked(px + image_configuration.get_b_channel_offset());
 
-            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
+                    let rgb = Rgb::<u8>::new(r, g, b);
 
-            let src_slice = unsafe { slice::from_raw_parts(src_ptr, width as usize * channels) };
-            let dst_slice =
-                unsafe { slice::from_raw_parts_mut(dst_ptr, width as usize * channels) };
+                    let dst = dst.get_unchecked_mut(px..);
 
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let r = unsafe {
-                    *src_slice.get_unchecked(px + image_configuration.get_r_channel_offset())
-                };
-                let g = unsafe {
-                    *src_slice.get_unchecked(px + image_configuration.get_g_channel_offset())
-                };
-                let b = unsafe {
-                    *src_slice.get_unchecked(px + image_configuration.get_b_channel_offset())
-                };
+                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.r as usize);
+                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.g as usize);
+                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) =
+                        *lut_table.get_unchecked(rgb.b as usize);
 
-                let rgb = Rgb::<u8>::new(r, g, b);
-                let mut rgb = rgb.to_rgb_f32();
-
-                rgb = rgb.gamma(transfer_function);
-
-                unsafe {
-                    *dst_slice.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
-                    *dst_slice.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
-                    *dst_slice.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
-                }
-
-                if USE_ALPHA && image_configuration.has_alpha() {
-                    let a = unsafe {
-                        *src_slice.get_unchecked(px + image_configuration.get_a_channel_offset())
-                    };
-                    unsafe {
-                        *dst_slice.get_unchecked_mut(px + 3) = a;
+                    if USE_ALPHA && image_configuration.has_alpha() {
+                        let a = src.get_unchecked(px + image_configuration.get_a_channel_offset());
+                        *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = *a;
                     }
                 }
             }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
         }
     }
 }

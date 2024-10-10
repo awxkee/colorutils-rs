@@ -41,26 +41,28 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         .chunks_exact_mut(dst_stride as usize)
         .zip(l_src.chunks_exact(src_stride as usize))
     {
-        let mut _cx = 0usize;
+        unsafe {
+            let mut _cx = 0usize;
 
-        for x in _cx..width as usize {
-            let px = x * channels;
-            let r = *src_row.get_unchecked(px + image_configuration.get_r_channel_offset());
-            let g = *src_row.get_unchecked(px + image_configuration.get_g_channel_offset());
-            let b = *src_row.get_unchecked(px + image_configuration.get_b_channel_offset());
+            for x in _cx..width as usize {
+                let px = x * channels;
+                let r = *src_row.get_unchecked(px + image_configuration.get_r_channel_offset());
+                let g = *src_row.get_unchecked(px + image_configuration.get_g_channel_offset());
+                let b = *src_row.get_unchecked(px + image_configuration.get_b_channel_offset());
 
-            let rgb = Rgb::<u8>::new(r, g, b);
+                let rgb = Rgb::<u8>::new(r, g, b);
 
-            *dst_row.get_unchecked_mut(px + image_configuration.get_r_channel_offset()) =
-                *lut_table.get_unchecked(rgb.r as usize);
-            *dst_row.get_unchecked_mut(px + image_configuration.get_g_channel_offset()) =
-                *lut_table.get_unchecked(rgb.g as usize);
-            *dst_row.get_unchecked_mut(px + image_configuration.get_b_channel_offset()) =
-                *lut_table.get_unchecked(rgb.b as usize);
+                *dst_row.get_unchecked_mut(px + image_configuration.get_r_channel_offset()) =
+                    *lut_table.get_unchecked(rgb.r as usize);
+                *dst_row.get_unchecked_mut(px + image_configuration.get_g_channel_offset()) =
+                    *lut_table.get_unchecked(rgb.g as usize);
+                *dst_row.get_unchecked_mut(px + image_configuration.get_b_channel_offset()) =
+                    *lut_table.get_unchecked(rgb.b as usize);
 
-            if USE_ALPHA && image_configuration.has_alpha() {
-                let a = *src_row.get_unchecked(px + image_configuration.get_a_channel_offset());
-                *dst_row.get_unchecked_mut(px + image_configuration.get_a_channel_offset()) = a;
+                if USE_ALPHA && image_configuration.has_alpha() {
+                    let a = *src_row.get_unchecked(px + image_configuration.get_a_channel_offset());
+                    *dst_row.get_unchecked_mut(px + image_configuration.get_a_channel_offset()) = a;
+                }
             }
         }
     }

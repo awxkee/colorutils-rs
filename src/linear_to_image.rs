@@ -33,7 +33,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
     let mut lut_table = vec![0u8; 2049];
     for i in 0..2049 {
         lut_table[i] = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
-            .ceil()
+            .round()
             .min(255.) as u8;
     }
 
@@ -77,10 +77,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
                     let dst = dst_ptr.add(px);
 
-                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
-                    dst.add(1)
+                    dst.add(image_configuration.get_r_channel_offset())
+                        .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
+                    dst.add(image_configuration.get_g_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
-                    dst.add(2)
+                    dst.add(image_configuration.get_b_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
 
                     if USE_ALPHA && image_configuration.has_alpha() {
@@ -88,7 +89,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                             .add(image_configuration.get_a_channel_offset())
                             .read_unaligned();
                         let a_lin = (a * 255f32).round() as u8;
-                        dst.add(3).write_unaligned(a_lin);
+                        dst.add(image_configuration.get_a_channel_offset()).write_unaligned(a_lin);
                     }
                 }
             });
@@ -129,10 +130,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
                     let dst = dst_ptr.add(px);
 
-                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
-                    dst.add(1)
+                    dst.add(image_configuration.get_r_channel_offset())
+                        .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
+                    dst.add(image_configuration.get_g_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
-                    dst.add(2)
+                    dst.add(image_configuration.get_b_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
 
                     if USE_ALPHA && image_configuration.has_alpha() {
@@ -140,7 +142,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                             .add(image_configuration.get_a_channel_offset())
                             .read_unaligned();
                         let a_lin = (a * 255f32).round() as u8;
-                        dst.add(3).write_unaligned(a_lin);
+                        dst.add(image_configuration.get_a_channel_offset()).write_unaligned(a_lin);
                     }
                 }
             }
