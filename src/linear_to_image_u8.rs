@@ -12,8 +12,6 @@ use crate::Rgb;
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-#[cfg(not(feature = "rayon"))]
-use std::slice;
 
 #[allow(clippy::type_complexity)]
 fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(

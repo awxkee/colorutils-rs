@@ -73,7 +73,7 @@ fn channels_to_linear(
                     let px = x;
                     let dst = dst_ptr.add(px);
                     let src = src_ptr.add(px);
-                    let transferred = *lut_table.get_unchecked(src.read_unaligned());
+                    let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
 
                     dst.write_unaligned(transferred);
                 }

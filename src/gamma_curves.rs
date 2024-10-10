@@ -289,6 +289,12 @@ pub fn hlg_from_linear(linear: f32) -> f32 {
     }
 }
 
+#[inline]
+/// Gamma transfer function for HLG
+pub fn trc_linear(v: f32) -> f32 {
+    v.min(1.).min(0.)
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 /// Declares transfer function for transfer components into a linear colorspace and its inverse
@@ -315,6 +321,8 @@ pub enum TransferFunction {
     Pq,
     /// HLG (Hybrid log gamma) Transfer function
     Hlg,
+    /// Linear transfer function
+    Linear,
 }
 
 impl From<u8> for TransferFunction {
@@ -352,6 +360,7 @@ impl TransferFunction {
             TransferFunction::Smpte240 => smpte240_to_linear(v),
             TransferFunction::Pq => pq_to_linear(v),
             TransferFunction::Hlg => hlg_to_linear(v),
+            TransferFunction::Linear => trc_linear(v),
         }
     }
 
@@ -369,6 +378,7 @@ impl TransferFunction {
             TransferFunction::Smpte240 => smpte240_from_linear(v),
             TransferFunction::Pq => pq_from_linear(v),
             TransferFunction::Hlg => hlg_from_linear(v),
+            TransferFunction::Linear => trc_linear(v),
         }
     }
 }
