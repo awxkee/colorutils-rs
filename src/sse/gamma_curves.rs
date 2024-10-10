@@ -5,7 +5,6 @@
  * // license that can be found in the LICENSE file.
  */
 #![allow(dead_code)]
-use crate::gamma_curves::TransferFunction;
 use crate::sse::*;
 use erydanos::_mm_pow_ps;
 #[cfg(target_arch = "x86")]
