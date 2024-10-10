@@ -985,3 +985,22 @@ where
         Rgb::<T>::new(self.r.powf(rhs.r), self.g.powf(rhs.g), self.b.powf(rhs.b))
     }
 }
+
+impl<T> Rgb<T> {
+    pub fn cast<V>(self) -> Rgb<V>
+    where
+        T: AsPrimitive<V>,
+        V: Copy + 'static,
+    {
+        Rgb::new(self.r.as_(), self.g.as_(), self.b.as_())
+    }
+}
+
+impl<T> Rgb<T>
+where
+    T: Float + 'static,
+{
+    pub fn round(self) -> Rgb<T> {
+        Rgb::new(self.r.round(), self.g.round(), self.b.round())
+    }
+}

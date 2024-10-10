@@ -38,7 +38,17 @@ impl Oklch {
         Oklch::from_oklab(oklab)
     }
 
-    /// Converts *Oklch* into *Rgb*
+    /// Converts Linear [Rgb] into [Oklch]
+    ///
+    /// # Arguments
+    /// `transfer_function` - Transfer function into linear colorspace and its inverse
+    #[inline]
+    pub fn from_linear_rgb(rgb: Rgb<f32>) -> Oklch {
+        let oklab = Oklab::from_linear_rgb(rgb);
+        Oklch::from_oklab(oklab)
+    }
+
+    /// Converts [Oklch] into [Rgb]
     ///
     /// # Arguments
     /// `transfer_function` - Transfer function into linear colorspace and its inverse
@@ -46,6 +56,13 @@ impl Oklch {
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
         let oklab = self.to_oklab();
         oklab.to_rgb(transfer_function)
+    }
+
+    /// Converts [Oklch] into linear [Rgb]
+    #[inline]
+    pub fn to_linear_rgb(&self) -> Rgb<f32> {
+        let oklab = self.to_oklab();
+        oklab.to_linear_rgb()
     }
 
     /// Converts *Oklab* to *Oklch*

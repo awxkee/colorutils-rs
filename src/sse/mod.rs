@@ -12,15 +12,9 @@ mod hsv_to_image;
 
 mod image_to_hsv;
 
-mod image_to_linear_u8;
-
-mod linear_to_image;
-
 mod math;
 
 mod support;
-
-mod to_linear;
 
 mod to_xyz_lab;
 
@@ -46,18 +40,16 @@ pub use gamma_curves::*;
 pub use hsv_to_image::*;
 pub use image_to_hsv::*;
 pub use image_to_jzazbz::sse_image_to_jzazbz;
-pub use image_to_linear_u8::*;
 pub use image_to_oklab::sse_image_to_oklab;
 pub use jzazbz_to_image::sse_jzazbz_to_image;
-pub use linear_to_image::*;
 pub use linear_to_planar::sse_linear_plane_to_gamma;
 pub use math::*;
 pub use oklab_to_image::sse_oklab_to_image;
 pub use planar_to_linear::sse_plane_to_linear;
 pub use support::*;
-pub use to_linear::*;
 pub use to_sigmoidal::sse_image_to_sigmoidal_row;
 pub use to_xyz_lab::*;
 pub use to_xyza_laba::*;
 pub use xyz_lab_to_image::*;
 pub use xyza_laba_to_image::*;
+pub use cie::*;

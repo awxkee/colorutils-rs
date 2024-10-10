@@ -10,9 +10,8 @@ use crate::luv::{
     LUV_WHITE_V_PRIME,
 };
 use crate::sse::{
-    _mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps, perform_sse_linear_transfer,
+    _mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps,
 };
-use crate::TransferFunction;
 use erydanos::{_mm_atan2_ps, _mm_cbrt_fast_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -20,10 +19,10 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 #[inline(always)]
-pub(crate) unsafe fn sse_triple_to_xyz(
-    r: __m128i,
-    g: __m128i,
-    b: __m128i,
+pub unsafe fn sse_triple_to_xyz(
+    r: __m128,
+    g: __m128,
+    b: __m128,
     c1: __m128,
     c2: __m128,
     c3: __m128,
@@ -33,24 +32,15 @@ pub(crate) unsafe fn sse_triple_to_xyz(
     c7: __m128,
     c8: __m128,
     c9: __m128,
-    transfer_function: TransferFunction,
 ) -> (__m128, __m128, __m128) {
-    let u8_scale = _mm_set1_ps(1f32 / 255f32);
-    let r_f = _mm_mul_ps(_mm_cvtepi32_ps(r), u8_scale);
-    let g_f = _mm_mul_ps(_mm_cvtepi32_ps(g), u8_scale);
-    let b_f = _mm_mul_ps(_mm_cvtepi32_ps(b), u8_scale);
-    let r_linear = perform_sse_linear_transfer(transfer_function, r_f);
-    let g_linear = perform_sse_linear_transfer(transfer_function, g_f);
-    let b_linear = perform_sse_linear_transfer(transfer_function, b_f);
-
     let (x, y, z) = _mm_color_matrix_ps(
-        r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+        r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9,
     );
     (x, y, z)
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_triple_to_luv(
+pub unsafe fn sse_triple_to_luv(
     x: __m128,
     y: __m128,
     z: __m128,
@@ -80,7 +70,7 @@ pub(crate) unsafe fn sse_triple_to_luv(
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_triple_to_lab(
+pub unsafe fn sse_triple_to_lab(
     x: __m128,
     y: __m128,
     z: __m128,
@@ -106,7 +96,7 @@ pub(crate) unsafe fn sse_triple_to_lab(
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_triple_to_lch(
+pub unsafe fn sse_triple_to_lch(
     x: __m128,
     y: __m128,
     z: __m128,
@@ -118,7 +108,7 @@ pub(crate) unsafe fn sse_triple_to_lch(
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_lab_to_xyz(l: __m128, a: __m128, b: __m128) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_lab_to_xyz(l: __m128, a: __m128, b: __m128) -> (__m128, __m128, __m128) {
     let y = _mm_mul_ps(
         _mm_add_ps(l, _mm_set1_ps(16f32)),
         _mm_set1_ps(1f32 / 116f32),
@@ -144,7 +134,7 @@ pub(crate) unsafe fn sse_lab_to_xyz(l: __m128, a: __m128, b: __m128) -> (__m128,
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_luv_to_xyz(l: __m128, u: __m128, v: __m128) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_luv_to_xyz(l: __m128, u: __m128, v: __m128) -> (__m128, __m128, __m128) {
     let zeros = _mm_setzero_ps();
     let zero_mask = _mm_cmpeq_ps(l, zeros);
     let l13 = _mm_rcp_ps(_mm_mul_ps(l, _mm_set1_ps(13f32)));
@@ -183,7 +173,7 @@ pub(crate) unsafe fn sse_luv_to_xyz(l: __m128, u: __m128, v: __m128) -> (__m128,
 }
 
 #[inline(always)]
-pub(crate) unsafe fn sse_lch_to_xyz(l: __m128, c: __m128, h: __m128) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_lch_to_xyz(l: __m128, c: __m128, h: __m128) -> (__m128, __m128, __m128) {
     let u = _mm_mul_ps(c, _mm_cos_ps(h));
     let v = _mm_mul_ps(c, _mm_sin_ps(h));
     sse_luv_to_xyz(l, u, v)

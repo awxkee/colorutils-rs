@@ -85,7 +85,7 @@ impl Lab {
 }
 
 impl Lab {
-    /// Converts CIE Lab into CIE XYZ
+    /// Converts CIE [Lab] into CIE [Xyz]
     #[inline]
     pub fn to_xyz(&self) -> Xyz {
         let y = (self.l + 16.0) / 116.0;
@@ -123,6 +123,13 @@ impl Lab {
     pub fn to_rgb8(&self) -> Rgb<u8> {
         let xyz = self.to_xyz();
         Xyz::new(xyz.x, xyz.y, xyz.z).to_srgb()
+    }
+
+    /// Converts CIE [Lab] into linear [Rgb]
+    #[inline]
+    pub fn to_linear_rgb(&self, matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+        let xyz = self.to_xyz();
+        xyz.to_linear_rgb(matrix)
     }
 
     /// Converts CIE Lab into Rgb

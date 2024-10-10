@@ -129,7 +129,7 @@ impl Xyz {
     /// * `matrix` - Transformation matrix from RGB to XYZ, for example `SRGB_TO_XYZ_D65`
     /// * `transfer_function` - Transfer functions for current colorspace
     #[inline]
-    pub fn from_linear_rgb(rgb: &Rgb<f32>, matrix: &[[f32; 3]; 3]) -> Self {
+    pub fn from_linear_rgb(rgb: Rgb<f32>, matrix: &[[f32; 3]; 3]) -> Self {
         unsafe {
             Self::new(
                 (*(*matrix.get_unchecked(0)).get_unchecked(0)) * rgb.r

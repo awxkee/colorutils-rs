@@ -6,13 +6,11 @@
  */
 
 use crate::avx::_mm256_cube_ps;
-use crate::avx::gamma_curves::perform_avx2_linear_transfer;
 use crate::avx::math::*;
 use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
-use crate::TransferFunction;
 use erydanos::{
     _mm256_atan2_ps, _mm256_cbrt_ps, _mm256_cos_ps, _mm256_hypot_ps, _mm256_prefer_fma_ps,
     _mm256_select_ps, _mm256_sin_ps,
@@ -103,9 +101,9 @@ pub(crate) unsafe fn avx_lch_to_xyz(l: __m256, c: __m256, h: __m256) -> (__m256,
 
 #[inline(always)]
 pub(crate) unsafe fn avx2_triple_to_xyz(
-    r: __m256i,
-    g: __m256i,
-    b: __m256i,
+    r: __m256,
+    g: __m256,
+    b: __m256,
     c1: __m256,
     c2: __m256,
     c3: __m256,
@@ -115,19 +113,8 @@ pub(crate) unsafe fn avx2_triple_to_xyz(
     c7: __m256,
     c8: __m256,
     c9: __m256,
-    transfer_function: TransferFunction,
 ) -> (__m256, __m256, __m256) {
-    let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-    let r_f = _mm256_mul_ps(_mm256_cvtepi32_ps(r), u8_scale);
-    let g_f = _mm256_mul_ps(_mm256_cvtepi32_ps(g), u8_scale);
-    let b_f = _mm256_mul_ps(_mm256_cvtepi32_ps(b), u8_scale);
-    let r_linear = perform_avx2_linear_transfer(transfer_function, r_f);
-    let g_linear = perform_avx2_linear_transfer(transfer_function, g_f);
-    let b_linear = perform_avx2_linear_transfer(transfer_function, b_f);
-
-    let (x, y, z) = _mm256_color_matrix_ps(
-        r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
-    );
+    let (x, y, z) = _mm256_color_matrix_ps(r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9);
     (x, y, z)
 }
 

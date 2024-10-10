@@ -10,16 +10,14 @@ use crate::luv::{
     LUV_WHITE_V_PRIME,
 };
 use crate::neon::math::{prefer_vfmaq_f32, vcolorq_matrix_f32, vcubeq_f32};
-use crate::neon::neon_perform_linear_transfer;
-use crate::TransferFunction;
 use erydanos::{vatan2q_f32, vcbrtq_fast_f32, vcosq_f32, vhypotq_fast_f32, vsinq_f32};
 use std::arch::aarch64::*;
 
 #[inline(always)]
 pub(crate) unsafe fn neon_triple_to_xyz(
-    r: uint32x4_t,
-    g: uint32x4_t,
-    b: uint32x4_t,
+    r: float32x4_t,
+    g: float32x4_t,
+    b: float32x4_t,
     c1: float32x4_t,
     c2: float32x4_t,
     c3: float32x4_t,
@@ -29,17 +27,9 @@ pub(crate) unsafe fn neon_triple_to_xyz(
     c7: float32x4_t,
     c8: float32x4_t,
     c9: float32x4_t,
-    transfer_function: TransferFunction,
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let r_f = vmulq_n_f32(vcvtq_f32_u32(r), 1f32 / 255f32);
-    let g_f = vmulq_n_f32(vcvtq_f32_u32(g), 1f32 / 255f32);
-    let b_f = vmulq_n_f32(vcvtq_f32_u32(b), 1f32 / 255f32);
-    let r_linear = neon_perform_linear_transfer(transfer_function, r_f);
-    let g_linear = neon_perform_linear_transfer(transfer_function, g_f);
-    let b_linear = neon_perform_linear_transfer(transfer_function, b_f);
-
     let (x, y, z) = vcolorq_matrix_f32(
-        r_linear, g_linear, b_linear, c1, c2, c3, c4, c5, c6, c7, c8, c9,
+        r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9,
     );
     (x, y, z)
 }

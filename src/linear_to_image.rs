@@ -4,20 +4,13 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::avx_linear_to_gamma;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use crate::neon::neon_linear_to_gamma;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_linear_to_gamma;
 use crate::Rgb;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-#[cfg(feature = "rayon")]
 use std::slice;
 
 #[allow(clippy::type_complexity)]
@@ -35,51 +28,28 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let mut _wide_row_handle: Option<
-        unsafe fn(usize, *const f32, u32, *mut u8, u32, u32, TransferFunction) -> usize,
-    > = None;
-
-    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-    {
-        _wide_row_handle = Some(neon_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
-    }
-
     let channels = image_configuration.get_channels_count();
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::arch::is_x86_feature_detected!("sse4.1") {
-        _wide_row_handle = Some(sse_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
+    let mut lut_table = vec![0u8; 2049];
+    for i in 0..2049 {
+        lut_table[i] = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
+            .ceil()
+            .min(255.) as u8;
     }
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::arch::is_x86_feature_detected!("avx2") {
-        _wide_row_handle = Some(avx_linear_to_gamma::<CHANNELS_CONFIGURATION, USE_ALPHA>);
-    }
+    let src_slice_safe_align = unsafe {
+        slice::from_raw_parts(
+            src.as_ptr() as *const u8,
+            src_stride as usize * height as usize,
+        )
+    };
 
     #[cfg(feature = "rayon")]
     {
-        let src_slice_safe_align = unsafe {
-            slice::from_raw_parts(
-                src.as_ptr() as *const u8,
-                src_stride as usize * height as usize,
-            )
-        };
         dst.par_chunks_exact_mut(dst_stride as usize)
             .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
             .for_each(|(dst, src)| unsafe {
                 let mut _cx = 0usize;
-
-                if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr() as *const f32,
-                        0,
-                        dst.as_mut_ptr(),
-                        0,
-                        width,
-                        transfer_function,
-                    );
-                }
 
                 let src_ptr = src.as_ptr() as *const f32;
                 let dst_ptr = dst.as_mut_ptr();
@@ -97,19 +67,21 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                         .add(image_configuration.get_b_channel_offset())
                         .read_unaligned();
 
-                    let rgb = Rgb::<f32>::new(
+                    let rgb = (Rgb::<f32>::new(
                         r.min(1f32).max(0f32),
                         g.min(1f32).max(0f32),
                         b.min(1f32).max(0f32),
-                    );
+                    ) * Rgb::<f32>::dup(2048f32))
+                    .round()
+                    .cast::<u16>();
 
                     let dst = dst_ptr.add(px);
-                    let transferred = rgb.gamma(transfer_function);
-                    let rgb8 = transferred.to_u8();
 
-                    dst.write_unaligned(rgb8.r);
-                    dst.add(1).write_unaligned(rgb8.g);
-                    dst.add(2).write_unaligned(rgb8.b);
+                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
+                    dst.add(1)
+                        .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
+                    dst.add(2)
+                        .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
 
                     if USE_ALPHA && image_configuration.has_alpha() {
                         let a = src_slice
@@ -124,79 +96,54 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
+        for (dst, src) in dst
+            .chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize))
+        {
+            unsafe {
+                let mut _cx = 0usize;
 
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
+                let src_ptr = src.as_ptr() as *const f32;
+                let dst_ptr = dst.as_mut_ptr();
 
-            if let Some(dispatcher) = _wide_row_handle {
-                unsafe {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        src_offset as u32,
-                        dst.as_mut_ptr(),
-                        dst_offset as u32,
-                        width,
-                        transfer_function,
-                    );
-                }
-            }
-
-            let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
-            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
-
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let src_slice = unsafe { src_ptr.add(px) };
-                let r = unsafe {
-                    src_slice
+                for x in _cx..width as usize {
+                    let px = x * channels;
+                    let src_slice = src_ptr.add(px);
+                    let r = src_slice
                         .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned()
-                };
-                let g = unsafe {
-                    src_slice
+                        .read_unaligned();
+                    let g = src_slice
                         .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned()
-                };
-                let b = unsafe {
-                    src_slice
+                        .read_unaligned();
+                    let b = src_slice
                         .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned()
-                };
+                        .read_unaligned();
 
-                let rgb = Rgb::<f32>::new(
-                    r.min(1f32).max(0f32),
-                    g.min(1f32).max(0f32),
-                    b.min(1f32).max(0f32),
-                );
+                    let rgb = (Rgb::<f32>::new(
+                        r.min(1f32).max(0f32),
+                        g.min(1f32).max(0f32),
+                        b.min(1f32).max(0f32),
+                    ) * Rgb::<f32>::dup(2048f32))
+                    .round()
+                    .cast::<u16>();
 
-                let dst = unsafe { dst_ptr.add(px) };
-                let transferred = rgb.gamma(transfer_function);
-                let rgb8 = transferred.to_u8();
+                    let dst = dst_ptr.add(px);
 
-                unsafe {
-                    dst.write_unaligned(rgb8.r);
-                    dst.add(1).write_unaligned(rgb8.g);
-                    dst.add(2).write_unaligned(rgb8.b);
-                }
+                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
+                    dst.add(1)
+                        .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
+                    dst.add(2)
+                        .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
 
-                if USE_ALPHA && image_configuration.has_alpha() {
-                    let a = unsafe {
-                        src_slice
+                    if USE_ALPHA && image_configuration.has_alpha() {
+                        let a = src_slice
                             .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned()
-                    };
-                    let a_lin = (a * 255f32).round() as u8;
-                    unsafe {
+                            .read_unaligned();
+                        let a_lin = (a * 255f32).round() as u8;
                         dst.add(3).write_unaligned(a_lin);
                     }
                 }
             }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
         }
     }
 }

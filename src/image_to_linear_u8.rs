@@ -6,10 +6,6 @@
  */
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use crate::neon::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
 use crate::Rgb;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
@@ -33,20 +29,11 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     let channels = image_configuration.get_channels_count();
 
-    let mut _wide_row_handler: Option<
-        unsafe fn(usize, *const u8, usize, u32, *mut u8, usize, TransferFunction) -> usize,
-    > = None;
-
-    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-    {
-        _wide_row_handler =
-            Some(neon_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA, true>);
-    }
-
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::arch::is_x86_feature_detected!("sse4.1") {
-        _wide_row_handler =
-            Some(sse_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA, true>);
+    let mut lut_table = vec![0u8; 256];
+    for i in 0..256 {
+        lut_table[i] = (transfer_function.linearize(i as f32 * (1. / 255.0)) * 255.)
+            .ceil()
+            .min(255.) as u8;
     }
 
     #[cfg(not(feature = "rayon"))]
@@ -55,20 +42,6 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         .zip(l_src.chunks_exact(src_stride as usize))
     {
         let mut _cx = 0usize;
-
-        if let Some(dispatcher) = _wide_row_handler {
-            unsafe {
-                _cx = dispatcher(
-                    _cx,
-                    src_row.as_ptr(),
-                    0,
-                    width,
-                    dst_row.as_mut_ptr(),
-                    0,
-                    transfer_function,
-                )
-            }
-        }
 
         for x in _cx..width as usize {
             let px = x * channels;
@@ -85,9 +58,9 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             let rgb = rgb_f32.to_u8();
 
             unsafe {
-                *dst_row.get_unchecked_mut(px) = rgb.r;
-                *dst_row.get_unchecked_mut(px + 1) = rgb.g;
-                *dst_row.get_unchecked_mut(px + 2) = rgb.b;
+                *dst_row.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
+                *dst_row.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
+                *dst_row.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
             }
 
             if USE_ALPHA && image_configuration.has_alpha() {
@@ -109,18 +82,6 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
             .for_each(|(dst_row, src_row)| unsafe {
                 let mut _cx = 0usize;
 
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        src_row.as_ptr(),
-                        0,
-                        width,
-                        dst_row.as_mut_ptr(),
-                        0,
-                        transfer_function,
-                    )
-                }
-
                 for x in _cx..width as usize {
                     let px = x * channels;
                     let r = *src_row.get_unchecked(px + image_configuration.get_r_channel_offset());
@@ -128,13 +89,10 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
                     let b = *src_row.get_unchecked(px + image_configuration.get_b_channel_offset());
 
                     let rgb = Rgb::<u8>::new(r, g, b);
-                    let mut rgb_f32 = rgb.to_rgb_f32();
-                    rgb_f32 = rgb_f32.linearize(transfer_function);
-                    let rgb = rgb_f32.to_u8();
 
-                    *dst_row.get_unchecked_mut(px) = rgb.r;
-                    *dst_row.get_unchecked_mut(px + 1) = rgb.g;
-                    *dst_row.get_unchecked_mut(px + 2) = rgb.b;
+                    *dst_row.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
+                    *dst_row.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
+                    *dst_row.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
 
                     if USE_ALPHA && image_configuration.has_alpha() {
                         let a =

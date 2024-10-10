@@ -4,17 +4,13 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-use crate::avx::gamma_curves::perform_avx2_linear_transfer;
-use crate::avx::routines::{
-    avx_vld_u8_and_deinterleave, avx_vld_u8_and_deinterleave_half,
-    avx_vld_u8_and_deinterleave_quarter,
-};
+use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::{_mm256_color_matrix_ps, avx2_interleave_rgb_ps, avx2_interleave_rgba_ps};
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::{
-    avx_store_and_interleave_v3_direct_f32, avx_store_and_interleave_v4_direct_f32,
-    TransferFunction,
+    avx_store_and_interleave_v3_direct_f32, avx_store_and_interleave_v4_direct_f32
+    ,
 };
 use erydanos::{_mm256_atan2_ps, _mm256_cbrt_fast_ps, _mm256_hypot_fast_ps};
 #[cfg(target_arch = "x86")]
@@ -23,22 +19,12 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 macro_rules! triple_to_oklab {
-    ($r: expr, $g: expr, $b: expr, $transfer: expr, $target: expr,
+    ($r: expr, $g: expr, $b: expr, $target: expr,
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
     ) => {{
-        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-        let r_f = _mm256_mul_ps(_mm256_cvtepi32_ps($r), u8_scale);
-        let g_f = _mm256_mul_ps(_mm256_cvtepi32_ps($g), u8_scale);
-        let b_f = _mm256_mul_ps(_mm256_cvtepi32_ps($b), u8_scale);
-
-        let r_linear = perform_avx2_linear_transfer($transfer, r_f);
-        let g_linear = perform_avx2_linear_transfer($transfer, g_f);
-        let b_linear = perform_avx2_linear_transfer($transfer, b_f);
-
-        let (l_l, l_m, l_s) = _mm256_color_matrix_ps(
-            r_linear, g_linear, b_linear, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8,
-        );
+        let (l_l, l_m, l_s) =
+            _mm256_color_matrix_ps($r, $g, $b, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8);
 
         let l_ = _mm256_cbrt_fast_ps(l_l);
         let m_ = _mm256_cbrt_fast_ps(l_m);
@@ -61,12 +47,9 @@ macro_rules! triple_to_oklab {
 #[target_feature(enable = "avx2")]
 pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const u8,
-    src_offset: usize,
     width: u32,
     dst: *mut f32,
     dst_offset: usize,
-    transfer_function: TransferFunction,
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
@@ -99,369 +82,26 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm256_set1_ps(-0.8086757660f32),
     );
 
-    while cx + 32 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_u8_and_deinterleave::<CHANNELS_CONFIGURATION>(src_ptr);
-
-        let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
-        let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
-        let b_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(b_chan));
-
-        let r_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_low));
-        let g_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_low));
-        let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
-
-        let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low,
-            g_low_low,
-            b_low_low,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
-
-        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-
-        if image_configuration.has_alpha() {
-            let a_low_low = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_low))),
-                u8_scale,
-            );
-            let ptr = dst_ptr.add(cx * 4);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_low_low, y_low_low, z_low_low, a_low_low
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
-        }
-
-        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
-        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
-        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
-
-        let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
-            r_low_high,
-            g_low_high,
-            b_low_high,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        if image_configuration.has_alpha() {
-            let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256::<1>(a_low))),
-                u8_scale,
-            );
-
-            let ptr = dst_ptr.add(cx * 4 + 32);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_low_high, y_low_high, z_low_high, a_low_high
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3 + 8 * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_low_high, y_low_high, z_low_high);
-        }
-
-        let r_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(r_chan));
-        let g_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(g_chan));
-        let b_high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256::<1>(b_chan));
-
-        let r_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_high));
-        let g_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_high));
-        let b_high_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_high));
-
-        let (x_high_low, y_high_low, z_high_low) = triple_to_oklab!(
-            r_high_low,
-            g_high_low,
-            b_high_low,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        let a_high = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
-
-        if image_configuration.has_alpha() {
-            let a_high_low = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_high))),
-                u8_scale,
-            );
-            let ptr = dst_ptr.add(cx * 4 + 8 * 4 * 2);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_high_low, y_high_low, z_high_low, a_high_low
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3 + 8 * 3 * 2);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_high_low, y_high_low, z_high_low);
-        }
-
-        let r_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_high));
-        let g_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_high));
-        let b_high_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_high));
-
-        let (x_high_high, y_high_high, z_high_high) = triple_to_oklab!(
-            r_high_high,
-            g_high_high,
-            b_high_high,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        if image_configuration.has_alpha() {
-            let a_high_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_castsi256_si128(a_high))),
-                u8_scale,
-            );
-            let ptr = dst_ptr.add(cx * 4 + 8 * 4 * 3);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr,
-                x_high_high,
-                y_high_high,
-                z_high_high,
-                a_high_high
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3 + 8 * 3 * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_high_high, y_high_high, z_high_high);
-        }
-
-        cx += 32;
-    }
-
-    while cx + 16 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_u8_and_deinterleave_half::<CHANNELS_CONFIGURATION>(src_ptr);
-
-        let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
-        let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
-        let b_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(b_chan));
-
-        let r_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_low));
-        let g_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_low));
-        let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
-
-        let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low,
-            g_low_low,
-            b_low_low,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
-
-        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-
-        if image_configuration.has_alpha() {
-            let a_low_low = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_low))),
-                u8_scale,
-            );
-            let ptr = dst_ptr.add(cx * 4);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_low_low, y_low_low, z_low_low, a_low_low
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
-        }
-
-        let r_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(r_low));
-        let g_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(g_low));
-        let b_low_high = _mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(b_low));
-
-        let (x_low_high, y_low_high, z_low_high) = triple_to_oklab!(
-            r_low_high,
-            g_low_high,
-            b_low_high,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
-        );
-
-        if image_configuration.has_alpha() {
-            let a_low_high = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepu16_epi32(_mm256_extracti128_si256::<1>(a_low))),
-                u8_scale,
-            );
-
-            let ptr = dst_ptr.add(cx * 4 + 32);
-            avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_low_high, y_low_high, z_low_high, a_low_high
-            );
-        } else {
-            let ptr = dst_ptr.add(cx * 3 + 8 * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_low_high, y_low_high, z_low_high);
-        }
-
-        cx += 16;
-    }
-
     while cx + 8 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
+        let in_place_ptr = dst_ptr.add(cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_u8_and_deinterleave_quarter::<CHANNELS_CONFIGURATION>(src_ptr);
-
-        let r_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(r_chan));
-        let g_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(g_chan));
-        let b_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(b_chan));
-
-        let r_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(r_low));
-        let g_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(g_low));
-        let b_low_low = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(b_low));
+            avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(in_place_ptr);
 
         let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_low_low,
-            g_low_low,
-            b_low_low,
-            transfer_function,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
+            r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
+            m5, m6, m7, m8
         );
 
-        let a_low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(a_chan));
-
-        let u8_scale = _mm256_set1_ps(1f32 / 255f32);
-
         if image_configuration.has_alpha() {
-            let a_low_low = _mm256_mul_ps(
-                _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_low))),
-                u8_scale,
-            );
-            let ptr = dst_ptr.add(cx * 4);
             avx_store_and_interleave_v4_direct_f32!(
-                ptr, x_low_low, y_low_low, z_low_low, a_low_low
+                in_place_ptr,
+                x_low_low,
+                y_low_low,
+                z_low_low,
+                a_chan
             );
         } else {
-            let ptr = dst_ptr.add(cx * 3);
-            avx_store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
+            avx_store_and_interleave_v3_direct_f32!(in_place_ptr, x_low_low, y_low_low, z_low_low);
         }
 
         cx += 8;

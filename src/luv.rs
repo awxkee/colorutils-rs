@@ -76,6 +76,13 @@ impl Luv {
     #[allow(clippy::manual_clamp)]
     pub fn from_rgb(rgb: Rgb<u8>) -> Self {
         let xyz = Xyz::from_srgb(rgb);
+        Self::from_xyz(xyz)
+    }
+
+    /// Converts CIE XYZ to CIE Luv
+    #[inline]
+    #[allow(clippy::manual_clamp)]
+    pub fn from_xyz(xyz: Xyz) -> Self {
         let [x, y, z] = [xyz.x, xyz.y, xyz.z];
         let den = x + 15.0 * y + 3.0 * z;
 
@@ -106,9 +113,9 @@ impl Luv {
     }
 
     #[inline]
-    pub fn to_rgb(&self) -> Rgb<u8> {
+    pub fn to_xyz(&self) -> Xyz {
         if self.l <= 0f32 {
-            return Xyz::new(0f32, 0f32, 0f32).to_srgb();
+            return Xyz::new(0f32, 0f32, 0f32);
         }
         let l13 = 1f32 / (13f32 * self.l);
         let u = self.u * l13 + LUV_WHITE_U_PRIME;
@@ -128,7 +135,20 @@ impl Luv {
             z = 0f32;
         }
 
-        Xyz::new(x, y, z).to_srgb()
+        Xyz::new(x, y, z)
+    }
+
+    /// Converts CIE [Luv] into linear [Rgb]
+    #[inline]
+    pub fn to_linear_rgb(&self, matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+        let xyz = self.to_xyz();
+        xyz.to_linear_rgb(matrix)
+    }
+
+    #[inline]
+    pub fn to_rgb(&self) -> Rgb<u8> {
+        let xyz = self.to_xyz();
+        xyz.to_srgb()
     }
 
     pub fn new(l: f32, u: f32, v: f32) -> Luv {
@@ -169,10 +189,23 @@ impl LCh {
         }
     }
 
+    #[inline]
     pub fn to_rgb(&self) -> Rgb<u8> {
         self.to_luv().to_rgb()
     }
 
+    #[inline]
+    pub fn to_xyz(&self) -> Xyz {
+        self.to_luv().to_xyz()
+    }
+
+    #[inline]
+    pub fn to_linear_rgb(&self, matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+        let xyz = self.to_xyz();
+        xyz.to_linear_rgb(matrix)
+    }
+
+    #[inline]
     pub fn to_luv(&self) -> Luv {
         Luv {
             l: self.l,

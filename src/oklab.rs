@@ -43,9 +43,15 @@ impl Oklab {
     }
 
     #[inline]
+    /// Convert Linear Rgb to [Oklab]
+    pub fn from_linear_rgb(rgb: Rgb<f32>) -> Oklab {
+        Self::linear_rgb_to_oklab(rgb)
+    }
+
+    #[inline]
     /// Converts [Oklab] to [Rgb] using sRGB transfer function
     pub fn to_srgb(&self) -> Rgb<u8> {
-        let linear_rgb = self.to_linear_srgb();
+        let linear_rgb = self.to_linear_rgb();
         let transferred = linear_rgb.gamma(TransferFunction::Srgb);
         transferred.to_u8()
     }
@@ -53,7 +59,7 @@ impl Oklab {
     #[inline]
     /// Converts [Oklab] to [Rgb] using provided [TransferFunction]
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
-        let linear_rgb = self.to_linear_srgb();
+        let linear_rgb = self.to_linear_rgb();
         let transferred = linear_rgb.gamma(transfer_function);
         transferred.to_u8()
     }
@@ -61,14 +67,14 @@ impl Oklab {
     #[inline]
     /// Converts [Oklab] to linear [Rgb] using sRGB transfer function
     pub fn to_srgb_f32(&self) -> Rgb<f32> {
-        let linear_rgb = self.to_linear_srgb();
+        let linear_rgb = self.to_linear_rgb();
         linear_rgb.gamma(TransferFunction::Srgb)
     }
 
     #[inline]
     /// Converts [Oklab] to [Rgb] using provided [TransferFunction]
     pub fn to_rgb_f32(&self, transfer_function: TransferFunction) -> Rgb<f32> {
-        let linear_rgb = self.to_linear_srgb();
+        let linear_rgb = self.to_linear_rgb();
         linear_rgb.gamma(transfer_function)
     }
 
@@ -91,7 +97,7 @@ impl Oklab {
 
     #[inline]
     /// Converts to linear RGB
-    pub fn to_linear_srgb(&self) -> Rgb<f32> {
+    pub fn to_linear_rgb(&self) -> Rgb<f32> {
         let l_ = self.l + 0.3963377774f32 * self.a + 0.2158037573f32 * self.b;
         let m_ = self.l - 0.1055613458f32 * self.a - 0.0638541728f32 * self.b;
         let s_ = self.l - 0.0894841775f32 * self.a - 1.2914855480f32 * self.b;

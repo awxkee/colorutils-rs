@@ -33,7 +33,7 @@ fn main() {
     // let restored = lalphabeta.to_rgb(TransferFunction::Srgb);
     // println!("Restored RGB {:?}", restored);
 
-    let img = ImageReader::open("./assets/asset.jpg")
+    let img = ImageReader::open("./assets/op_fhd.jpg")
         .unwrap()
         .decode()
         .unwrap();
@@ -41,7 +41,7 @@ fn main() {
     println!("dimensions {:?}", img.dimensions());
 
     println!("{:?}", img.color());
-    // let img = img.to_rgba8();
+    let img = img.to_rgb8();
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
@@ -68,13 +68,14 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_oklch(
+        rgb_to_jzazbz(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
+            200.,
             TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
@@ -103,13 +104,14 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        oklch_to_rgb(
+        jzazbz_to_rgb(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
+            200.,
             TransferFunction::Srgb,
         );
 

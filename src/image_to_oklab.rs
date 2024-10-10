@@ -12,12 +12,13 @@ use crate::neon::neon_image_to_oklab;
 use crate::oklch::Oklch;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_oklab;
-use crate::{Oklab, Rgb, TransferFunction};
+use crate::{
+    bgr_to_linear, bgra_to_linear, rgb_to_linear, rgba_to_linear, Oklab, Rgb, TransferFunction,
+};
 #[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+use rayon::iter::ParallelIterator;
 #[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-#[cfg(feature = "rayon")]
+use rayon::prelude::ParallelSliceMut;
 use std::slice;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -53,9 +54,24 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 
     let channels = image_configuration.get_channels_count();
 
-    let mut _wide_row_handle: Option<
-        unsafe fn(usize, *const u8, usize, u32, *mut f32, usize, TransferFunction) -> usize,
-    > = None;
+    let callee = match image_configuration {
+        ImageConfiguration::Rgb => rgb_to_linear,
+        ImageConfiguration::Rgba => rgba_to_linear,
+        ImageConfiguration::Bgra => bgra_to_linear,
+        ImageConfiguration::Bgr => bgr_to_linear,
+    };
+
+    callee(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        width,
+        height,
+        transfer_function,
+    );
+
+    let mut _wide_row_handle: Option<unsafe fn(usize, u32, *mut f32, usize) -> usize> = None;
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
@@ -72,32 +88,30 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         _wide_row_handle = Some(avx_image_to_oklab::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
+    let dst_slice_safe_align = unsafe {
+        slice::from_raw_parts_mut(
+            dst.as_mut_ptr() as *mut u8,
+            dst_stride as usize * height as usize,
+        )
+    };
+
     #[cfg(feature = "rayon")]
     {
-        let dst_slice_safe_align = unsafe {
-            slice::from_raw_parts_mut(
-                dst.as_mut_ptr() as *mut u8,
-                dst_stride as usize * height as usize,
-            )
-        };
-
         dst_slice_safe_align
             .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
+            .for_each(|dst| unsafe {
                 let mut _cx = 0usize;
 
-                let src_ptr = src.as_ptr();
                 let dst_ptr = dst.as_mut_ptr() as *mut f32;
 
                 if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(_cx, src.as_ptr(), 0, width, dst_ptr, 0, transfer_function)
+                    _cx = dispatcher(_cx, width, dst_ptr, 0)
                 }
 
                 for x in _cx..width as usize {
                     let px = x * channels;
 
-                    let src = src_ptr.add(px);
+                    let src = dst_ptr.add(px);
                     let r = src
                         .add(image_configuration.get_r_channel_offset())
                         .read_unaligned();
@@ -108,18 +122,18 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                         .add(image_configuration.get_b_channel_offset())
                         .read_unaligned();
 
-                    let rgb = Rgb::<u8>::new(r, g, b);
+                    let rgb = Rgb::<f32>::new(r, g, b);
                     let dst_store = dst_ptr.add(px);
 
                     match target {
                         OklabTarget::Oklab => {
-                            let oklab = Oklab::from_rgb(rgb, transfer_function);
+                            let oklab = Oklab::from_linear_rgb(rgb);
                             dst_store.write_unaligned(oklab.l);
                             dst_store.add(1).write_unaligned(oklab.a);
                             dst_store.add(2).write_unaligned(oklab.b);
                         }
                         OklabTarget::Oklch => {
-                            let oklch = Oklch::from_rgb(rgb, transfer_function);
+                            let oklch = Oklch::from_linear_rgb(rgb);
                             dst_store.write_unaligned(oklch.l);
                             dst_store.add(1).write_unaligned(oklch.c);
                             dst_store.add(2).write_unaligned(oklch.h);
@@ -130,8 +144,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                         let a = src
                             .add(image_configuration.get_a_channel_offset())
                             .read_unaligned();
-                        let a_lin = a as f32 * (1f32 / 255f32);
-                        dst_store.add(3).write_unaligned(a_lin);
+                        dst_store.add(3).write_unaligned(a);
                     }
                 }
             });
@@ -139,82 +152,56 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
+        for dst in dst_slice_safe_align.chunks_exact_mut(dst_stride as usize) {
+            unsafe {
+                let mut _cx = 0usize;
 
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
+                let dst_ptr = dst.as_mut_ptr() as *mut f32;
 
-            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-            let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
-
-            if let Some(dispatcher) = _wide_row_handle {
-                unsafe {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        transfer_function,
-                    )
+                if let Some(dispatcher) = _wide_row_handle {
+                    _cx = dispatcher(_cx, width, dst_ptr, 0)
                 }
-            }
 
-            for x in _cx..width as usize {
-                let px = x * channels;
+                for x in _cx..width as usize {
+                    let px = x * channels;
 
-                let src = unsafe { src_ptr.add(px) };
-                let r = unsafe {
-                    src.add(image_configuration.get_r_channel_offset())
-                        .read_unaligned()
-                };
-                let g = unsafe {
-                    src.add(image_configuration.get_g_channel_offset())
-                        .read_unaligned()
-                };
-                let b = unsafe {
-                    src.add(image_configuration.get_b_channel_offset())
-                        .read_unaligned()
-                };
+                    let src = dst_ptr.add(px);
+                    let r = src
+                        .add(image_configuration.get_r_channel_offset())
+                        .read_unaligned();
+                    let g = src
+                        .add(image_configuration.get_g_channel_offset())
+                        .read_unaligned();
+                    let b = src
+                        .add(image_configuration.get_b_channel_offset())
+                        .read_unaligned();
 
-                let rgb = Rgb::<u8>::new(r, g, b);
-                let dst_store = unsafe { dst_ptr.add(px) };
+                    let rgb = Rgb::<f32>::new(r, g, b);
+                    let dst_store = dst_ptr.add(px);
 
-                match target {
-                    OklabTarget::Oklab => {
-                        let oklab = Oklab::from_rgb(rgb, transfer_function);
-                        unsafe {
+                    match target {
+                        OklabTarget::Oklab => {
+                            let oklab = Oklab::from_linear_rgb(rgb);
                             dst_store.write_unaligned(oklab.l);
                             dst_store.add(1).write_unaligned(oklab.a);
                             dst_store.add(2).write_unaligned(oklab.b);
                         }
-                    }
-                    OklabTarget::Oklch => {
-                        let oklch = Oklch::from_rgb(rgb, transfer_function);
-                        unsafe {
+                        OklabTarget::Oklch => {
+                            let oklch = Oklch::from_linear_rgb(rgb);
                             dst_store.write_unaligned(oklch.l);
                             dst_store.add(1).write_unaligned(oklch.c);
                             dst_store.add(2).write_unaligned(oklch.h);
                         }
                     }
-                }
 
-                if image_configuration.has_alpha() {
-                    let a = unsafe {
-                        src.add(image_configuration.get_a_channel_offset())
-                            .read_unaligned()
-                    };
-                    let a_lin = a as f32 * (1f32 / 255f32);
-                    unsafe {
-                        dst_store.add(3).write_unaligned(a_lin);
+                    if image_configuration.has_alpha() {
+                        let a = src
+                            .add(image_configuration.get_a_channel_offset())
+                            .read_unaligned();
+                        dst_store.add(3).write_unaligned(a);
                     }
                 }
             }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
         }
     }
 }

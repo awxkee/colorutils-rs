@@ -7,10 +7,6 @@
 
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use crate::neon::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_image_to_linear_unsigned::sse_channels_to_linear_u8;
 use crate::Rgb;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
@@ -36,20 +32,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
     let channels = image_configuration.get_channels_count();
 
-    let mut _wide_row_handler: Option<
-        unsafe fn(usize, *const u8, usize, u32, *mut u8, usize, TransferFunction) -> usize,
-    > = None;
-
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::arch::is_x86_feature_detected!("sse4.1") {
-        _wide_row_handler =
-            Some(sse_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA, false>);
-    }
-
-    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-    {
-        _wide_row_handler =
-            Some(neon_channels_to_linear_u8::<CHANNELS_CONFIGURATION, USE_ALPHA, false>);
+    let mut lut_table = vec![0u8; 256];
+    for i in 0..256 {
+        lut_table[i] = (transfer_function.gamma(i as f32 * (1. / 255.0)) * 255.)
+            .ceil()
+            .min(255.) as u8;
     }
 
     #[cfg(feature = "rayon")]
@@ -59,18 +46,6 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             .for_each(|(dst, src)| unsafe {
                 let mut _cx = 0usize;
 
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        0,
-                        width,
-                        dst.as_mut_ptr(),
-                        0,
-                        transfer_function,
-                    );
-                }
-
                 for x in _cx..width as usize {
                     let px = x * channels;
                     let r = *src.get_unchecked(px + image_configuration.get_r_channel_offset());
@@ -78,14 +53,10 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                     let b = *src.get_unchecked(px + image_configuration.get_b_channel_offset());
 
                     let rgb = Rgb::<u8>::new(r, g, b);
-                    let mut rgb = rgb.to_rgb_f32();
 
-                    rgb = rgb.gamma(transfer_function);
-                    let new_rgb = rgb.to_u8();
-
-                    *dst.get_unchecked_mut(px) = new_rgb.r;
-                    *dst.get_unchecked_mut(px + 1) = new_rgb.g;
-                    *dst.get_unchecked_mut(px + 2) = new_rgb.b;
+                    *dst.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
+                    *dst.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
+                    *dst.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
 
                     if USE_ALPHA && image_configuration.has_alpha() {
                         let a = src.get_unchecked(px + image_configuration.get_a_channel_offset());
@@ -102,20 +73,6 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
         for _ in 0.._height as usize {
             let mut _cx = 0usize;
-
-            if let Some(dispatcher) = _wide_row_handler {
-                unsafe {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        transfer_function,
-                    );
-                }
-            }
 
             let src_ptr = unsafe { src.as_ptr().add(src_offset) };
             let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
@@ -140,12 +97,11 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
                 let mut rgb = rgb.to_rgb_f32();
 
                 rgb = rgb.gamma(transfer_function);
-                let new_rgb = rgb.to_u8();
 
                 unsafe {
-                    *dst_slice.get_unchecked_mut(px) = new_rgb.r;
-                    *dst_slice.get_unchecked_mut(px + 1) = new_rgb.g;
-                    *dst_slice.get_unchecked_mut(px + 2) = new_rgb.b;
+                    *dst_slice.get_unchecked_mut(px) = *lut_table.get_unchecked(rgb.r as usize);
+                    *dst_slice.get_unchecked_mut(px + 1) = *lut_table.get_unchecked(rgb.g as usize);
+                    *dst_slice.get_unchecked_mut(px + 2) = *lut_table.get_unchecked(rgb.b as usize);
                 }
 
                 if USE_ALPHA && image_configuration.has_alpha() {
