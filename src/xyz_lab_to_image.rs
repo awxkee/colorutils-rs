@@ -159,17 +159,35 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[0].min(1.).max(0.) * 2048f32).round() as usize;
-                        let g_cast = (src_chunks[1].min(1.).max(0.) * 2048f32).round() as usize;
-                        let b_cast = (src_chunks[2].min(1.).max(0.) * 2048f32).round() as usize;
+                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
 
-                        dst_chunk[0] = *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[1] = *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[2] = *lut_table.get_unchecked(b_cast.min(2048));
+                        dst_chunk[image_configuration.get_r_channel_offset()] =
+                            *lut_table.get_unchecked(r_cast.min(2048));
+                        dst_chunk[image_configuration.get_g_channel_offset()] =
+                            *lut_table.get_unchecked(g_cast.min(2048));
+                        dst_chunk[image_configuration.get_b_channel_offset()] =
+                            *lut_table.get_unchecked(b_cast.min(2048));
 
                         if image_configuration.has_alpha() {
-                            let a_cast = (src_chunks[3] * 255.).min(255.).max(0.) as u8;
-                            dst_chunk[3] = a_cast;
+                            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()]
+                                * 255.)
+                                .min(255.)
+                                .max(0.) as u8;
+                            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
                         }
                     }
                 });
@@ -231,13 +249,28 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[0].min(1.).max(0.) * 2048f32).round() as usize;
-                        let g_cast = (src_chunks[1].min(1.).max(0.) * 2048f32).round() as usize;
-                        let b_cast = (src_chunks[2].min(1.).max(0.) * 2048f32).round() as usize;
+                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
 
-                        dst_chunk[0] = *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[1] = *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[2] = *lut_table.get_unchecked(b_cast.min(2048));
+                        dst_chunk[image_configuration.get_r_channel_offset()] =
+                            *lut_table.get_unchecked(r_cast.min(2048));
+                        dst_chunk[image_configuration.get_g_channel_offset()] =
+                            *lut_table.get_unchecked(g_cast.min(2048));
+                        dst_chunk[image_configuration.get_b_channel_offset()] =
+                            *lut_table.get_unchecked(b_cast.min(2048));
                     }
                 });
         }
@@ -319,17 +352,35 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[0].min(1.).max(0.) * 2048f32).round() as usize;
-                        let g_cast = (src_chunks[1].min(1.).max(0.) * 2048f32).round() as usize;
-                        let b_cast = (src_chunks[2].min(1.).max(0.) * 2048f32).round() as usize;
+                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
 
-                        dst_chunk[0] = *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[1] = *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[2] = *lut_table.get_unchecked(b_cast.min(2048));
+                        dst_chunk[image_configuration.get_r_channel_offset()] =
+                            *lut_table.get_unchecked(r_cast.min(2048));
+                        dst_chunk[image_configuration.get_g_channel_offset()] =
+                            *lut_table.get_unchecked(g_cast.min(2048));
+                        dst_chunk[image_configuration.get_b_channel_offset()] =
+                            *lut_table.get_unchecked(b_cast.min(2048));
 
                         if image_configuration.has_alpha() {
-                            let a_cast = (src_chunks[3] * 255.).min(255.).max(0.) as u8;
-                            dst_chunk[3] = a_cast;
+                            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()]
+                                * 255.)
+                                .min(255.)
+                                .max(0.) as u8;
+                            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
                         }
                     }
                 }
@@ -394,13 +445,28 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[0].min(1.).max(0.) * 2048f32).round() as usize;
-                        let g_cast = (src_chunks[1].min(1.).max(0.) * 2048f32).round() as usize;
-                        let b_cast = (src_chunks[2].min(1.).max(0.) * 2048f32).round() as usize;
+                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
+                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                            .min(1.)
+                            .max(0.)
+                            * 2048f32)
+                            .round() as usize;
 
-                        dst_chunk[0] = *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[1] = *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[2] = *lut_table.get_unchecked(b_cast.min(2048));
+                        dst_chunk[image_configuration.get_r_channel_offset()] =
+                            *lut_table.get_unchecked(r_cast.min(2048));
+                        dst_chunk[image_configuration.get_g_channel_offset()] =
+                            *lut_table.get_unchecked(g_cast.min(2048));
+                        dst_chunk[image_configuration.get_b_channel_offset()] =
+                            *lut_table.get_unchecked(b_cast.min(2048));
                     }
                 }
             }

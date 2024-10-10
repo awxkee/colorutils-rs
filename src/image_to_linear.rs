@@ -65,23 +65,20 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
                 let rgb = Rgb::<u8>::new(r, g, b);
 
-                unsafe {
-                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r as usize));
-                    dst.add(1)
-                        .write_unaligned(*lut_table.get_unchecked(rgb.g as usize));
-                    dst.add(2)
-                        .write_unaligned(*lut_table.get_unchecked(rgb.b as usize));
-                }
+                dst.add(image_configuration.get_r_channel_offset())
+                    .write_unaligned(*lut_table.get_unchecked(rgb.r as usize));
+                dst.add(image_configuration.get_g_channel_offset())
+                    .write_unaligned(*lut_table.get_unchecked(rgb.g as usize));
+                dst.add(image_configuration.get_b_channel_offset())
+                    .write_unaligned(*lut_table.get_unchecked(rgb.b as usize));
 
                 if USE_ALPHA && image_configuration.has_alpha() {
-                    let a = unsafe {
-                        src.add(image_configuration.get_a_channel_offset())
-                            .read_unaligned()
-                    };
+                    let a = src
+                        .add(image_configuration.get_a_channel_offset())
+                        .read_unaligned();
                     let a_lin = a as f32 * (1f32 / 255f32);
-                    unsafe {
-                        dst.add(3).write_unaligned(a_lin);
-                    }
+                    dst.add(image_configuration.get_a_channel_offset())
+                        .write_unaligned(a_lin);
                 }
             }
 
@@ -123,10 +120,11 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
                     let rgb = Rgb::<u8>::new(r, g, b);
 
-                    dst.write_unaligned(*lut_table.get_unchecked(rgb.r as usize));
-                    dst.add(1)
+                    dst.add(image_configuration.get_r_channel_offset())
+                        .write_unaligned(*lut_table.get_unchecked(rgb.r as usize));
+                    dst.add(image_configuration.get_g_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.g as usize));
-                    dst.add(2)
+                    dst.add(image_configuration.get_b_channel_offset())
                         .write_unaligned(*lut_table.get_unchecked(rgb.b as usize));
 
                     if USE_ALPHA && image_configuration.has_alpha() {
@@ -134,7 +132,8 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
                             .add(image_configuration.get_a_channel_offset())
                             .read_unaligned();
                         let a_lin = a as f32 * (1f32 / 255f32);
-                        dst.add(3).write_unaligned(a_lin);
+                        dst.add(image_configuration.get_a_channel_offset())
+                            .write_unaligned(a_lin);
                     }
                 }
             });

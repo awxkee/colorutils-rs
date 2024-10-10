@@ -108,10 +108,21 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                        dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                        dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
-                        dst_chunk[3] = src_chunks[3] as f32 * (1. / 255.0);
+                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_a_channel_offset()] =
+                            src_chunks[image_configuration.get_a_channel_offset()] as f32
+                                * (1. / 255.0);
                     }
 
                     if let Some(dispatcher) = _wide_row_handler {
@@ -189,9 +200,18 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                        dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                        dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
+                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                            );
                     }
 
                     if let Some(dispatcher) = _wide_row_handler {
@@ -277,10 +297,21 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                        dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                        dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
-                        dst_chunk[3] = src_chunks[3] as f32 * (1. / 255.0);
+                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_a_channel_offset()] =
+                            src_chunks[image_configuration.get_a_channel_offset()] as f32
+                                * (1. / 255.0);
                     }
 
                     if let Some(dispatcher) = _wide_row_handler {
@@ -360,9 +391,18 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                        dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                        dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
+                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                            );
+                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                            .get_unchecked(
+                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                            );
                     }
 
                     if let Some(dispatcher) = _wide_row_handler {

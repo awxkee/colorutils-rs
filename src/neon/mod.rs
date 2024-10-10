@@ -14,10 +14,8 @@ mod image_to_hsv;
 mod image_to_jzazbz;
 mod image_to_oklab;
 mod jzazbz_to_image;
-pub mod linear_to_planar;
 mod math;
 mod oklab_to_image;
-pub mod planar_to_linear;
 mod routines;
 mod sigmoidal;
 mod to_sigmoidal;
@@ -28,7 +26,6 @@ mod xyza_laba_to_image;
 
 pub use colors::*;
 pub use from_sigmoidal::neon_from_sigmoidal_row;
-pub use gamma_curves::*;
 pub use hsv_to_image::*;
 pub use image_to_hsv::*;
 pub use image_to_jzazbz::neon_image_to_jzazbz;

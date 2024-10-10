@@ -4,7 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-
+#![allow(dead_code)]
 use crate::gamma_curves::TransferFunction;
 use crate::sse::*;
 use erydanos::_mm_pow_ps;
@@ -143,29 +143,4 @@ pub unsafe fn sse_gamma2p2_from_linear(linear: __m128) -> __m128 {
 #[inline(always)]
 pub unsafe fn sse_gamma2p8_from_linear(linear: __m128) -> __m128 {
     sse_pure_gamma(linear, 1f32 / 2.8f32)
-}
-
-#[inline(always)]
-pub unsafe fn perform_sse_linear_transfer(
-    transfer_function: TransferFunction,
-    v: __m128,
-) -> __m128 {
-    match transfer_function {
-        TransferFunction::Srgb => sse_srgb_to_linear(v),
-        TransferFunction::Rec709 => sse_rec709_to_linear(v),
-        TransferFunction::Gamma2p2 => sse_gamma2p2_to_linear(v),
-        TransferFunction::Gamma2p8 => sse_gamma2p8_to_linear(v),
-        TransferFunction::Smpte428 => sse_smpte428_to_linear(v),
-    }
-}
-
-#[inline(always)]
-pub unsafe fn perform_sse_gamma_transfer(transfer_function: TransferFunction, v: __m128) -> __m128 {
-    match transfer_function {
-        TransferFunction::Srgb => sse_srgb_from_linear(v),
-        TransferFunction::Rec709 => sse_rec709_from_linear(v),
-        TransferFunction::Gamma2p2 => sse_gamma2p2_from_linear(v),
-        TransferFunction::Gamma2p8 => sse_gamma2p8_from_linear(v),
-        TransferFunction::Smpte428 => sse_smpte428_from_linear(v),
-    }
 }

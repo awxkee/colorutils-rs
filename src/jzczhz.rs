@@ -104,6 +104,20 @@ impl Jzczhz {
         jzazbz.to_rgb(transfer_function)
     }
 
+    /// Converts [Jzczhz] to linear [Rgb]
+    ///
+    /// # Arguments
+    /// `display_luminance` - display luminance
+    /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
+    #[inline]
+    pub fn to_linear_rgb_with_luminance(
+        &self,
+        display_luminance: f32,
+    ) -> Rgb<f32> {
+        let jzazbz = self.to_jzazbz_with_luminance(display_luminance);
+        jzazbz.to_linear_rgb()
+    }
+
     /// Converts Jzczhz to *Xyz*
     #[inline]
     pub fn to_xyz(&self) -> Xyz {
@@ -111,10 +125,17 @@ impl Jzczhz {
         jzazbz.to_xyz()
     }
 
-    /// Converts *Xyz* to *Jzczhz*
+    /// Converts [Xyz] to [Jzczhz]
     #[inline]
     pub fn from_xyz(xyz: Xyz) -> Jzczhz {
         let jzazbz = Jzazbz::from_xyz(xyz);
+        Jzczhz::from_jzazbz(jzazbz)
+    }
+
+    /// Converts [Xyz] to [Jzczhz]
+    #[inline]
+    pub fn from_xyz_with_display_luminance(xyz: Xyz, luminance: f32) -> Jzczhz {
+        let jzazbz = Jzazbz::from_xyz_with_display_luminance(xyz, luminance);
         Jzczhz::from_jzazbz(jzazbz)
     }
 

@@ -11,7 +11,7 @@ use crate::neon::neon_channels_to_xyza_or_laba;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_xyza_laba;
 use crate::xyz_target::XyzTarget;
-use crate::{LCh, Lab, Luv, Rgb, TransferFunction, Xyz, SRGB_TO_XYZ_D65};
+use crate::{LCh, Lab, Luv, Rgb, TransferFunction, Xyz};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 #[cfg(feature = "rayon")]
@@ -79,10 +79,21 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     .chunks_exact_mut(channels)
                     .zip(src.chunks_exact(channels))
                 {
-                    dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                    dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                    dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
-                    dst_chunk[3] = src_chunks[3] as f32 * (1. / 255.0);
+                    dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_a_channel_offset()] =
+                        src_chunks[image_configuration.get_a_channel_offset()] as f32
+                            * (1. / 255.0);
                 }
 
                 if let Some(dispatcher) = _wide_row_handler {
@@ -160,10 +171,21 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
                     .chunks_exact_mut(channels)
                     .zip(src.chunks_exact(channels))
                 {
-                    dst_chunk[0] = *lut_table.get_unchecked(src_chunks[0] as usize);
-                    dst_chunk[1] = *lut_table.get_unchecked(src_chunks[1] as usize);
-                    dst_chunk[2] = *lut_table.get_unchecked(src_chunks[2] as usize);
-                    dst_chunk[3] = src_chunks[3] as f32 * (1. / 255.0);
+                    dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                        .get_unchecked(
+                            src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                        );
+                    dst_chunk[image_configuration.get_a_channel_offset()] =
+                        src_chunks[image_configuration.get_a_channel_offset()] as f32
+                            * (1. / 255.0);
                 }
 
                 if let Some(dispatcher) = _wide_row_handler {
@@ -242,6 +264,8 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn rgba_to_lab_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -249,6 +273,8 @@ pub fn rgba_to_lab_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lab as u8 }>(
         src,
@@ -257,8 +283,8 @@ pub fn rgba_to_lab_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -275,6 +301,8 @@ pub fn rgba_to_lab_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn bgra_to_lab_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -282,6 +310,8 @@ pub fn bgra_to_lab_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
@@ -290,8 +320,8 @@ pub fn bgra_to_lab_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -308,6 +338,8 @@ pub fn bgra_to_lab_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn rgba_to_luv_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -315,6 +347,8 @@ pub fn rgba_to_luv_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Luv as u8 }>(
         src,
@@ -323,8 +357,8 @@ pub fn rgba_to_luv_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -341,6 +375,8 @@ pub fn rgba_to_luv_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn bgra_to_luv_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -348,6 +384,8 @@ pub fn bgra_to_luv_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Luv as u8 }>(
         src,
@@ -356,8 +394,8 @@ pub fn bgra_to_luv_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -370,6 +408,8 @@ pub fn bgra_to_luv_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive XYZ(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn rgba_to_xyz_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -377,6 +417,8 @@ pub fn rgba_to_xyz_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
@@ -385,8 +427,8 @@ pub fn rgba_to_xyz_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -399,6 +441,8 @@ pub fn rgba_to_xyz_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive XYZ data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn bgra_to_xyz_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -406,6 +450,8 @@ pub fn bgra_to_xyz_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
@@ -414,8 +460,8 @@ pub fn bgra_to_xyz_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -428,6 +474,8 @@ pub fn bgra_to_xyz_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LCH(a) data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn rgba_to_lch_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -435,6 +483,8 @@ pub fn rgba_to_lch_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lch as u8 }>(
         src,
@@ -443,8 +493,8 @@ pub fn rgba_to_lch_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -457,6 +507,8 @@ pub fn rgba_to_lch_with_alpha(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LCH data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
+/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn bgra_to_lch_with_alpha(
     src: &[u8],
     src_stride: u32,
@@ -464,6 +516,8 @@ pub fn bgra_to_lch_with_alpha(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz_with_alpha::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lch as u8 }>(
         src,
@@ -472,7 +526,7 @@ pub fn bgra_to_lch_with_alpha(
         dst_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }

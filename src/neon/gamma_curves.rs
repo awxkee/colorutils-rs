@@ -4,8 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-
-use crate::gamma_curves::TransferFunction;
+#![allow(dead_code)]
 use crate::neon::math::vpowq_n_f32;
 use std::arch::aarch64::*;
 
@@ -130,32 +129,4 @@ pub unsafe fn neon_gamma2p2_from_linear(linear: float32x4_t) -> float32x4_t {
 #[inline(always)]
 pub unsafe fn neon_gamma2p8_from_linear(linear: float32x4_t) -> float32x4_t {
     neon_pure_gamma_function(linear, 1f32 / 2.8f32)
-}
-
-#[inline(always)]
-pub unsafe fn neon_perform_linear_transfer(
-    transfer_function: TransferFunction,
-    v: float32x4_t,
-) -> float32x4_t {
-    match transfer_function {
-        TransferFunction::Srgb => neon_srgb_to_linear(v),
-        TransferFunction::Rec709 => neon_rec709_to_linear(v),
-        TransferFunction::Gamma2p2 => neon_gamma2p2_to_linear(v),
-        TransferFunction::Gamma2p8 => neon_gamma2p8_to_linear(v),
-        TransferFunction::Smpte428 => neon_smpte428_to_linear(v),
-    }
-}
-
-#[inline(always)]
-pub unsafe fn neon_perform_gamma_transfer(
-    transfer_function: TransferFunction,
-    v: float32x4_t,
-) -> float32x4_t {
-    match transfer_function {
-        TransferFunction::Srgb => neon_srgb_from_linear(v),
-        TransferFunction::Rec709 => neon_rec709_from_linear(v),
-        TransferFunction::Gamma2p2 => neon_gamma2p2_from_linear(v),
-        TransferFunction::Gamma2p8 => neon_gamma2p8_from_linear(v),
-        TransferFunction::Smpte428 => neon_smpte428_from_linear(v),
-    }
 }

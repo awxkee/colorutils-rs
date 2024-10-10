@@ -30,6 +30,13 @@ impl LAlphaBeta {
         LAlphaBeta::from_xyz(xyz)
     }
 
+    #[inline]
+    /// Converts linear [Rgb] to [LAlphaBeta] using [Xyz] matrix
+    pub fn from_linear_rgb(rgb: Rgb<f32>, matrix: &[[f32; 3]; 3]) -> LAlphaBeta {
+        let xyz = Xyz::from_linear_rgb(rgb, matrix);
+        LAlphaBeta::from_xyz(xyz)
+    }
+
     /// Converts XYZ to l-alpha-beta
     #[inline]
     pub fn from_xyz(xyz: Xyz) -> LAlphaBeta {
@@ -71,11 +78,18 @@ impl LAlphaBeta {
         Xyz::new(x, y, z)
     }
 
-    /// Converts l-alpha-beta to RGB
+    /// Converts l-alpha-beta to [Rgb]
     #[inline]
     pub fn to_rgb(&self, transfer_function: TransferFunction) -> Rgb<u8> {
         let xyz = self.to_xyz();
         xyz.to_rgb(&XYZ_TO_SRGB_D65, transfer_function)
+    }
+
+    /// Converts l-alpha-beta to Linear [Rgb]
+    #[inline]
+    pub fn to_linear_rgb(&self, matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+        let xyz = self.to_xyz();
+        xyz.to_linear_rgb(matrix)
     }
 }
 

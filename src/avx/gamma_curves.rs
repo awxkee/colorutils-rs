@@ -4,7 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-
+#![allow(dead_code)]
 use crate::avx::math::*;
 #[allow(unused_imports)]
 use crate::gamma_curves::TransferFunction;
@@ -147,29 +147,4 @@ pub unsafe fn avx2_gamma2p2_from_linear(linear: __m256) -> __m256 {
 #[inline(always)]
 pub unsafe fn avx2_gamma2p8_from_linear(linear: __m256) -> __m256 {
     avx2_pure_gamma(linear, 1f32 / 2.8f32)
-}
-
-#[inline(always)]
-pub unsafe fn perform_avx_gamma_transfer(transfer_function: TransferFunction, v: __m256) -> __m256 {
-    match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_from_linear(v),
-        TransferFunction::Rec709 => avx2_rec709_from_linear(v),
-        TransferFunction::Gamma2p2 => avx2_gamma2p2_from_linear(v),
-        TransferFunction::Gamma2p8 => avx2_gamma2p8_from_linear(v),
-        TransferFunction::Smpte428 => avx2_smpte428_from_linear(v),
-    }
-}
-
-#[inline(always)]
-pub unsafe fn perform_avx2_linear_transfer(
-    transfer_function: TransferFunction,
-    v: __m256,
-) -> __m256 {
-    match transfer_function {
-        TransferFunction::Srgb => avx2_srgb_to_linear(v),
-        TransferFunction::Rec709 => avx2_rec709_to_linear(v),
-        TransferFunction::Gamma2p2 => avx2_gamma2p2_to_linear(v),
-        TransferFunction::Gamma2p8 => avx2_gamma2p8_to_linear(v),
-        TransferFunction::Smpte428 => avx2_smpte428_to_linear(v),
-    }
 }
