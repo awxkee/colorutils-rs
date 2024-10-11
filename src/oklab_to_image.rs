@@ -129,11 +129,11 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     .cast::<u16>();
 
                     dst_chunks[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.r as usize);
+                        *lut_table.get_unchecked((rgb.r as usize).min(2048));
                     dst_chunks[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.g as usize);
+                        *lut_table.get_unchecked((rgb.g as usize).min(2048));
                     dst_chunks[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.b as usize);
+                        *lut_table.get_unchecked((rgb.b as usize).min(2048));
                     if image_configuration.has_alpha() {
                         let a_lin = (src_chunks[3] * 255f32).round() as u8;
                         dst_chunks[image_configuration.get_a_channel_offset()] = a_lin;
@@ -205,11 +205,11 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     .cast::<u16>();
 
                     dst_chunks[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.r as usize);
+                        *lut_table.get_unchecked((rgb.r as usize).min(2048));
                     dst_chunks[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.g as usize);
+                        *lut_table.get_unchecked((rgb.g as usize).min(2048));
                     dst_chunks[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked(rgb.b as usize);
+                        *lut_table.get_unchecked((rgb.b as usize).min(2048));
                     if image_configuration.has_alpha() {
                         let a_lin = (src_chunks[3] * 255f32).round() as u8;
                         dst_chunks[image_configuration.get_a_channel_offset()] = a_lin;
