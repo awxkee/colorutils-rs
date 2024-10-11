@@ -135,7 +135,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     dst_chunks[image_configuration.get_b_channel_offset()] =
                         *lut_table.get_unchecked(rgb.b as usize);
                     if image_configuration.has_alpha() {
-                        let a_lin = (src_chunks[4] * 255f32).round() as u8;
+                        let a_lin = (src_chunks[3] * 255f32).round() as u8;
                         dst_chunks[image_configuration.get_a_channel_offset()] = a_lin;
                     }
                 }
@@ -211,7 +211,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
                     dst_chunks[image_configuration.get_b_channel_offset()] =
                         *lut_table.get_unchecked(rgb.b as usize);
                     if image_configuration.has_alpha() {
-                        let a_lin = (src_chunks[4] * 255f32).round() as u8;
+                        let a_lin = (src_chunks[3] * 255f32).round() as u8;
                         dst_chunks[image_configuration.get_a_channel_offset()] = a_lin;
                     }
                 }

@@ -41,11 +41,11 @@ fn main() {
     println!("dimensions {:?}", img.dimensions());
 
     println!("{:?}", img.color());
-    let img = img.to_rgb8();
+    let img = img.to_rgba8();
     let mut src_bytes = img.as_bytes();
     let width = dimensions.0;
     let height = dimensions.1;
-    let components = 3;
+    let components = 4;
     //
     // let mut dst_rgba = vec![];
     // dst_rgba.resize(4usize * width as usize * height as usize, 0u8);
@@ -68,14 +68,14 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgb_to_lab(
+        rgba_to_jzazbz(
             src_bytes,
             src_stride,
             &mut lab_store,
             store_stride as u32,
             width,
             height,
-            &SRGB_TO_XYZ_D65,
+            200.,
             TransferFunction::Srgb,
         );
         let elapsed_time = start_time.elapsed();
@@ -104,14 +104,14 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        lab_to_rgb(
+        jzazbz_to_rgba(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
             src_stride,
             width,
             height,
-            &XYZ_TO_SRGB_D65,
+            200.,
             TransferFunction::Srgb,
         );
 
