@@ -502,6 +502,42 @@ pub fn rgb_to_xyz(
     );
 }
 
+/// This function converts BGR to XYZ. This is much more effective than naive direct transformation
+///
+/// # Arguments
+/// * `src` - A slice contains BGR data
+/// * `src_stride` - Bytes per row for src data.
+/// * `width` - Image width
+/// * `height` - Image height
+/// * `dst` - A mutable slice to receive XYZ data
+/// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from BGR to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
+pub fn bgr_to_xyz(
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [f32],
+    dst_stride: u32,
+    width: u32,
+    height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
+) {
+    let mut empty_vec = vec![];
+    channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Xyz as u8 }>(
+        src,
+        src_stride,
+        dst,
+        dst_stride,
+        &mut empty_vec,
+        0,
+        width,
+        height,
+        matrix,
+        transfer_function,
+    );
+}
+
 /// This function converts sRGB D65 to XYZ. This is much more effective than naive direct transformation
 ///
 /// # Arguments
@@ -545,6 +581,8 @@ pub fn srgb_to_xyz(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn rgb_to_lab(
     src: &[u8],
     src_stride: u32,
@@ -552,6 +590,8 @@ pub fn rgb_to_lab(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
@@ -563,10 +603,11 @@ pub fn rgb_to_lab(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
+
 
 /// This function converts RGBA to XYZ. This is much more effective than naive direct transformation
 ///
@@ -723,6 +764,8 @@ pub fn srgba_to_xyza(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `a_plane` - A mutable slice to receive XYZ data
 /// * `a_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn rgba_to_lab(
     src: &[u8],
     src_stride: u32,
@@ -732,6 +775,8 @@ pub fn rgba_to_lab(
     a_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
@@ -742,8 +787,8 @@ pub fn rgba_to_lab(
         a_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -758,6 +803,8 @@ pub fn rgba_to_lab(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `a_plane` - A mutable slice to receive XYZ data
 /// * `a_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn rgba_to_laba(
     src: &[u8],
     src_stride: u32,
@@ -767,6 +814,8 @@ pub fn rgba_to_laba(
     a_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::Lab as u8 }>(
         src,
@@ -777,8 +826,8 @@ pub fn rgba_to_laba(
         a_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -791,6 +840,8 @@ pub fn rgba_to_laba(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn bgra_to_laba(
     src: &[u8],
     src_stride: u32,
@@ -800,6 +851,8 @@ pub fn bgra_to_laba(
     a_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     channels_to_xyz::<{ ImageConfiguration::Bgra as u8 }, true, { XyzTarget::Lab as u8 }>(
         src,
@@ -810,8 +863,8 @@ pub fn bgra_to_laba(
         a_stride,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -824,6 +877,8 @@ pub fn bgra_to_laba(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn bgr_to_lab(
     src: &[u8],
     src_stride: u32,
@@ -831,6 +886,8 @@ pub fn bgr_to_lab(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lab as u8 }>(
@@ -842,8 +899,8 @@ pub fn bgr_to_lab(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -856,6 +913,8 @@ pub fn bgr_to_lab(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn rgb_to_luv(
     src: &[u8],
     src_stride: u32,
@@ -863,6 +922,8 @@ pub fn rgb_to_luv(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
@@ -874,8 +935,8 @@ pub fn rgb_to_luv(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -888,6 +949,8 @@ pub fn rgb_to_luv(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn bgr_to_luv(
     src: &[u8],
     src_stride: u32,
@@ -895,6 +958,8 @@ pub fn bgr_to_luv(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
@@ -906,8 +971,8 @@ pub fn bgr_to_luv(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -920,6 +985,8 @@ pub fn bgr_to_luv(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn rgb_to_lch(
     src: &[u8],
     src_stride: u32,
@@ -927,6 +994,8 @@ pub fn rgb_to_lch(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
@@ -938,8 +1007,8 @@ pub fn rgb_to_lch(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
 
@@ -952,6 +1021,8 @@ pub fn rgb_to_lch(
 /// * `height` - Image height
 /// * `dst` - A mutable slice to receive LAB data
 /// * `dst_stride` - Bytes per row for dst data
+/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `SRGB_TO_XYZ_D65`
+/// * `transfer_function` - Transfer function from gamma to linear space. If you don't have specific pick `Srgb`
 pub fn bgr_to_lch(
     src: &[u8],
     src_stride: u32,
@@ -959,6 +1030,8 @@ pub fn bgr_to_lch(
     dst_stride: u32,
     width: u32,
     height: u32,
+    matrix: &[[f32; 3]; 3],
+    transfer_function: TransferFunction,
 ) {
     let mut empty_vec = vec![];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
@@ -970,7 +1043,7 @@ pub fn bgr_to_lch(
         0,
         width,
         height,
-        &SRGB_TO_XYZ_D65,
-        TransferFunction::Srgb,
+        matrix,
+        transfer_function,
     );
 }
