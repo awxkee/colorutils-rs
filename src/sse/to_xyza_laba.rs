@@ -6,10 +6,10 @@
  */
 
 use crate::image::ImageConfiguration;
+use crate::load_f32_and_deinterleave;
 use crate::sse::cie::{sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
 use crate::sse::*;
 use crate::xyz_target::XyzTarget;
-use crate::load_f32_and_deinterleave;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]

@@ -13,20 +13,19 @@ use std::arch::x86_64::*;
 
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-use crate::sse::{
-    _mm_color_matrix_ps, sse_interleave_ps_rgb,
-    sse_interleave_ps_rgba,
+use crate::sse::{_mm_color_matrix_ps, sse_interleave_ps_rgb, sse_interleave_ps_rgba};
+use crate::{
+    load_f32_and_deinterleave, store_and_interleave_v3_direct_f32,
+    store_and_interleave_v4_direct_f32,
 };
-use crate::{load_f32_and_deinterleave, store_and_interleave_v3_direct_f32, store_and_interleave_v4_direct_f32};
 
 macro_rules! triple_to_oklab {
     ($r: expr, $g: expr, $b: expr,  $target: expr,
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
     ) => {{
-        let (l_l, l_m, l_s) = _mm_color_matrix_ps(
-            $r, $g, $b, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8,
-        );
+        let (l_l, l_m, l_s) =
+            _mm_color_matrix_ps($r, $g, $b, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8);
 
         let l_ = _mm_cbrt_fast_ps(l_l);
         let m_ = _mm_cbrt_fast_ps(l_m);
@@ -90,28 +89,8 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
             load_f32_and_deinterleave!(in_place_ptr, image_configuration);
 
         let (l_oklab, a_oklab, b_oklab) = triple_to_oklab!(
-            r_chan,
-            g_chan,
-            b_chan,
-            target,
-            c0,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            m0,
-            m1,
-            m2,
-            m3,
-            m4,
-            m5,
-            m6,
-            m7,
-            m8
+            r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
+            m5, m6, m7, m8
         );
 
         if image_configuration.has_alpha() {

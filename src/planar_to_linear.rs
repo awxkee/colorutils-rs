@@ -35,51 +35,38 @@ fn channels_to_linear(
         lut_table[i] = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
 
+    let iter;
     #[cfg(feature = "rayon")]
     {
-        dst_slice_safe_align
+        iter = dst_slice_safe_align
             .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr();
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x;
-                    let dst = dst_ptr.add(px);
-                    let src = src_ptr.add(px);
-                    let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
-
-                    dst.write_unaligned(transferred);
-                }
-            });
+            .zip(src.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        for (dst, src) in dst_slice_safe_align
+        iter = dst_slice_safe_align
             .chunks_exact_mut(dst_stride as usize)
-            .zip(src.chunks_exact(src_stride as usize))
-        {
-            unsafe {
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr();
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x;
-                    let dst = dst_ptr.add(px);
-                    let src = src_ptr.add(px);
-                    let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
-
-                    dst.write_unaligned(transferred);
-                }
-            }
-        }
+            .zip(src.chunks_exact(src_stride as usize));
     }
+
+    dst_slice_safe_align
+        .par_chunks_exact_mut(dst_stride as usize)
+        .zip(src.par_chunks_exact(src_stride as usize))
+        .for_each(|(dst, src)| unsafe {
+            let mut _cx = 0usize;
+
+            let src_ptr = src.as_ptr();
+            let dst_ptr = dst.as_mut_ptr() as *mut f32;
+
+            for x in _cx..width as usize {
+                let px = x;
+                let dst = dst_ptr.add(px);
+                let src = src_ptr.add(px);
+                let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
+
+                dst.write_unaligned(transferred);
+            }
+        });
 }
 
 /// This function converts Plane to Linear. This is much more effective than naive direct transformation

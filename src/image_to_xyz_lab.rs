@@ -608,7 +608,6 @@ pub fn rgb_to_lab(
     );
 }
 
-
 /// This function converts RGBA to XYZ. This is much more effective than naive direct transformation
 ///
 /// # Arguments

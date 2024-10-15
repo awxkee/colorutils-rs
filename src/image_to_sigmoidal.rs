@@ -56,121 +56,70 @@ fn image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
     const COLOR_SCALE: f32 = 1f32 / 255f32;
 
+    let dst_slice_safe_align = unsafe {
+        slice::from_raw_parts_mut(
+            dst.as_mut_ptr() as *mut u8,
+            dst_stride as usize * height as usize,
+        )
+    };
+
+    let iter;
+
     #[cfg(feature = "rayon")]
     {
-        let dst_slice_safe_align = unsafe {
-            slice::from_raw_parts_mut(
-                dst.as_mut_ptr() as *mut u8,
-                dst_stride as usize * height as usize,
-            )
-        };
-
-        dst_slice_safe_align
+        iter = dst_slice_safe_align
             .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr();
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(_cx, src_ptr, width, dst_ptr);
-                }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src = src_ptr.add(px);
-                    let r = src
-                        .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned();
-                    let g = src
-                        .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned();
-                    let b = src
-                        .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned();
-
-                    let rgb = Rgb::<u8>::new(r, g, b);
-
-                    let writing_ptr = dst_ptr.add(px);
-
-                    let sigmoidal = rgb.to_sigmoidal();
-                    writing_ptr.write_unaligned(sigmoidal.sr);
-                    writing_ptr.add(1).write_unaligned(sigmoidal.sg);
-                    writing_ptr.add(2).write_unaligned(sigmoidal.sb);
-
-                    if image_configuration.has_alpha() {
-                        let a = src
-                            .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned() as f32
-                            * COLOR_SCALE;
-
-                        writing_ptr.add(3).write_unaligned(a);
-                    }
-                }
-            });
+            .zip(src.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
-
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
-
-            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-            let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
-
-            if let Some(dispatcher) = _wide_row_handler {
-                unsafe { _cx = dispatcher(_cx, src_ptr, width, dst_ptr) }
-            }
-
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let src = unsafe { src_ptr.add(px) };
-                let r = unsafe {
-                    src.add(image_configuration.get_r_channel_offset())
-                        .read_unaligned()
-                };
-                let g = unsafe {
-                    src.add(image_configuration.get_g_channel_offset())
-                        .read_unaligned()
-                };
-                let b = unsafe {
-                    src.add(image_configuration.get_b_channel_offset())
-                        .read_unaligned()
-                };
-
-                let rgb = Rgb::<u8>::new(r, g, b);
-
-                let writing_ptr = unsafe { dst_ptr.add(px) };
-
-                let sigmoidal = rgb.to_sigmoidal();
-                unsafe {
-                    writing_ptr.write_unaligned(sigmoidal.sr);
-                    writing_ptr.add(1).write_unaligned(sigmoidal.sg);
-                    writing_ptr.add(2).write_unaligned(sigmoidal.sb);
-                }
-
-                if image_configuration.has_alpha() {
-                    let a = unsafe {
-                        src.add(image_configuration.get_a_channel_offset())
-                            .read_unaligned()
-                    } as f32
-                        * COLOR_SCALE;
-
-                    unsafe {
-                        writing_ptr.add(3).write_unaligned(a);
-                    }
-                }
-            }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
-        }
+        iter = dst_slice_safe_align
+            .chunks_exact_mut(dst_stride as usize)
+            .zip(src.chunks_exact(src_stride as usize));
     }
+
+    iter.for_each(|(dst, src)| unsafe {
+        let mut _cx = 0usize;
+
+        let src_ptr = src.as_ptr();
+        let dst_ptr = dst.as_mut_ptr() as *mut f32;
+
+        if let Some(dispatcher) = _wide_row_handler {
+            _cx = dispatcher(_cx, src_ptr, width, dst_ptr);
+        }
+
+        for x in _cx..width as usize {
+            let px = x * channels;
+            let src = src_ptr.add(px);
+            let r = src
+                .add(image_configuration.get_r_channel_offset())
+                .read_unaligned();
+            let g = src
+                .add(image_configuration.get_g_channel_offset())
+                .read_unaligned();
+            let b = src
+                .add(image_configuration.get_b_channel_offset())
+                .read_unaligned();
+
+            let rgb = Rgb::<u8>::new(r, g, b);
+
+            let writing_ptr = dst_ptr.add(px);
+
+            let sigmoidal = rgb.to_sigmoidal();
+            writing_ptr.write_unaligned(sigmoidal.sr);
+            writing_ptr.add(1).write_unaligned(sigmoidal.sg);
+            writing_ptr.add(2).write_unaligned(sigmoidal.sb);
+
+            if image_configuration.has_alpha() {
+                let a = src
+                    .add(image_configuration.get_a_channel_offset())
+                    .read_unaligned() as f32
+                    * COLOR_SCALE;
+
+                writing_ptr.add(3).write_unaligned(a);
+            }
+        }
+    });
 }
 
 /// This function converts RGB to Sigmoidal. This is much more effective than naive direct transformation

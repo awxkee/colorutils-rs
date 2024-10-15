@@ -16,10 +16,13 @@ use crate::avx::cie::{
 use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::*;
 use crate::image::ImageConfiguration;
-use crate::sse::{sse_interleave_ps_rgb, sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv, sse_triple_to_xyz};
+use crate::sse::{sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps};
+use crate::sse::{
+    sse_interleave_ps_rgb, sse_triple_to_lab, sse_triple_to_lch, sse_triple_to_luv,
+    sse_triple_to_xyz,
+};
 use crate::xyz_target::XyzTarget;
 use crate::{avx_store_and_interleave_v3_direct_f32, load_f32_and_deinterleave};
-use crate::sse::{sse_deinterleave_rgba_ps, sse_deinterleave_rgb_ps};
 
 #[target_feature(enable = "avx2")]
 pub unsafe fn avx2_image_to_xyz_lab<
@@ -101,7 +104,7 @@ pub unsafe fn avx2_image_to_xyz_lab<
     }
 
     while cx + 4 < width as usize {
-        let src_ptr = ((src as * const u8).add(src_offset) as *const f32).add(cx * channels);
+        let src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
             load_f32_and_deinterleave!(src_ptr, image_configuration);
 

@@ -50,23 +50,12 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     while cx + 4 < width as usize {
-        let src_ptr = ((src as * const u8).add(src_offset) as *const f32).add(cx * channels);
+        let src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
             load_f32_and_deinterleave!(src_ptr, image_configuration);
 
         let (mut x_low_low, mut y_low_low, mut z_low_low) = neon_triple_to_xyz(
-            r_chan,
-            g_chan,
-            b_chan,
-            cq1,
-            cq2,
-            cq3,
-            cq4,
-            cq5,
-            cq6,
-            cq7,
-            cq8,
-            cq9,
+            r_chan, g_chan, b_chan, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
         );
 
         match target {
@@ -102,7 +91,6 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
 
         cx += 4;
     }
-
 
     cx
 }

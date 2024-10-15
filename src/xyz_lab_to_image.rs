@@ -265,11 +265,11 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                             * 2048f32)
                             .round() as usize;
 
-                        dst_chunk[image_configuration.get_r_channel_offset()] =
+                        *dst_chunk.get_unchecked_mut(image_configuration.get_r_channel_offset()) =
                             *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[image_configuration.get_g_channel_offset()] =
+                        *dst_chunk.get_unchecked_mut(image_configuration.get_g_channel_offset()) =
                             *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[image_configuration.get_b_channel_offset()] =
+                        *dst_chunk.get_unchecked_mut(image_configuration.get_b_channel_offset()) =
                             *lut_table.get_unchecked(b_cast.min(2048));
                     }
                 });

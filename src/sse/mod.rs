@@ -33,6 +33,7 @@ mod sigmoidal;
 mod to_sigmoidal;
 mod xyza_laba_to_image;
 
+pub use cie::*;
 pub use from_sigmoidal::sse_from_sigmoidal_row;
 pub use hsv_to_image::*;
 pub use image_to_hsv::*;
@@ -47,4 +48,3 @@ pub use to_xyz_lab::*;
 pub use to_xyza_laba::*;
 pub use xyz_lab_to_image::*;
 pub use xyza_laba_to_image::*;
-pub use cie::*;

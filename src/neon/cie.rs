@@ -28,9 +28,7 @@ pub(crate) unsafe fn neon_triple_to_xyz(
     c8: float32x4_t,
     c9: float32x4_t,
 ) -> (float32x4_t, float32x4_t, float32x4_t) {
-    let (x, y, z) = vcolorq_matrix_f32(
-        r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9,
-    );
+    let (x, y, z) = vcolorq_matrix_f32(r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9);
     (x, y, z)
 }
 

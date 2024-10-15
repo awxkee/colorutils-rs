@@ -8,10 +8,7 @@ use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::{_mm256_color_matrix_ps, avx2_interleave_rgb_ps, avx2_interleave_rgba_ps};
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-use crate::{
-    avx_store_and_interleave_v3_direct_f32, avx_store_and_interleave_v4_direct_f32
-    ,
-};
+use crate::{avx_store_and_interleave_v3_direct_f32, avx_store_and_interleave_v4_direct_f32};
 use erydanos::{_mm256_atan2_ps, _mm256_cbrt_fast_ps, _mm256_hypot_fast_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

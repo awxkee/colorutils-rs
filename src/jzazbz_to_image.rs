@@ -59,186 +59,103 @@ fn jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         )
     };
 
+    let iter;
+
     #[cfg(feature = "rayon")]
     {
-        dst.par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let channels = image_configuration.get_channels_count();
-
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr() as *mut f32;
-
-                let mut transient_row = vec![0f32; width as usize * channels];
-
-                if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr() as *const f32,
-                        0,
-                        transient_row.as_mut_ptr(),
-                        0,
-                        width,
-                        display_luminance,
-                    );
-                }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let l_x = src_ptr.add(px).read_unaligned();
-                    let l_y = src_ptr.add(px + 1).read_unaligned();
-                    let l_z = src_ptr.add(px + 2).read_unaligned();
-                    let rgb = match target {
-                        JzazbzTarget::Jzazbz => {
-                            let jzazbz =
-                                Jzazbz::new_with_luminance(l_x, l_y, l_z, display_luminance);
-                            jzazbz.to_linear_rgb()
-                        }
-                        JzazbzTarget::Jzczhz => {
-                            let jzczhz = Jzczhz::new(l_x, l_y, l_z);
-                            jzczhz.to_linear_rgb_with_luminance(display_luminance)
-                        }
-                    };
-
-                    let dst = transient_row.get_unchecked_mut((x * channels)..);
-                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    if image_configuration.has_alpha() {
-                        let l_a = src_ptr.add(px + 3).read_unaligned();
-                        *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
-                    }
-                }
-
-                for (dst_chunk, src_chunks) in dst
-                    .chunks_exact_mut(channels)
-                    .zip(transient_row.chunks_exact(channels))
-                {
-                    let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-
-                    dst_chunk[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked((r_cast as usize).min(2048));
-                    dst_chunk[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked((g_cast as usize).min(2048));
-                    dst_chunk[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked((b_cast as usize).min(2048));
-
-                    if image_configuration.has_alpha() {
-                        let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
-                            .min(255.)
-                            .max(0.) as u8;
-                        dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                    }
-                }
-            });
+        iter = dst
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        for (dst, src) in dst
+        iter = dst
             .chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.chunks_exact(src_stride as usize))
-        {
-            unsafe {
-                let channels = image_configuration.get_channels_count();
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
+    }
 
-                let mut _cx = 0usize;
+    iter.for_each(|(dst, src)| unsafe {
+        let channels = image_configuration.get_channels_count();
 
-                let src_ptr = src.as_ptr() as *mut f32;
+        let mut _cx = 0usize;
 
-                let mut transient_row = vec![0f32; width as usize * channels];
+        let src_ptr = src.as_ptr() as *mut f32;
 
-                if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr() as *const f32,
-                        0,
-                        transient_row.as_mut_ptr(),
-                        0,
-                        width,
-                        display_luminance,
-                    );
+        let mut transient_row = vec![0f32; width as usize * channels];
+
+        if let Some(dispatcher) = _wide_row_handle {
+            _cx = dispatcher(
+                _cx,
+                src.as_ptr() as *const f32,
+                0,
+                transient_row.as_mut_ptr(),
+                0,
+                width,
+                display_luminance,
+            );
+        }
+
+        for x in _cx..width as usize {
+            let px = x * channels;
+            let l_x = src_ptr.add(px).read_unaligned();
+            let l_y = src_ptr.add(px + 1).read_unaligned();
+            let l_z = src_ptr.add(px + 2).read_unaligned();
+            let rgb = match target {
+                JzazbzTarget::Jzazbz => {
+                    let jzazbz = Jzazbz::new_with_luminance(l_x, l_y, l_z, display_luminance);
+                    jzazbz.to_linear_rgb()
                 }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let l_x = src_ptr.add(px).read_unaligned();
-                    let l_y = src_ptr.add(px + 1).read_unaligned();
-                    let l_z = src_ptr.add(px + 2).read_unaligned();
-                    let rgb = match target {
-                        JzazbzTarget::Jzazbz => {
-                            let jzazbz =
-                                Jzazbz::new_with_luminance(l_x, l_y, l_z, display_luminance);
-                            jzazbz.to_linear_rgb()
-                        }
-                        JzazbzTarget::Jzczhz => {
-                            let jzczhz = Jzczhz::new(l_x, l_y, l_z);
-                            jzczhz.to_linear_rgb_with_luminance(display_luminance)
-                        }
-                    };
-
-                    let dst = transient_row.get_unchecked_mut((x * channels)..);
-                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    if image_configuration.has_alpha() {
-                        let l_a = src_ptr.add(px + 3).read_unaligned();
-                        *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
-                    }
+                JzazbzTarget::Jzczhz => {
+                    let jzczhz = Jzczhz::new(l_x, l_y, l_z);
+                    jzczhz.to_linear_rgb_with_luminance(display_luminance)
                 }
+            };
 
-                for (dst_chunk, src_chunks) in dst
-                    .chunks_exact_mut(channels)
-                    .zip(transient_row.chunks_exact(channels))
-                {
-                    let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-
-                    dst_chunk[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked((r_cast as usize).min(2048));
-                    dst_chunk[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked((g_cast as usize).min(2048));
-                    dst_chunk[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked((b_cast as usize).min(2048));
-
-                    if image_configuration.has_alpha() {
-                        let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
-                            .min(255.)
-                            .max(0.) as u8;
-                        dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                    }
-                }
+            let dst = transient_row.get_unchecked_mut((x * channels)..);
+            *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
+            *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
+            *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
+            if image_configuration.has_alpha() {
+                let l_a = src_ptr.add(px + 3).read_unaligned();
+                *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
             }
         }
-    }
+
+        for (dst_chunk, src_chunks) in dst
+            .chunks_exact_mut(channels)
+            .zip(transient_row.chunks_exact(channels))
+        {
+            let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+            let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+            let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+
+            dst_chunk[image_configuration.get_r_channel_offset()] =
+                *lut_table.get_unchecked((r_cast as usize).min(2048));
+            dst_chunk[image_configuration.get_g_channel_offset()] =
+                *lut_table.get_unchecked((g_cast as usize).min(2048));
+            dst_chunk[image_configuration.get_b_channel_offset()] =
+                *lut_table.get_unchecked((b_cast as usize).min(2048));
+
+            if image_configuration.has_alpha() {
+                let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
+                    .min(255.)
+                    .max(0.) as u8;
+                dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
+            }
+        }
+    });
 }
 
 /// This function converts Jzazbz with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation

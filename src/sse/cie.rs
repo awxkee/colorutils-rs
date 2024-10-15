@@ -9,9 +9,7 @@ use crate::luv::{
     LUV_CUTOFF_FORWARD_Y, LUV_MULTIPLIER_FORWARD_Y, LUV_MULTIPLIER_INVERSE_Y, LUV_WHITE_U_PRIME,
     LUV_WHITE_V_PRIME,
 };
-use crate::sse::{
-    _mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps,
-};
+use crate::sse::{_mm_color_matrix_ps, _mm_cube_ps, _mm_prefer_fma_ps, _mm_select_ps};
 use erydanos::{_mm_atan2_ps, _mm_cbrt_fast_ps, _mm_cos_ps, _mm_hypot_ps, _mm_sin_ps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -33,18 +31,12 @@ pub unsafe fn sse_triple_to_xyz(
     c8: __m128,
     c9: __m128,
 ) -> (__m128, __m128, __m128) {
-    let (x, y, z) = _mm_color_matrix_ps(
-        r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9,
-    );
+    let (x, y, z) = _mm_color_matrix_ps(r, g, b, c1, c2, c3, c4, c5, c6, c7, c8, c9);
     (x, y, z)
 }
 
 #[inline(always)]
-pub unsafe fn sse_triple_to_luv(
-    x: __m128,
-    y: __m128,
-    z: __m128,
-) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_triple_to_luv(x: __m128, y: __m128, z: __m128) -> (__m128, __m128, __m128) {
     let zeros = _mm_setzero_ps();
     let den = _mm_prefer_fma_ps(
         _mm_prefer_fma_ps(x, z, _mm_set1_ps(3f32)),
@@ -70,11 +62,7 @@ pub unsafe fn sse_triple_to_luv(
 }
 
 #[inline(always)]
-pub unsafe fn sse_triple_to_lab(
-    x: __m128,
-    y: __m128,
-    z: __m128,
-) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_triple_to_lab(x: __m128, y: __m128, z: __m128) -> (__m128, __m128, __m128) {
     let x = _mm_mul_ps(x, _mm_set1_ps(100f32 / 95.047f32));
     let z = _mm_mul_ps(z, _mm_set1_ps(100f32 / 108.883f32));
     let cbrt_x = _mm_cbrt_fast_ps(x);
@@ -96,11 +84,7 @@ pub unsafe fn sse_triple_to_lab(
 }
 
 #[inline(always)]
-pub unsafe fn sse_triple_to_lch(
-    x: __m128,
-    y: __m128,
-    z: __m128,
-) -> (__m128, __m128, __m128) {
+pub unsafe fn sse_triple_to_lch(x: __m128, y: __m128, z: __m128) -> (__m128, __m128, __m128) {
     let (luv_l, luv_u, luv_v) = sse_triple_to_luv(x, y, z);
     let lch_c = _mm_hypot_ps(luv_u, luv_v);
     let lch_h = _mm_atan2_ps(luv_v, luv_u);

@@ -18,8 +18,8 @@ use crate::sse::{
 };
 use crate::sse::{sse_interleave_ps_rgb, sse_interleave_ps_rgba};
 use crate::{
-    load_f32_and_deinterleave_direct, store_and_interleave_v3_f32, store_and_interleave_v4_f32
-    , XYZ_TO_SRGB_D65,
+    load_f32_and_deinterleave_direct, store_and_interleave_v3_f32, store_and_interleave_v4_f32,
+    XYZ_TO_SRGB_D65,
 };
 use erydanos::{_mm_cos_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_pow_ps, _mm_sin_ps};
 

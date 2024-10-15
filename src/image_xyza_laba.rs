@@ -65,189 +65,98 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         )
     };
 
+    let iter;
+
     #[cfg(feature = "rayon")]
     {
-        dst_slice_safe_align
+        iter = dst_slice_safe_align
             .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
-
-                let mut transient_row = vec![0f32; width as usize * channels];
-
-                for (dst_chunk, src_chunks) in transient_row
-                    .chunks_exact_mut(channels)
-                    .zip(src.chunks_exact(channels))
-                {
-                    dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_r_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_g_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_b_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_a_channel_offset()] =
-                        src_chunks[image_configuration.get_a_channel_offset()] as f32
-                            * (1. / 255.0);
-                }
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        transient_row.as_ptr(),
-                        0,
-                        width,
-                        dst.as_mut_ptr() as *mut f32,
-                        0,
-                        matrix,
-                    );
-                }
-
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src = transient_row.get_unchecked(px..);
-
-                    let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
-                    let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
-                    let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
-
-                    let rgb = Rgb::<f32>::new(r, g, b);
-                    let px = x * channels;
-                    let dst_store = dst_ptr.add(px);
-
-                    let xyz = Xyz::from_linear_rgb(rgb, matrix);
-
-                    match target {
-                        XyzTarget::Lab => {
-                            let lab = Lab::from_xyz(xyz);
-                            dst_store.write_unaligned(lab.l);
-                            dst_store.add(1).write_unaligned(lab.a);
-                            dst_store.add(2).write_unaligned(lab.b);
-                        }
-                        XyzTarget::Xyz => {
-                            dst_store.write_unaligned(xyz.x);
-                            dst_store.add(1).write_unaligned(xyz.y);
-                            dst_store.add(2).write_unaligned(xyz.z);
-                        }
-                        XyzTarget::Luv => {
-                            let luv = Luv::from_xyz(xyz);
-                            dst_store.write_unaligned(luv.l);
-                            dst_store.add(1).write_unaligned(luv.u);
-                            dst_store.add(2).write_unaligned(luv.v);
-                        }
-                        XyzTarget::Lch => {
-                            let luv = Luv::from_xyz(xyz);
-                            let lch = LCh::from_luv(luv);
-                            dst_store.write_unaligned(lch.l);
-                            dst_store.add(1).write_unaligned(lch.c);
-                            dst_store.add(2).write_unaligned(lch.h);
-                        }
-                    }
-                    let a = *src.get_unchecked(image_configuration.get_a_channel_offset());
-                    dst_store.add(3).write_unaligned(a);
-                }
-            });
+            .zip(src.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        for (dst, src) in dst_slice_safe_align
+        iter = dst_slice_safe_align
             .chunks_exact_mut(dst_stride as usize)
-            .zip(src.chunks_exact(src_stride as usize))
+            .zip(src.chunks_exact(src_stride as usize));
+    }
+
+    iter.for_each(|(dst, src)| unsafe {
+        let mut _cx = 0usize;
+
+        let mut transient_row = vec![0f32; width as usize * channels];
+
+        for (dst_chunk, src_chunks) in transient_row
+            .chunks_exact_mut(channels)
+            .zip(src.chunks_exact(channels))
         {
-            unsafe {
-                let mut _cx = 0usize;
+            dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                .get_unchecked(src_chunks[image_configuration.get_r_channel_offset()] as usize);
+            dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                .get_unchecked(src_chunks[image_configuration.get_g_channel_offset()] as usize);
+            dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                .get_unchecked(src_chunks[image_configuration.get_b_channel_offset()] as usize);
+            dst_chunk[image_configuration.get_a_channel_offset()] =
+                src_chunks[image_configuration.get_a_channel_offset()] as f32 * (1. / 255.0);
+        }
 
-                let mut transient_row = vec![0f32; width as usize * channels];
+        if let Some(dispatcher) = _wide_row_handler {
+            _cx = dispatcher(
+                _cx,
+                transient_row.as_ptr(),
+                0,
+                width,
+                dst.as_mut_ptr() as *mut f32,
+                0,
+                matrix,
+            );
+        }
 
-                for (dst_chunk, src_chunks) in transient_row
-                    .chunks_exact_mut(channels)
-                    .zip(src.chunks_exact(channels))
-                {
-                    dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_r_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_g_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
-                        .get_unchecked(
-                            src_chunks[image_configuration.get_b_channel_offset()] as usize,
-                        );
-                    dst_chunk[image_configuration.get_a_channel_offset()] =
-                        src_chunks[image_configuration.get_a_channel_offset()] as f32
-                            * (1. / 255.0);
+        let dst_ptr = dst.as_mut_ptr() as *mut f32;
+
+        for x in _cx..width as usize {
+            let px = x * channels;
+            let src = transient_row.get_unchecked(px..);
+
+            let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
+            let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
+            let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
+
+            let rgb = Rgb::<f32>::new(r, g, b);
+            let px = x * channels;
+            let dst_store = dst_ptr.add(px);
+
+            let xyz = Xyz::from_linear_rgb(rgb, matrix);
+
+            match target {
+                XyzTarget::Lab => {
+                    let lab = Lab::from_xyz(xyz);
+                    dst_store.write_unaligned(lab.l);
+                    dst_store.add(1).write_unaligned(lab.a);
+                    dst_store.add(2).write_unaligned(lab.b);
                 }
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        transient_row.as_ptr(),
-                        0,
-                        width,
-                        dst.as_mut_ptr() as *mut f32,
-                        0,
-                        matrix,
-                    );
+                XyzTarget::Xyz => {
+                    dst_store.write_unaligned(xyz.x);
+                    dst_store.add(1).write_unaligned(xyz.y);
+                    dst_store.add(2).write_unaligned(xyz.z);
                 }
-
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src = transient_row.get_unchecked(px..);
-
-                    let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
-                    let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
-                    let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
-
-                    let rgb = Rgb::<f32>::new(r, g, b);
-                    let px = x * channels;
-                    let dst_store = dst_ptr.add(px);
-
-                    let xyz = Xyz::from_linear_rgb(rgb, matrix);
-
-                    match target {
-                        XyzTarget::Lab => {
-                            let lab = Lab::from_xyz(xyz);
-                            dst_store.write_unaligned(lab.l);
-                            dst_store.add(1).write_unaligned(lab.a);
-                            dst_store.add(2).write_unaligned(lab.b);
-                        }
-                        XyzTarget::Xyz => {
-                            dst_store.write_unaligned(xyz.x);
-                            dst_store.add(1).write_unaligned(xyz.y);
-                            dst_store.add(2).write_unaligned(xyz.z);
-                        }
-                        XyzTarget::Luv => {
-                            let luv = Luv::from_xyz(xyz);
-                            dst_store.write_unaligned(luv.l);
-                            dst_store.add(1).write_unaligned(luv.u);
-                            dst_store.add(2).write_unaligned(luv.v);
-                        }
-                        XyzTarget::Lch => {
-                            let luv = Luv::from_xyz(xyz);
-                            let lch = LCh::from_luv(luv);
-                            dst_store.write_unaligned(lch.l);
-                            dst_store.add(1).write_unaligned(lch.c);
-                            dst_store.add(2).write_unaligned(lch.h);
-                        }
-                    }
-                    let a = *src.get_unchecked(image_configuration.get_a_channel_offset());
-                    dst_store.add(3).write_unaligned(a);
+                XyzTarget::Luv => {
+                    let luv = Luv::from_xyz(xyz);
+                    dst_store.write_unaligned(luv.l);
+                    dst_store.add(1).write_unaligned(luv.u);
+                    dst_store.add(2).write_unaligned(luv.v);
+                }
+                XyzTarget::Lch => {
+                    let luv = Luv::from_xyz(xyz);
+                    let lch = LCh::from_luv(luv);
+                    dst_store.write_unaligned(lch.l);
+                    dst_store.add(1).write_unaligned(lch.c);
+                    dst_store.add(2).write_unaligned(lch.h);
                 }
             }
+            let a = *src.get_unchecked(image_configuration.get_a_channel_offset());
+            dst_store.add(3).write_unaligned(a);
         }
-    }
+    });
 }
 
 /// This function converts RGBA to CIE L*ab.

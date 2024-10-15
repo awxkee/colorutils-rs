@@ -71,190 +71,105 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         )
     };
 
+    let iter;
     #[cfg(feature = "rayon")]
     {
-        dst.par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let channels = image_configuration.get_channels_count();
-
-                let mut _cx = 0usize;
-
-                let mut transient_row = vec![0f32; width as usize * channels];
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr() as *const f32,
-                        0,
-                        transient_row.as_mut_ptr(),
-                        0,
-                        width,
-                        matrix,
-                    )
-                }
-
-                let src_ptr = src.as_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x * 4;
-                    let l_x = src_ptr.add(px).read_unaligned();
-                    let l_y = src_ptr.add(px + 1).read_unaligned();
-                    let l_z = src_ptr.add(px + 2).read_unaligned();
-                    let rgb = match source {
-                        XyzTarget::Lab => {
-                            let lab = Lab::new(l_x, l_y, l_z);
-                            lab.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Xyz => {
-                            let xyz = Xyz::new(l_x, l_y, l_z);
-                            xyz.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Luv => {
-                            let luv = Luv::new(l_x, l_y, l_z);
-                            luv.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Lch => {
-                            let lch = LCh::new(l_x, l_y, l_z);
-                            lch.to_linear_rgb(matrix)
-                        }
-                    };
-
-                    let l_a = src_ptr.add(px + 3).read_unaligned();
-                    let dst = transient_row.get_unchecked_mut((x * channels)..);
-                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
-                }
-
-                for (dst_chunk, src_chunks) in dst
-                    .chunks_exact_mut(channels)
-                    .zip(transient_row.chunks_exact(channels))
-                {
-                    let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
-                        .min(255.)
-                        .max(0.) as u8;
-
-                    dst_chunk[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked(r_cast as usize);
-                    dst_chunk[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked(g_cast as usize);
-                    dst_chunk[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked(b_cast as usize);
-                    dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                }
-            });
+        iter = dst
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        for (dst, src) in dst
+        iter = dst
             .chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.chunks_exact(src_stride as usize))
-        {
-            unsafe {
-                let channels = image_configuration.get_channels_count();
-
-                let mut _cx = 0usize;
-
-                let mut transient_row = vec![0f32; width as usize * channels];
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr() as *const f32,
-                        0,
-                        transient_row.as_mut_ptr(),
-                        0,
-                        width,
-                        matrix,
-                    )
-                }
-
-                let src_ptr = src.as_ptr() as *mut f32;
-
-                for x in _cx..width as usize {
-                    let px = x * 4;
-                    let l_x = src_ptr.add(px).read_unaligned();
-                    let l_y = src_ptr.add(px + 1).read_unaligned();
-                    let l_z = src_ptr.add(px + 2).read_unaligned();
-                    let rgb = match source {
-                        XyzTarget::Lab => {
-                            let lab = Lab::new(l_x, l_y, l_z);
-                            lab.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Xyz => {
-                            let xyz = Xyz::new(l_x, l_y, l_z);
-                            xyz.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Luv => {
-                            let luv = Luv::new(l_x, l_y, l_z);
-                            luv.to_linear_rgb(matrix)
-                        }
-                        XyzTarget::Lch => {
-                            let lch = LCh::new(l_x, l_y, l_z);
-                            lch.to_linear_rgb(matrix)
-                        }
-                    };
-
-                    let l_a = src_ptr.add(px + 3).read_unaligned();
-                    let dst = transient_row.get_unchecked_mut((x * channels)..);
-                    *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                    *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                    *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
-                }
-
-                for (dst_chunk, src_chunks) in dst
-                    .chunks_exact_mut(channels)
-                    .zip(transient_row.chunks_exact(channels))
-                {
-                    let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                        .min(1.)
-                        .max(0.)
-                        * 2048f32)
-                        .round();
-                    let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
-                        .min(255.)
-                        .max(0.) as u8;
-
-                    dst_chunk[image_configuration.get_r_channel_offset()] =
-                        *lut_table.get_unchecked(r_cast as usize);
-                    dst_chunk[image_configuration.get_g_channel_offset()] =
-                        *lut_table.get_unchecked(g_cast as usize);
-                    dst_chunk[image_configuration.get_b_channel_offset()] =
-                        *lut_table.get_unchecked(b_cast as usize);
-                    dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                }
-            }
-        }
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
     }
+
+    iter.for_each(|(dst, src)| unsafe {
+        let channels = image_configuration.get_channels_count();
+
+        let mut _cx = 0usize;
+
+        let mut transient_row = vec![0f32; width as usize * channels];
+
+        if let Some(dispatcher) = _wide_row_handler {
+            _cx = dispatcher(
+                _cx,
+                src.as_ptr() as *const f32,
+                0,
+                transient_row.as_mut_ptr(),
+                0,
+                width,
+                matrix,
+            )
+        }
+
+        let src_ptr = src.as_ptr() as *mut f32;
+
+        for x in _cx..width as usize {
+            let px = x * 4;
+            let l_x = src_ptr.add(px).read_unaligned();
+            let l_y = src_ptr.add(px + 1).read_unaligned();
+            let l_z = src_ptr.add(px + 2).read_unaligned();
+            let rgb = match source {
+                XyzTarget::Lab => {
+                    let lab = Lab::new(l_x, l_y, l_z);
+                    lab.to_linear_rgb(matrix)
+                }
+                XyzTarget::Xyz => {
+                    let xyz = Xyz::new(l_x, l_y, l_z);
+                    xyz.to_linear_rgb(matrix)
+                }
+                XyzTarget::Luv => {
+                    let luv = Luv::new(l_x, l_y, l_z);
+                    luv.to_linear_rgb(matrix)
+                }
+                XyzTarget::Lch => {
+                    let lch = LCh::new(l_x, l_y, l_z);
+                    lch.to_linear_rgb(matrix)
+                }
+            };
+
+            let l_a = src_ptr.add(px + 3).read_unaligned();
+            let dst = transient_row.get_unchecked_mut((x * channels)..);
+            *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
+            *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
+            *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
+            *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
+        }
+
+        for (dst_chunk, src_chunks) in dst
+            .chunks_exact_mut(channels)
+            .zip(transient_row.chunks_exact(channels))
+        {
+            let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+            let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+            let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+                .min(1.)
+                .max(0.)
+                * 2048f32)
+                .round();
+            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
+                .min(255.)
+                .max(0.) as u8;
+
+            dst_chunk[image_configuration.get_r_channel_offset()] =
+                *lut_table.get_unchecked(r_cast as usize);
+            dst_chunk[image_configuration.get_g_channel_offset()] =
+                *lut_table.get_unchecked(g_cast as usize);
+            dst_chunk[image_configuration.get_b_channel_offset()] =
+                *lut_table.get_unchecked(b_cast as usize);
+            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
+        }
+    });
 }
 
 /// This function converts LAB with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation

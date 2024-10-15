@@ -10,8 +10,8 @@ use erydanos::{vcosq_f32, vsinq_f32};
 
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-use crate::neon::math::vcolorq_matrix_f32;
 use crate::load_f32_and_deinterleave_direct;
+use crate::neon::math::vcolorq_matrix_f32;
 
 #[inline(always)]
 unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
@@ -95,30 +95,11 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
     );
 
     while cx + 4 < width as usize {
-        let v_src_ptr =
-            ((src as *mut u8).add(src_offset) as *mut f32).add(cx * channels);
+        let v_src_ptr = ((src as *mut u8).add(src_offset) as *mut f32).add(cx * channels);
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                v_src_ptr,
-                m0,
-                m1,
-                m2,
-                m3,
-                m4,
-                m5,
-                m6,
-                m7,
-                m8,
-                c0,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
+                v_src_ptr, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7, c8,
             );
 
         let in_place_ptr =

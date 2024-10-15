@@ -110,10 +110,7 @@ impl Jzczhz {
     /// `display_luminance` - display luminance
     /// `transfer_function` - Transfer function to convert into linear colorspace and backwards
     #[inline]
-    pub fn to_linear_rgb_with_luminance(
-        &self,
-        display_luminance: f32,
-    ) -> Rgb<f32> {
+    pub fn to_linear_rgb_with_luminance(&self, display_luminance: f32) -> Rgb<f32> {
         let jzazbz = self.to_jzazbz_with_luminance(display_luminance);
         jzazbz.to_linear_rgb()
     }

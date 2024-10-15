@@ -94,19 +94,10 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_xyza_lab_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr_0,
-                c1,
-                c2,
-                c3,
-                c4,
-                c5,
-                c6,
-                c7,
-                c8,
-                c9,
+                src_ptr_0, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset) as* mut f32).add(cx * channels);
+        let dst_ptr = ((dst as *mut u8).add(dst_offset) as *mut f32).add(cx * channels);
 
         let store_rows = match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Rgba => {

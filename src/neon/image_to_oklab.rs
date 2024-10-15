@@ -6,8 +6,8 @@
  */
 use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
-use crate::neon::math::vcolorq_matrix_f32;
 use crate::load_f32_and_deinterleave;
+use crate::neon::math::vcolorq_matrix_f32;
 use erydanos::{vatan2q_f32, vcbrtq_fast_f32, vhypotq_fast_f32};
 use std::arch::aarch64::*;
 
@@ -16,9 +16,8 @@ macro_rules! triple_to_oklab {
     $c0:expr, $c1:expr, $c2: expr, $c3: expr, $c4:expr, $c5: expr, $c6:expr, $c7: expr, $c8: expr,
         $m0: expr, $m1: expr, $m2: expr, $m3: expr, $m4: expr, $m5: expr, $m6: expr, $m7: expr, $m8: expr
     ) => {{
-        let (l_l, l_m, l_s) = vcolorq_matrix_f32(
-            $r, $g, $b, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8,
-        );
+        let (l_l, l_m, l_s) =
+            vcolorq_matrix_f32($r, $g, $b, $c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8);
 
         let l_ = vcbrtq_fast_f32(l_l);
         let m_ = vcbrtq_fast_f32(l_m);

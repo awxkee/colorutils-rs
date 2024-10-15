@@ -53,113 +53,69 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         _wide_row_handler = Some(neon_from_sigmoidal_row::<CHANNELS_CONFIGURATION>);
     }
 
+    let src_slice_safe_align = unsafe {
+        slice::from_raw_parts(
+            src.as_ptr() as *const u8,
+            src_stride as usize * height as usize,
+        )
+    };
+
+    let iter;
+
     #[cfg(feature = "rayon")]
     {
-        let src_slice_safe_align = unsafe {
-            slice::from_raw_parts(
-                src.as_ptr() as *const u8,
-                src_stride as usize * height as usize,
-            )
-        };
-        dst.par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr() as *const f32;
-                let dst_ptr = dst.as_mut_ptr();
-
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(_cx, src_ptr, dst_ptr, width);
-                }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let reading_ptr = src_ptr.add(px);
-                    let sr = reading_ptr.read_unaligned();
-                    let sg = reading_ptr.add(1).read_unaligned();
-                    let sb = reading_ptr.add(2).read_unaligned();
-
-                    let sigmoidal = Sigmoidal::new(sr, sg, sb);
-                    let rgb: Rgb<u8> = sigmoidal.into();
-
-                    let hx = x * channels;
-
-                    let dst = dst_ptr.add(hx);
-
-                    dst.add(image_configuration.get_r_channel_offset())
-                        .write_unaligned(rgb.r);
-                    dst.add(image_configuration.get_g_channel_offset())
-                        .write_unaligned(rgb.g);
-                    dst.add(image_configuration.get_b_channel_offset())
-                        .write_unaligned(rgb.b);
-
-                    if image_configuration.has_alpha() {
-                        let a = (reading_ptr.add(3).read_unaligned() * 255f32)
-                            .max(0f32)
-                            .round()
-                            .min(255f32);
-                        dst.add(image_configuration.get_a_channel_offset())
-                            .write_unaligned(a as u8);
-                    }
-                }
-            });
+        iter = dst
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
-
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
-
-            let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
-            let dst_ptr = unsafe { dst.as_mut_ptr().add(dst_offset) };
-
-            if let Some(dispatcher) = _wide_row_handler {
-                unsafe {
-                    _cx = dispatcher(_cx, src_ptr, dst_ptr, width);
-                }
-            }
-
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let reading_ptr = unsafe { src_ptr.add(px) };
-                let sr = unsafe { reading_ptr.read_unaligned() };
-                let sg = unsafe { reading_ptr.add(1).read_unaligned() };
-                let sb = unsafe { reading_ptr.add(2).read_unaligned() };
-
-                let sigmoidal = Sigmoidal::new(sr, sg, sb);
-                let rgb: Rgb<u8> = sigmoidal.into();
-
-                let hx = x * channels;
-
-                let dst = unsafe { dst_ptr.add(hx) };
-
-                unsafe {
-                    dst.add(image_configuration.get_r_channel_offset())
-                        .write_unaligned(rgb.r);
-                    dst.add(image_configuration.get_g_channel_offset())
-                        .write_unaligned(rgb.g);
-                    dst.add(image_configuration.get_b_channel_offset())
-                        .write_unaligned(rgb.b);
-
-                    if image_configuration.has_alpha() {
-                        let a = (reading_ptr.add(3).read_unaligned() * 255f32)
-                            .max(0f32)
-                            .round()
-                            .min(255f32);
-                        dst.add(image_configuration.get_a_channel_offset())
-                            .write_unaligned(a as u8);
-                    }
-                }
-            }
-
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
-        }
+        iter = dst
+            .chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
     }
+
+    iter.for_each(|(dst, src)| unsafe {
+        let mut _cx = 0usize;
+
+        let src_ptr = src.as_ptr() as *const f32;
+        let dst_ptr = dst.as_mut_ptr();
+
+        if let Some(dispatcher) = _wide_row_handler {
+            _cx = dispatcher(_cx, src_ptr, dst_ptr, width);
+        }
+
+        for x in _cx..width as usize {
+            let px = x * channels;
+            let reading_ptr = src_ptr.add(px);
+            let sr = reading_ptr.read_unaligned();
+            let sg = reading_ptr.add(1).read_unaligned();
+            let sb = reading_ptr.add(2).read_unaligned();
+
+            let sigmoidal = Sigmoidal::new(sr, sg, sb);
+            let rgb: Rgb<u8> = sigmoidal.into();
+
+            let hx = x * channels;
+
+            let dst = dst_ptr.add(hx);
+
+            dst.add(image_configuration.get_r_channel_offset())
+                .write_unaligned(rgb.r);
+            dst.add(image_configuration.get_g_channel_offset())
+                .write_unaligned(rgb.g);
+            dst.add(image_configuration.get_b_channel_offset())
+                .write_unaligned(rgb.b);
+
+            if image_configuration.has_alpha() {
+                let a = (reading_ptr.add(3).read_unaligned() * 255f32)
+                    .max(0f32)
+                    .round()
+                    .min(255f32);
+                dst.add(image_configuration.get_a_channel_offset())
+                    .write_unaligned(a as u8);
+            }
+        }
+    });
 }
 
 /// This function converts Sigmoid to RGB. This is much more effective than naive direct transformation

@@ -44,110 +44,66 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         )
     };
 
+    let iter;
     #[cfg(feature = "rayon")]
     {
-        dst.par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
-
-                let src_ptr = src.as_ptr() as *const f32;
-                let dst_ptr = dst.as_mut_ptr();
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src_slice = src_ptr.add(px);
-                    let r = src_slice
-                        .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned();
-                    let g = src_slice
-                        .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned();
-                    let b = src_slice
-                        .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned();
-
-                    let rgb = (Rgb::<f32>::new(
-                        r.min(1f32).max(0f32),
-                        g.min(1f32).max(0f32),
-                        b.min(1f32).max(0f32),
-                    ) * Rgb::<f32>::dup(2048f32))
-                    .round()
-                    .cast::<u16>();
-
-                    let dst = dst_ptr.add(px);
-
-                    dst.add(image_configuration.get_r_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
-                    dst.add(image_configuration.get_g_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
-                    dst.add(image_configuration.get_b_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
-
-                    if USE_ALPHA && image_configuration.has_alpha() {
-                        let a = src_slice
-                            .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned();
-                        let a_lin = (a * 255f32).round() as u8;
-                        dst.add(image_configuration.get_a_channel_offset()).write_unaligned(a_lin);
-                    }
-                }
-            });
+        iter = dst
+            .par_chunks_exact_mut(dst_stride as usize)
+            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
     }
-
     #[cfg(not(feature = "rayon"))]
     {
-        for (dst, src) in dst
+        iter = dst
             .chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.chunks_exact(src_stride as usize))
-        {
-            unsafe {
-                let mut _cx = 0usize;
+            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
+    }
 
-                let src_ptr = src.as_ptr() as *const f32;
-                let dst_ptr = dst.as_mut_ptr();
+    iter.for_each(|(dst, src)| unsafe {
+        let mut _cx = 0usize;
 
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src_slice = src_ptr.add(px);
-                    let r = src_slice
-                        .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned();
-                    let g = src_slice
-                        .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned();
-                    let b = src_slice
-                        .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned();
+        let src_ptr = src.as_ptr() as *const f32;
+        let dst_ptr = dst.as_mut_ptr();
 
-                    let rgb = (Rgb::<f32>::new(
-                        r.min(1f32).max(0f32),
-                        g.min(1f32).max(0f32),
-                        b.min(1f32).max(0f32),
-                    ) * Rgb::<f32>::dup(2048f32))
-                    .round()
-                    .cast::<u16>();
+        for x in _cx..width as usize {
+            let px = x * channels;
+            let src_slice = src_ptr.add(px);
+            let r = src_slice
+                .add(image_configuration.get_r_channel_offset())
+                .read_unaligned();
+            let g = src_slice
+                .add(image_configuration.get_g_channel_offset())
+                .read_unaligned();
+            let b = src_slice
+                .add(image_configuration.get_b_channel_offset())
+                .read_unaligned();
 
-                    let dst = dst_ptr.add(px);
+            let rgb = (Rgb::<f32>::new(
+                r.min(1f32).max(0f32),
+                g.min(1f32).max(0f32),
+                b.min(1f32).max(0f32),
+            ) * Rgb::<f32>::dup(2048f32))
+            .round()
+            .cast::<u16>();
 
-                    dst.add(image_configuration.get_r_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
-                    dst.add(image_configuration.get_g_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
-                    dst.add(image_configuration.get_b_channel_offset())
-                        .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
+            let dst = dst_ptr.add(px);
 
-                    if USE_ALPHA && image_configuration.has_alpha() {
-                        let a = src_slice
-                            .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned();
-                        let a_lin = (a * 255f32).round() as u8;
-                        dst.add(image_configuration.get_a_channel_offset()).write_unaligned(a_lin);
-                    }
-                }
+            dst.add(image_configuration.get_r_channel_offset())
+                .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
+            dst.add(image_configuration.get_g_channel_offset())
+                .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
+            dst.add(image_configuration.get_b_channel_offset())
+                .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
+
+            if USE_ALPHA && image_configuration.has_alpha() {
+                let a = src_slice
+                    .add(image_configuration.get_a_channel_offset())
+                    .read_unaligned();
+                let a_lin = (a * 255f32).round() as u8;
+                dst.add(image_configuration.get_a_channel_offset())
+                    .write_unaligned(a_lin);
             }
         }
-    }
+    });
 }
 
 /// This function converts Linear to RGB. This is much more effective than naive direct transformation

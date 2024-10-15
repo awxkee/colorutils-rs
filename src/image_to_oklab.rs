@@ -95,115 +95,66 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         )
     };
 
+    let iter;
     #[cfg(feature = "rayon")]
     {
-        dst_slice_safe_align
-            .par_chunks_exact_mut(dst_stride as usize)
-            .for_each(|dst| unsafe {
-                let mut _cx = 0usize;
-
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-                if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(_cx, width, dst_ptr, 0)
-                }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-
-                    let src = dst_ptr.add(px);
-                    let r = src
-                        .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned();
-                    let g = src
-                        .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned();
-                    let b = src
-                        .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned();
-
-                    let rgb = Rgb::<f32>::new(r, g, b);
-                    let dst_store = dst_ptr.add(px);
-
-                    match target {
-                        OklabTarget::Oklab => {
-                            let oklab = Oklab::from_linear_rgb(rgb);
-                            dst_store.write_unaligned(oklab.l);
-                            dst_store.add(1).write_unaligned(oklab.a);
-                            dst_store.add(2).write_unaligned(oklab.b);
-                        }
-                        OklabTarget::Oklch => {
-                            let oklch = Oklch::from_linear_rgb(rgb);
-                            dst_store.write_unaligned(oklch.l);
-                            dst_store.add(1).write_unaligned(oklch.c);
-                            dst_store.add(2).write_unaligned(oklch.h);
-                        }
-                    }
-
-                    if image_configuration.has_alpha() {
-                        let a = src
-                            .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned();
-                        dst_store.add(3).write_unaligned(a);
-                    }
-                }
-            });
+        iter = dst_slice_safe_align.par_chunks_exact_mut(dst_stride as usize);
     }
 
     #[cfg(not(feature = "rayon"))]
     {
-        for dst in dst_slice_safe_align.chunks_exact_mut(dst_stride as usize) {
-            unsafe {
-                let mut _cx = 0usize;
+        iter = dst_slice_safe_align.chunks_exact_mut(dst_stride as usize);
+    }
 
-                let dst_ptr = dst.as_mut_ptr() as *mut f32;
+    iter.for_each(|dst| unsafe {
+        let mut _cx = 0usize;
 
-                if let Some(dispatcher) = _wide_row_handle {
-                    _cx = dispatcher(_cx, width, dst_ptr, 0)
+        let dst_ptr = dst.as_mut_ptr() as *mut f32;
+
+        if let Some(dispatcher) = _wide_row_handle {
+            _cx = dispatcher(_cx, width, dst_ptr, 0)
+        }
+
+        for x in _cx..width as usize {
+            let px = x * channels;
+
+            let src = dst_ptr.add(px);
+            let r = src
+                .add(image_configuration.get_r_channel_offset())
+                .read_unaligned();
+            let g = src
+                .add(image_configuration.get_g_channel_offset())
+                .read_unaligned();
+            let b = src
+                .add(image_configuration.get_b_channel_offset())
+                .read_unaligned();
+
+            let rgb = Rgb::<f32>::new(r, g, b);
+            let dst_store = dst_ptr.add(px);
+
+            match target {
+                OklabTarget::Oklab => {
+                    let oklab = Oklab::from_linear_rgb(rgb);
+                    dst_store.write_unaligned(oklab.l);
+                    dst_store.add(1).write_unaligned(oklab.a);
+                    dst_store.add(2).write_unaligned(oklab.b);
                 }
-
-                for x in _cx..width as usize {
-                    let px = x * channels;
-
-                    let src = dst_ptr.add(px);
-                    let r = src
-                        .add(image_configuration.get_r_channel_offset())
-                        .read_unaligned();
-                    let g = src
-                        .add(image_configuration.get_g_channel_offset())
-                        .read_unaligned();
-                    let b = src
-                        .add(image_configuration.get_b_channel_offset())
-                        .read_unaligned();
-
-                    let rgb = Rgb::<f32>::new(r, g, b);
-                    let dst_store = dst_ptr.add(px);
-
-                    match target {
-                        OklabTarget::Oklab => {
-                            let oklab = Oklab::from_linear_rgb(rgb);
-                            dst_store.write_unaligned(oklab.l);
-                            dst_store.add(1).write_unaligned(oklab.a);
-                            dst_store.add(2).write_unaligned(oklab.b);
-                        }
-                        OklabTarget::Oklch => {
-                            let oklch = Oklch::from_linear_rgb(rgb);
-                            dst_store.write_unaligned(oklch.l);
-                            dst_store.add(1).write_unaligned(oklch.c);
-                            dst_store.add(2).write_unaligned(oklch.h);
-                        }
-                    }
-
-                    if image_configuration.has_alpha() {
-                        let a = src
-                            .add(image_configuration.get_a_channel_offset())
-                            .read_unaligned();
-                        dst_store.add(3).write_unaligned(a);
-                    }
+                OklabTarget::Oklch => {
+                    let oklch = Oklch::from_linear_rgb(rgb);
+                    dst_store.write_unaligned(oklch.l);
+                    dst_store.add(1).write_unaligned(oklch.c);
+                    dst_store.add(2).write_unaligned(oklch.h);
                 }
             }
+
+            if image_configuration.has_alpha() {
+                let a = src
+                    .add(image_configuration.get_a_channel_offset())
+                    .read_unaligned();
+                dst_store.add(3).write_unaligned(a);
+            }
         }
-    }
+    });
 }
 
 /// This function converts RGB to Oklab against D65 white point. This is much more effective than naive direct transformation

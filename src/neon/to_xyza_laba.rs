@@ -6,11 +6,11 @@
  */
 
 use crate::image::ImageConfiguration;
+use crate::load_f32_and_deinterleave;
 use crate::neon::cie::{
     neon_triple_to_lab, neon_triple_to_lch, neon_triple_to_luv, neon_triple_to_xyz,
 };
 use crate::xyz_target::XyzTarget;
-use crate::load_f32_and_deinterleave;
 use std::arch::aarch64::*;
 
 #[inline(always)]
