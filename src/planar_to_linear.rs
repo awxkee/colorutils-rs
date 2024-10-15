@@ -49,24 +49,21 @@ fn channels_to_linear(
             .zip(src.chunks_exact(src_stride as usize));
     }
 
-    dst_slice_safe_align
-        .par_chunks_exact_mut(dst_stride as usize)
-        .zip(src.par_chunks_exact(src_stride as usize))
-        .for_each(|(dst, src)| unsafe {
-            let mut _cx = 0usize;
+    iter.for_each(|(dst, src)| unsafe {
+        let mut _cx = 0usize;
 
-            let src_ptr = src.as_ptr();
-            let dst_ptr = dst.as_mut_ptr() as *mut f32;
+        let src_ptr = src.as_ptr();
+        let dst_ptr = dst.as_mut_ptr() as *mut f32;
 
-            for x in _cx..width as usize {
-                let px = x;
-                let dst = dst_ptr.add(px);
-                let src = src_ptr.add(px);
-                let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
+        for x in _cx..width as usize {
+            let px = x;
+            let dst = dst_ptr.add(px);
+            let src = src_ptr.add(px);
+            let transferred = *lut_table.get_unchecked(src.read_unaligned() as usize);
 
-                dst.write_unaligned(transferred);
-            }
-        });
+            dst.write_unaligned(transferred);
+        }
+    });
 }
 
 /// This function converts Plane to Linear. This is much more effective than naive direct transformation

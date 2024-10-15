@@ -17,7 +17,6 @@ use crate::{Rgb, Sigmoidal};
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-#[cfg(feature = "rayon")]
 use std::slice;
 
 #[allow(clippy::type_complexity)]
