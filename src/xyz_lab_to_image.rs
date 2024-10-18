@@ -80,9 +80,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 
     let mut lut_table = vec![0u8; 2049];
     for i in 0..2049 {
-        lut_table[i] = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
-            .ceil()
-            .min(255.) as u8;
+        lut_table[i] = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.).min(255.) as u8;
     }
 
     #[cfg(feature = "rayon")]
