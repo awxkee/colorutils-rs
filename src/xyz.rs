@@ -6,6 +6,7 @@
  */
 use crate::gamma_curves::TransferFunction;
 use crate::rgb::Rgb;
+use crate::utils::mlaf;
 use crate::{EuclideanDistance, Jzazbz, SRGB_TO_XYZ_D65, XYZ_TO_SRGB_D65};
 use erydanos::Euclidean3DDistance;
 use num_traits::Pow;
@@ -111,15 +112,33 @@ impl Xyz {
             let g = transfer_function.linearize(rgb.g as f32 * XYZ_SCALE_U8);
             let b = transfer_function.linearize(rgb.b as f32 * XYZ_SCALE_U8);
             Self::new(
-                (*(*matrix.get_unchecked(0)).get_unchecked(0)) * r
-                    + (*(*matrix.get_unchecked(0)).get_unchecked(1)) * g
-                    + (*(*matrix.get_unchecked(0)).get_unchecked(2)) * b,
-                (*(*matrix.get_unchecked(1)).get_unchecked(0)) * r
-                    + (*(*matrix.get_unchecked(1)).get_unchecked(1)) * g
-                    + (*(*matrix.get_unchecked(1)).get_unchecked(2)) * b,
-                (*(*matrix.get_unchecked(2)).get_unchecked(0)) * r
-                    + (*(*matrix.get_unchecked(2)).get_unchecked(1)) * g
-                    + (*(*matrix.get_unchecked(2)).get_unchecked(2)) * b,
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(0)).get_unchecked(0)) * r,
+                        *(*matrix.get_unchecked(0)).get_unchecked(1),
+                        g,
+                    ),
+                    *(*matrix.get_unchecked(0)).get_unchecked(2),
+                    b,
+                ),
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(1)).get_unchecked(0)) * r,
+                        *(*matrix.get_unchecked(1)).get_unchecked(1),
+                        g,
+                    ),
+                    *(*matrix.get_unchecked(1)).get_unchecked(2),
+                    b,
+                ),
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(2)).get_unchecked(0)) * r,
+                        *(*matrix.get_unchecked(2)).get_unchecked(1),
+                        g,
+                    ),
+                    *(*matrix.get_unchecked(2)).get_unchecked(2),
+                    b,
+                ),
             )
         }
     }
@@ -132,15 +151,33 @@ impl Xyz {
     pub fn from_linear_rgb(rgb: Rgb<f32>, matrix: &[[f32; 3]; 3]) -> Self {
         unsafe {
             Self::new(
-                (*(*matrix.get_unchecked(0)).get_unchecked(0)) * rgb.r
-                    + (*(*matrix.get_unchecked(0)).get_unchecked(1)) * rgb.g
-                    + (*(*matrix.get_unchecked(0)).get_unchecked(2)) * rgb.b,
-                (*(*matrix.get_unchecked(1)).get_unchecked(0)) * rgb.r
-                    + (*(*matrix.get_unchecked(1)).get_unchecked(1)) * rgb.g
-                    + (*(*matrix.get_unchecked(1)).get_unchecked(2)) * rgb.b,
-                (*(*matrix.get_unchecked(2)).get_unchecked(0)) * rgb.r
-                    + (*(*matrix.get_unchecked(2)).get_unchecked(1)) * rgb.g
-                    + (*(*matrix.get_unchecked(2)).get_unchecked(2)) * rgb.b,
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(0)).get_unchecked(0)) * rgb.r,
+                        *(*matrix.get_unchecked(0)).get_unchecked(1),
+                        rgb.g,
+                    ),
+                    *(*matrix.get_unchecked(0)).get_unchecked(2),
+                    rgb.b,
+                ),
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(1)).get_unchecked(0)) * rgb.r,
+                        *(*matrix.get_unchecked(1)).get_unchecked(1),
+                        rgb.g,
+                    ),
+                    *(*matrix.get_unchecked(1)).get_unchecked(2),
+                    rgb.b,
+                ),
+                mlaf(
+                    mlaf(
+                        (*(*matrix.get_unchecked(2)).get_unchecked(0)) * rgb.r,
+                        *(*matrix.get_unchecked(2)).get_unchecked(1),
+                        rgb.g,
+                    ),
+                    *(*matrix.get_unchecked(2)).get_unchecked(2),
+                    rgb.b,
+                ),
             )
         }
     }
@@ -172,15 +209,33 @@ impl Xyz {
         let y = self.y;
         let z = self.z;
         unsafe {
-            let r = x * (*(*matrix.get_unchecked(0)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(0)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(0)).get_unchecked(2));
-            let g = x * (*(*matrix.get_unchecked(1)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(1)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(1)).get_unchecked(2));
-            let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
+            let r = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(0)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(0)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(0)).get_unchecked(2),
+            );
+            let g = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(1)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(1)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(1)).get_unchecked(2),
+            );
+            let b = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(2)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(2)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(2)).get_unchecked(2),
+            );
             Rgb::<f32>::new(
                 transfer_function.gamma(r),
                 transfer_function.gamma(g),
@@ -199,15 +254,33 @@ impl Xyz {
         let y = self.y;
         let z = self.z;
         unsafe {
-            let r = x * (*(*matrix.get_unchecked(0)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(0)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(0)).get_unchecked(2));
-            let g = x * (*(*matrix.get_unchecked(1)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(1)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(1)).get_unchecked(2));
-            let b = x * (*(*matrix.get_unchecked(2)).get_unchecked(0))
-                + y * (*(*matrix.get_unchecked(2)).get_unchecked(1))
-                + z * (*(*matrix.get_unchecked(2)).get_unchecked(2));
+            let r = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(0)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(0)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(0)).get_unchecked(2),
+            );
+            let g = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(1)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(1)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(1)).get_unchecked(2),
+            );
+            let b = mlaf(
+                mlaf(
+                    x * (*(*matrix.get_unchecked(2)).get_unchecked(0)),
+                    y,
+                    *(*matrix.get_unchecked(2)).get_unchecked(1),
+                ),
+                z,
+                *(*matrix.get_unchecked(2)).get_unchecked(2),
+            );
             Rgb::<f32>::new(r, g, b)
         }
     }

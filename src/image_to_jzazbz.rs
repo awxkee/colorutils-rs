@@ -73,8 +73,8 @@ fn channels_to_jzaz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     };
 
     let mut lut_table = vec![0f32; 256];
-    for i in 0..256 {
-        lut_table[i] = transfer_function.linearize(i as f32 * (1. / 255.0));
+    for (i, table) in lut_table.iter_mut().enumerate() {
+        *table = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
 
     let iter;

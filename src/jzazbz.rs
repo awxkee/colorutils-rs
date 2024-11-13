@@ -4,6 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+use crate::utils::mlaf;
 use crate::{
     EuclideanDistance, Jzczhz, Rgb, TaxicabDistance, TransferFunction, Xyz, SRGB_TO_XYZ_D65,
     XYZ_TO_SRGB_D65,
@@ -91,18 +92,24 @@ impl Jzazbz {
     #[inline]
     pub fn from_xyz_with_display_luminance(xyz: Xyz, display_luminance: f32) -> Jzazbz {
         let abs_xyz = xyz.to_absolute_luminance(display_luminance);
-        let lp = perceptual_quantizer(
-            0.674207838 * abs_xyz.x + 0.382799340 * abs_xyz.y - 0.047570458 * abs_xyz.z,
-        );
-        let mp = perceptual_quantizer(
-            0.149284160 * abs_xyz.x + 0.739628340 * abs_xyz.y + 0.083327300 * abs_xyz.z,
-        );
-        let sp = perceptual_quantizer(
-            0.070941080 * abs_xyz.x + 0.174768000 * abs_xyz.y + 0.670970020 * abs_xyz.z,
-        );
+        let lp = perceptual_quantizer(mlaf(
+            mlaf(0.674207838 * abs_xyz.x, 0.382799340, abs_xyz.y),
+            -0.047570458,
+            abs_xyz.z,
+        ));
+        let mp = perceptual_quantizer(mlaf(
+            mlaf(0.149284160 * abs_xyz.x, 0.739628340, abs_xyz.y),
+            0.083327300,
+            abs_xyz.z,
+        ));
+        let sp = perceptual_quantizer(mlaf(
+            mlaf(0.070941080 * abs_xyz.x, 0.174768000, abs_xyz.y),
+            0.670970020,
+            abs_xyz.z,
+        ));
         let iz = 0.5 * (lp + mp);
-        let az = 3.524000 * lp - 4.066708 * mp + 0.542708 * sp;
-        let bz = 0.199076 * lp + 1.096799 * mp - 1.295875 * sp;
+        let az = mlaf(mlaf(3.524000 * lp, -4.066708, mp), 0.542708, sp);
+        let bz = mlaf(mlaf(0.199076 * lp, 1.096799, mp), -1.295875, sp);
         let jz = (0.44 * iz) / (1. - 0.56 * iz) - 1.6295499532821566e-11;
         Jzazbz::new_with_luminance(jz, az, bz, display_luminance)
     }
@@ -139,18 +146,36 @@ impl Jzazbz {
         let jz = self.jz + 1.6295499532821566e-11;
 
         let iz = jz / (0.44f32 + 0.56f32 * jz);
-        let l = perceptual_quantizer_inverse(
-            iz + 1.386050432715393e-1 * self.az + 5.804731615611869e-2 * self.bz,
+        let l = perceptual_quantizer_inverse(mlaf(
+            mlaf(iz, 1.386050432715393e-1, self.az),
+            5.804731615611869e-2,
+            self.bz,
+        ));
+        let m = perceptual_quantizer_inverse(mlaf(
+            mlaf(iz, -1.386050432715393e-1, self.az),
+            -5.804731615611891e-2,
+            self.bz,
+        ));
+        let s = perceptual_quantizer_inverse(mlaf(
+            mlaf(iz, -9.601924202631895e-2, self.az),
+            -8.118918960560390e-1,
+            self.bz,
+        ));
+        let x = mlaf(
+            mlaf(1.661373055774069e+00 * l, -9.145230923250668e-01, m),
+            2.313620767186147e-01,
+            s,
         );
-        let m = perceptual_quantizer_inverse(
-            iz - 1.386050432715393e-1 * self.az - 5.804731615611891e-2 * self.bz,
+        let y = mlaf(
+            mlaf(-3.250758740427037e-01 * l, 1.571847038366936e+00, m),
+            -2.182538318672940e-01,
+            s,
         );
-        let s = perceptual_quantizer_inverse(
-            iz - 9.601924202631895e-2 * self.az - 8.118918960560390e-1 * self.bz,
+        let z = mlaf(
+            mlaf(-9.098281098284756e-02 * l, -3.127282905230740e-01, m),
+            1.522766561305260e+00,
+            s,
         );
-        let x = 1.661373055774069e+00 * l - 9.145230923250668e-01 * m + 2.313620767186147e-01 * s;
-        let y = -3.250758740427037e-01 * l + 1.571847038366936e+00 * m - 2.182538318672940e-01 * s;
-        let z = -9.098281098284756e-02 * l - 3.127282905230740e-01 * m + 1.522766561305260e+00 * s;
         Xyz::new(x, y, z).to_relative_luminance(self.display_luminance)
     }
 

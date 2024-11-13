@@ -4,6 +4,8 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+#[allow(clippy::excessive_precision)]
+use crate::utils::mlaf;
 use crate::{EuclideanDistance, Rgb, TaxicabDistance, TransferFunction};
 use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -80,36 +82,84 @@ impl Oklab {
 
     #[inline]
     fn linear_rgb_to_oklab(rgb: Rgb<f32>) -> Oklab {
-        let l = 0.4122214708f32 * rgb.r + 0.5363325363f32 * rgb.g + 0.0514459929f32 * rgb.b;
-        let m = 0.2119034982f32 * rgb.r + 0.6806995451f32 * rgb.g + 0.1073969566f32 * rgb.b;
-        let s = 0.0883024619f32 * rgb.r + 0.2817188376f32 * rgb.g + 0.6299787005f32 * rgb.b;
+        let l = mlaf(
+            mlaf(0.4122214708f32 * rgb.r, 0.5363325363f32, rgb.g),
+            0.0514459929f32,
+            rgb.b,
+        );
+        let m = mlaf(
+            mlaf(0.2119034982f32 * rgb.r, 0.6806995451f32, rgb.g),
+            0.1073969566f32,
+            rgb.b,
+        );
+        let s = mlaf(
+            mlaf(0.0883024619f32 * rgb.r, 0.2817188376f32, rgb.g),
+            0.6299787005f32,
+            rgb.b,
+        );
 
         let l_ = l.cbrt();
         let m_ = m.cbrt();
         let s_ = s.cbrt();
 
         Oklab {
-            l: 0.2104542553f32 * l_ + 0.7936177850f32 * m_ - 0.0040720468f32 * s_,
-            a: 1.9779984951f32 * l_ - 2.4285922050f32 * m_ + 0.4505937099f32 * s_,
-            b: 0.0259040371f32 * l_ + 0.7827717662f32 * m_ - 0.8086757660f32 * s_,
+            l: mlaf(
+                mlaf(0.2104542553f32 * l_, 0.7936177850f32, m_),
+                -0.0040720468f32,
+                s_,
+            ),
+            a: mlaf(
+                mlaf(1.9779984951f32 * l_, -2.4285922050f32, m_),
+                0.4505937099f32,
+                s_,
+            ),
+            b: mlaf(
+                mlaf(0.0259040371f32 * l_, 0.7827717662f32, m_),
+                -0.8086757660f32,
+                s_,
+            ),
         }
     }
 
     #[inline]
     /// Converts to linear RGB
     pub fn to_linear_rgb(&self) -> Rgb<f32> {
-        let l_ = self.l + 0.3963377774f32 * self.a + 0.2158037573f32 * self.b;
-        let m_ = self.l - 0.1055613458f32 * self.a - 0.0638541728f32 * self.b;
-        let s_ = self.l - 0.0894841775f32 * self.a - 1.2914855480f32 * self.b;
+        let l_ = mlaf(
+            mlaf(self.l, 0.3963377774f32, self.a),
+            0.2158037573f32,
+            self.b,
+        );
+        let m_ = mlaf(
+            mlaf(self.l, -0.1055613458f32, self.a),
+            -0.0638541728f32,
+            self.b,
+        );
+        let s_ = mlaf(
+            mlaf(self.l, -0.0894841775f32, self.a),
+            -1.2914855480f32,
+            self.b,
+        );
 
         let l = l_ * l_ * l_;
         let m = m_ * m_ * m_;
         let s = s_ * s_ * s_;
 
         Rgb::new(
-            4.0767416621f32 * l - 3.3077115913f32 * m + 0.2309699292f32 * s,
-            -1.2684380046f32 * l + 2.6097574011f32 * m - 0.3413193965f32 * s,
-            -0.0041960863f32 * l - 0.7034186147f32 * m + 1.7076147010f32 * s,
+            mlaf(
+                mlaf(4.0767416621f32 * l, -3.3077115913f32, m),
+                0.2309699292f32,
+                s,
+            ),
+            mlaf(
+                mlaf(-1.2684380046f32 * l, 2.6097574011f32, m),
+                -0.3413193965f32,
+                s,
+            ),
+            mlaf(
+                mlaf(-0.0041960863f32 * l, -0.7034186147f32, m),
+                1.7076147010f32,
+                s,
+            ),
         )
     }
 

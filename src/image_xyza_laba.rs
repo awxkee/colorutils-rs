@@ -54,8 +54,8 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     let channels = image_configuration.get_channels_count();
 
     let mut lut_table = vec![0f32; 256];
-    for i in 0..256 {
-        lut_table[i] = transfer_function.linearize(i as f32 * (1. / 255.0));
+    for (i, lut) in lut_table.iter_mut().enumerate() {
+        *lut = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
 
     let dst_slice_safe_align = unsafe {

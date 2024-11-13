@@ -68,7 +68,7 @@ fn main() {
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
-        rgba_to_lalphabeta(
+        rgba_to_oklab(
             src_bytes,
             src_stride,
             &mut lab_store,
@@ -103,7 +103,7 @@ fn main() {
         // }
 
         let start_time = Instant::now();
-        lalphabeta_to_rgba(
+        oklab_to_rgba(
             &lab_store,
             store_stride as u32,
             &mut dst_slice,
