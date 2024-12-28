@@ -101,8 +101,7 @@ pub unsafe fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
     );
 
     while cx + 8 < width as usize {
-        let offset_src_ptr =
-            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
 
         let src_ptr_0 = offset_src_ptr;
 
