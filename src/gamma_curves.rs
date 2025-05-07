@@ -258,15 +258,14 @@ pub fn hlg_to_linear(gamma: f32) -> f32 {
     if gamma < 0.0 {
         return 0.0;
     }
-    let linear;
-    if gamma <= 0.5 {
-        linear = f32::powf((gamma * gamma) * (1.0 / 3.0), 1.2);
+    let linear = if gamma <= 0.5 {
+        f32::powf((gamma * gamma) * (1.0 / 3.0), 1.2)
     } else {
-        linear = f32::powf(
+        f32::powf(
             (f32::exp((gamma - 0.55991073) / 0.17883277) + 0.28466892) / 12.0,
             1.2,
-        );
-    }
+        )
+    };
     // Scale so that SDR white is 1.0 (extended SDR).
     linear * HLG_WHITE_NITS / SDR_WHITE_NITS
 }

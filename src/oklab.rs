@@ -4,7 +4,7 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
-#[allow(clippy::excessive_precision)]
+#![allow(clippy::excessive_precision)]
 use crate::utils::mlaf;
 use crate::{EuclideanDistance, Rgb, TaxicabDistance, TransferFunction};
 use num_traits::Pow;
