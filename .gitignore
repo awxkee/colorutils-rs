@@ -4,3 +4,4 @@ src/app/target
 /converted.jpg
 /converted.png
 .DS_Store
+Cargo.lock
