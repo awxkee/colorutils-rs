@@ -21,11 +21,11 @@ mod xyz_lab_to_image;
 mod xyza_laba_to_image;
 
 pub use from_sigmoidal::avx_from_sigmoidal_row;
-pub use image_to_oklab::avx_image_to_oklab;
+pub(crate) use image_to_oklab::avx_image_to_oklab;
 pub use math::*;
-pub use oklab_to_image::avx_oklab_to_image;
+pub(crate) use oklab_to_image::avx_oklab_to_image;
 pub use support::*;
-pub use to_sigmoidal::avx_image_to_sigmoidal_row;
+pub(crate) use to_sigmoidal::avx_image_to_sigmoidal_row;
 pub use to_xyz_lab::*;
 pub use utils::*;
 pub use xyz_lab_to_image::*;

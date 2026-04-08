@@ -130,42 +130,42 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
 
             let l_a = src_ptr.add(px + 3).read_unaligned();
             let dst = transient_row.get_unchecked_mut((x * channels)..);
-            *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-            *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-            *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-            *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
+            *dst.get_unchecked_mut(image_configuration.r_index()) = rgb.r;
+            *dst.get_unchecked_mut(image_configuration.g_index()) = rgb.g;
+            *dst.get_unchecked_mut(image_configuration.b_index()) = rgb.b;
+            *dst.get_unchecked_mut(image_configuration.a_index()) = l_a;
         }
 
         for (dst_chunk, src_chunks) in dst
             .chunks_exact_mut(channels)
             .zip(transient_row.chunks_exact(channels))
         {
-            let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
+            let r_cast = (src_chunks[image_configuration.r_index()]
                 .min(1.)
                 .max(0.)
                 * 2048f32)
                 .round();
-            let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
+            let g_cast = (src_chunks[image_configuration.g_index()]
                 .min(1.)
                 .max(0.)
                 * 2048f32)
                 .round();
-            let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
+            let b_cast = (src_chunks[image_configuration.b_index()]
                 .min(1.)
                 .max(0.)
                 * 2048f32)
                 .round();
-            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()] * 255.)
+            let a_cast = (src_chunks[image_configuration.a_index()] * 255.)
                 .min(255.)
                 .max(0.) as u8;
 
-            dst_chunk[image_configuration.get_r_channel_offset()] =
+            dst_chunk[image_configuration.r_index()] =
                 *lut_table.get_unchecked(r_cast as usize);
-            dst_chunk[image_configuration.get_g_channel_offset()] =
+            dst_chunk[image_configuration.g_index()] =
                 *lut_table.get_unchecked(g_cast as usize);
-            dst_chunk[image_configuration.get_b_channel_offset()] =
+            dst_chunk[image_configuration.b_index()] =
                 *lut_table.get_unchecked(b_cast as usize);
-            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
+            dst_chunk[image_configuration.a_index()] = a_cast;
         }
     });
 }

@@ -63,12 +63,10 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
 ) -> usize {
     let target: OklabTarget = TARGET.into();
@@ -100,8 +98,8 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm_set1_ps(1.7076147010f32),
     );
 
-    while cx + 4 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let offset_src_ptr = src.get_unchecked(cx * channels..).as_ptr();
 
         let src_ptr_0 = offset_src_ptr;
 
@@ -110,7 +108,7 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
             c8,
         );
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
+        let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
 
         if image_configuration.has_alpha() {
             store_and_interleave_v4_f32!(

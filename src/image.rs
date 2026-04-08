@@ -31,7 +31,7 @@ impl ImageConfiguration {
     }
 
     #[inline(always)]
-    pub const fn get_r_channel_offset(&self) -> usize {
+    pub const fn r_index(&self) -> usize {
         match self {
             ImageConfiguration::Rgb => 0,
             ImageConfiguration::Rgba => 0,
@@ -40,7 +40,7 @@ impl ImageConfiguration {
     }
 
     #[inline(always)]
-    pub const fn get_g_channel_offset(&self) -> usize {
+    pub const fn g_index(&self) -> usize {
         match self {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => 1,
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => 1,
@@ -48,7 +48,7 @@ impl ImageConfiguration {
     }
 
     #[inline(always)]
-    pub const fn get_b_channel_offset(&self) -> usize {
+    pub const fn b_index(&self) -> usize {
         match self {
             ImageConfiguration::Rgb => 2,
             ImageConfiguration::Rgba => 2,
@@ -56,7 +56,7 @@ impl ImageConfiguration {
         }
     }
     #[inline(always)]
-    pub const fn get_a_channel_offset(&self) -> usize {
+    pub const fn a_index(&self) -> usize {
         match self {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => 0,
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => 3,

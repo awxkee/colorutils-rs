@@ -66,13 +66,13 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
             let px = x * channels;
             let src_slice = src_ptr.add(px);
             let r = src_slice
-                .add(image_configuration.get_r_channel_offset())
+                .add(image_configuration.r_index())
                 .read_unaligned();
             let g = src_slice
-                .add(image_configuration.get_g_channel_offset())
+                .add(image_configuration.g_index())
                 .read_unaligned();
             let b = src_slice
-                .add(image_configuration.get_b_channel_offset())
+                .add(image_configuration.b_index())
                 .read_unaligned();
 
             let rgb = (Rgb::<f32>::new(
@@ -85,19 +85,19 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
 
             let dst = dst_ptr.add(px);
 
-            dst.add(image_configuration.get_r_channel_offset())
+            dst.add(image_configuration.r_index())
                 .write_unaligned(*lut_table.get_unchecked(rgb.r.min(2048) as usize));
-            dst.add(image_configuration.get_g_channel_offset())
+            dst.add(image_configuration.g_index())
                 .write_unaligned(*lut_table.get_unchecked(rgb.g.min(2048) as usize));
-            dst.add(image_configuration.get_b_channel_offset())
+            dst.add(image_configuration.b_index())
                 .write_unaligned(*lut_table.get_unchecked(rgb.b.min(2048) as usize));
 
             if USE_ALPHA && image_configuration.has_alpha() {
                 let a = src_slice
-                    .add(image_configuration.get_a_channel_offset())
+                    .add(image_configuration.a_index())
                     .read_unaligned();
                 let a_lin = (a * 255f32).round() as u8;
-                dst.add(image_configuration.get_a_channel_offset())
+                dst.add(image_configuration.a_index())
                     .write_unaligned(a_lin);
             }
         }

@@ -17,14 +17,14 @@ use crate::image::ImageConfiguration;
 use crate::{avx_store_and_interleave_v3_f32, avx_store_and_interleave_v4_f32};
 
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx_image_to_sigmoidal_row<
+pub(crate) unsafe fn avx_image_to_sigmoidal_row<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
 >(
     start_cx: usize,
-    src: *const u8,
+    src: &[u8],
+    dst: &mut [f32],
     width: u32,
-    dst: *mut f32,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
@@ -34,10 +34,8 @@ pub unsafe fn avx_image_to_sigmoidal_row<
 
     let channels = image_configuration.get_channels_count();
 
-    let dst_ptr = (dst as *mut u8) as *mut f32;
-
-    while cx + 32 < width as usize {
-        let src_ptr = src.add(cx * channels);
+    while cx + 32 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             avx_vld_u8_and_deinterleave::<CHANNELS_CONFIGURATION>(src_ptr);
 
@@ -61,7 +59,7 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 u8_scale,
             );
 
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             avx_store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -71,7 +69,7 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 a_low_low
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             avx_store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -94,7 +92,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 u8_scale,
             );
 
-            let ptr = dst_ptr.add(cx * channels + 8 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels..)
+                .as_mut_ptr();
             avx_store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -104,7 +104,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 a_low_high
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 8 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels..)
+                .as_mut_ptr();
             avx_store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -133,7 +135,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 u8_scale,
             );
 
-            let ptr = dst_ptr.add(cx * channels + 8 * channels * 2);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels * 2..)
+                .as_mut_ptr();
             avx_store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -143,7 +147,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 a_high_low
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 8 * channels * 2);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels * 2..)
+                .as_mut_ptr();
             avx_store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -166,7 +172,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 u8_scale,
             );
 
-            let ptr = dst_ptr.add(cx * channels + 8 * channels * 3);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels * 3..)
+                .as_mut_ptr();
             avx_store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -176,7 +184,9 @@ pub unsafe fn avx_image_to_sigmoidal_row<
                 a_high_high
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 8 * channels * 3);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels * 3..)
+                .as_mut_ptr();
             avx_store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,

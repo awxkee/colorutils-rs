@@ -98,11 +98,11 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
 
             let dst = dst_ptr.add(hx);
 
-            dst.add(image_configuration.get_r_channel_offset())
+            dst.add(image_configuration.r_index())
                 .write_unaligned(rgb.r);
-            dst.add(image_configuration.get_g_channel_offset())
+            dst.add(image_configuration.g_index())
                 .write_unaligned(rgb.g);
-            dst.add(image_configuration.get_b_channel_offset())
+            dst.add(image_configuration.b_index())
                 .write_unaligned(rgb.b);
 
             if image_configuration.has_alpha() {
@@ -110,7 +110,7 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
                     .max(0f32)
                     .round()
                     .min(255f32);
-                dst.add(image_configuration.get_a_channel_offset())
+                dst.add(image_configuration.a_index())
                     .write_unaligned(a as u8);
             }
         }

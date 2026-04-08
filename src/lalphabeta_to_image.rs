@@ -67,13 +67,13 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
             let rgb = lalphabeta.to_linear_rgb(&XYZ_TO_SRGB_D65);
 
             let dst = transient_row.get_unchecked_mut((x * channels)..);
-            *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-            *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-            *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
+            *dst.get_unchecked_mut(image_configuration.r_index()) = rgb.r;
+            *dst.get_unchecked_mut(image_configuration.g_index()) = rgb.g;
+            *dst.get_unchecked_mut(image_configuration.b_index()) = rgb.b;
             if image_configuration.has_alpha() {
                 let l_a = src_ptr.add(px + 3).read_unaligned();
                 let a_value = (l_a * 255f32).max(0f32).round();
-                *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = a_value;
+                *dst.get_unchecked_mut(image_configuration.a_index()) = a_value;
             }
         }
 
@@ -81,9 +81,9 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
             .chunks_exact_mut(channels)
             .zip(transient_row.chunks_exact(channels))
         {
-            let r = src[image_configuration.get_r_channel_offset()];
-            let g = src[image_configuration.get_g_channel_offset()];
-            let b = src[image_configuration.get_b_channel_offset()];
+            let r = src[image_configuration.r_index()];
+            let g = src[image_configuration.g_index()];
+            let b = src[image_configuration.b_index()];
 
             let rgb = (Rgb::<f32>::new(
                 r.min(1f32).max(0f32),
@@ -93,15 +93,15 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
             .round()
             .cast::<u16>();
 
-            *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) =
+            *dst.get_unchecked_mut(image_configuration.r_index()) =
                 *lut_table.get_unchecked(rgb.r.min(2048) as usize);
-            *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) =
+            *dst.get_unchecked_mut(image_configuration.g_index()) =
                 *lut_table.get_unchecked(rgb.g.min(2048) as usize);
-            *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) =
+            *dst.get_unchecked_mut(image_configuration.b_index()) =
                 *lut_table.get_unchecked(rgb.b.min(2048) as usize);
             if image_configuration.has_alpha() {
-                *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) =
-                    *src.get_unchecked(image_configuration.get_a_channel_offset()) as u8;
+                *dst.get_unchecked_mut(image_configuration.a_index()) =
+                    *src.get_unchecked(image_configuration.a_index()) as u8;
             }
         }
     });

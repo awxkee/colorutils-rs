@@ -73,7 +73,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
             Some(avx2_image_to_xyz_lab::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let mut lut_table = vec![0f32; 256];
+    let mut lut_table = [0f32; 256];
     for (i, lut) in lut_table.iter_mut().enumerate() {
         *lut = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
@@ -108,20 +108,20 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.r_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                                src_chunks[image_configuration.r_index()] as usize,
                             );
-                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.g_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                                src_chunks[image_configuration.g_index()] as usize,
                             );
-                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.b_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                                src_chunks[image_configuration.b_index()] as usize,
                             );
-                        dst_chunk[image_configuration.get_a_channel_offset()] =
-                            src_chunks[image_configuration.get_a_channel_offset()] as f32
+                        dst_chunk[image_configuration.a_index()] =
+                            src_chunks[image_configuration.a_index()] as f32
                                 * (1. / 255.0);
                     }
 
@@ -144,9 +144,9 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                     for x in _cx..width as usize {
                         let px = x * channels;
                         let src = transient_row.get_unchecked(px..);
-                        let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
-                        let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
-                        let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
+                        let r = *src.get_unchecked(image_configuration.r_index());
+                        let g = *src.get_unchecked(image_configuration.g_index());
+                        let b = *src.get_unchecked(image_configuration.b_index());
 
                         let rgb = Rgb::<f32>::new(r, g, b);
                         let ptr = dst_ptr.add(x * 3);
@@ -181,7 +181,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         }
 
                         if USE_ALPHA && image_configuration.has_alpha() {
-                            let a = *src.get_unchecked(image_configuration.get_a_channel_offset());
+                            let a = *src.get_unchecked(image_configuration.a_index());
                             let a_ptr = a_channel.as_mut_ptr() as *mut f32;
                             a_ptr.add(x).write_unaligned(a);
                         }
@@ -200,17 +200,17 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(src.chunks_exact(channels))
                     {
-                        dst_chunk[image_configuration.get_r_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.r_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_r_channel_offset()] as usize,
+                                src_chunks[image_configuration.r_index()] as usize,
                             );
-                        dst_chunk[image_configuration.get_g_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.g_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_g_channel_offset()] as usize,
+                                src_chunks[image_configuration.g_index()] as usize,
                             );
-                        dst_chunk[image_configuration.get_b_channel_offset()] = *lut_table
+                        dst_chunk[image_configuration.b_index()] = *lut_table
                             .get_unchecked(
-                                src_chunks[image_configuration.get_b_channel_offset()] as usize,
+                                src_chunks[image_configuration.b_index()] as usize,
                             );
                     }
 
@@ -233,9 +233,9 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                     for x in _cx..width as usize {
                         let px = x * channels;
                         let src = transient_row.get_unchecked(px..);
-                        let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
-                        let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
-                        let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
+                        let r = *src.get_unchecked(image_configuration.r_index());
+                        let g = *src.get_unchecked(image_configuration.g_index());
+                        let b = *src.get_unchecked(image_configuration.b_index());
 
                         let rgb = Rgb::<f32>::new(r, g, b);
                         let ptr = dst_ptr.add(x * 3);

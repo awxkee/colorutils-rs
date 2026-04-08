@@ -90,13 +90,13 @@ fn channels_to_hsv_u16<
                     let px = x * channels;
                     let src = src_ptr.add(px);
                     let r = src
-                        .add(image_configuration.get_r_channel_offset())
+                        .add(image_configuration.r_index())
                         .read_unaligned();
                     let g = src
-                        .add(image_configuration.get_g_channel_offset())
+                        .add(image_configuration.g_index())
                         .read_unaligned();
                     let b = src
-                        .add(image_configuration.get_b_channel_offset())
+                        .add(image_configuration.b_index())
                         .read_unaligned();
 
                     let rgb = Rgb::<u8>::new(r, g, b);
@@ -121,7 +121,7 @@ fn channels_to_hsv_u16<
 
                     if image_configuration.has_alpha() {
                         let a = src
-                            .add(image_configuration.get_a_channel_offset())
+                            .add(image_configuration.a_index())
                             .read_unaligned();
                         dst.add(3).write_unaligned(a as u16);
                     }

@@ -21,14 +21,14 @@ use crate::{
 };
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_image_to_sigmoidal_row<
+pub(crate) unsafe fn sse_image_to_sigmoidal_row<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
 >(
     start_cx: usize,
-    src: *const u8,
+    src: &[u8],
+    dst: &mut [f32],
     width: u32,
-    dst: *mut f32,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
@@ -38,10 +38,8 @@ pub unsafe fn sse_image_to_sigmoidal_row<
 
     let channels = image_configuration.get_channels_count();
 
-    let dst_ptr = (dst as *mut u8) as *mut f32;
-
-    while cx + 16 < width as usize {
-        let src_ptr = src.add(cx * channels);
+    while cx + 16 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave!(src_ptr, image_configuration);
 
@@ -63,7 +61,7 @@ pub unsafe fn sse_image_to_sigmoidal_row<
 
         if USE_ALPHA {
             let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -73,7 +71,7 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_low_low
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v3_f32!(ptr, image_configuration, x_low_low, y_low_low, z_low_low);
         }
 
@@ -87,7 +85,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
         if USE_ALPHA {
             let a_low_high =
                 _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
-            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -97,7 +97,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_low_high
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -122,7 +124,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
 
         if USE_ALPHA {
             let a_high_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_high)), u8_scale);
-            let ptr = dst_ptr.add(cx * channels + 4 * channels * 2);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels * 2..)
+                .as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -132,7 +136,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_high_low
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 4 * channels * 2);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels * 2..)
+                .as_mut_ptr();
             store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -154,7 +160,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 _mm_cvtepi32_ps(_mm_unpackhi_epi16(a_high, _mm_setzero_si128())),
                 u8_scale,
             );
-            let ptr = dst_ptr.add(cx * channels + 4 * channels * 3);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels * 3..)
+                .as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -164,7 +172,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_high_high
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 4 * channels * 3);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels * 3..)
+                .as_mut_ptr();
             store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,
@@ -178,7 +188,7 @@ pub unsafe fn sse_image_to_sigmoidal_row<
     }
 
     while cx + 8 < width as usize {
-        let src_ptr = src.add(cx * channels);
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave_half!(src_ptr, image_configuration);
 
@@ -200,7 +210,7 @@ pub unsafe fn sse_image_to_sigmoidal_row<
 
         if USE_ALPHA {
             let a_low_low = _mm_mul_ps(_mm_cvtepi32_ps(_mm_cvtepi16_epi32(a_low)), u8_scale);
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -210,7 +220,7 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_low_low
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v3_f32!(ptr, image_configuration, x_low_low, y_low_low, z_low_low);
         }
 
@@ -224,7 +234,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
         if USE_ALPHA {
             let a_low_high =
                 _mm_mul_ps(_mm_cvtepi32_ps(_mm_unpackhi_epi16(a_low, zeros)), u8_scale);
-            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v4_f32!(
                 ptr,
                 image_configuration,
@@ -234,7 +246,9 @@ pub unsafe fn sse_image_to_sigmoidal_row<
                 a_low_high
             );
         } else {
-            let ptr = dst_ptr.add(cx * channels + 4 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 4 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v3_f32!(
                 ptr,
                 image_configuration,

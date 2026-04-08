@@ -5,145 +5,193 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::*;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::*;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use std::arch::aarch64::*;
-#[cfg(target_arch = "x86")]
-#[allow(unused_imports)]
-use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-#[allow(unused_imports)]
-use std::arch::x86_64::*;
+use crate::{ColorError, ImageBuffer, ImageBufferMut};
 
 /// Adds alpha plane into an existing RGB/XYZ/LAB or other 3 plane image. Image will become RGBA, XYZa, LABa etc.
 pub fn append_alpha(
-    dst: &mut [f32],
-    dst_stride: u32,
-    src: &[f32],
-    src_stride: u32,
-    a_plane: &[f32],
-    a_stride: u32,
-    width: u32,
-    height: u32,
-) {
-    let mut dst_offset = 0usize;
-    let mut src_offset = 0usize;
-    let mut a_offset = 0usize;
-
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut _use_sse = std::arch::is_x86_feature_detected!("sse4.1");
-
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let mut _use_avx = std::arch::is_x86_feature_detected!("avx2");
-
-    for _ in 0..height {
-        let mut _cx = 0usize;
-
-        let src_ptr = unsafe { (src.as_ptr() as *const u8).add(src_offset) as *const f32 };
-        let a_ptr = unsafe { (a_plane.as_ptr() as *const u8).add(a_offset) as *const f32 };
-        let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut f32 };
-
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        unsafe {
-            if _use_avx {
-                concat_alpha_avx(width, _cx, src_ptr, a_ptr, dst_ptr);
-            }
-        }
-
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        unsafe {
-            if _use_sse {
-                concat_alpha_sse(width, _cx, src_ptr, a_ptr, dst_ptr);
-            }
-        }
-
-        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-        unsafe {
-            while _cx + 4 < width as usize {
-                let xyz_pixel = vld3q_f32(src_ptr.add(_cx * 3usize));
-                let a_pixel = vld1q_f32(a_ptr.add(_cx));
-                let dst_pixel = float32x4x4_t(xyz_pixel.0, xyz_pixel.1, xyz_pixel.2, a_pixel);
-                vst4q_f32(dst_ptr.add(_cx * 4), dst_pixel);
-                _cx += 4;
-            }
-        }
-
-        for x in _cx..width as usize {
-            unsafe {
-                let px = x * 4;
-                let s_x = x * 3;
-                let dst = dst_ptr.add(px);
-                let src = src_ptr.add(s_x);
-                dst.write_unaligned(src.read_unaligned());
-                dst.add(1).write_unaligned(src.add(1).read_unaligned());
-                dst.add(2).write_unaligned(src.add(2).read_unaligned());
-                dst.add(3).write_unaligned(a_ptr.add(x).read_unaligned());
-            }
-        }
-
-        dst_offset += dst_stride as usize;
-        a_offset += a_stride as usize;
-        src_offset += src_stride as usize;
+    src: &ImageBuffer<f32>,
+    dst: &mut ImageBufferMut<f32>,
+    a_plane: &ImageBuffer<f32>,
+) -> Result<(), ColorError> {
+    src.validate()?;
+    dst.validate()?;
+    a_plane.validate()?;
+    if src.channels != 3 {
+        return Err(ColorError::Generic(
+            "We can add alpha only to 3 channels image".to_string(),
+        ));
     }
+    if dst.channels != 4 {
+        return Err(ColorError::Generic(
+            "Dst image should be 4 channels".to_string(),
+        ));
+    }
+    if a_plane.channels != 1 {
+        return Err(ColorError::Generic(
+            "Alpha plane must have 1 channels".to_string(),
+        ));
+    }
+    dst.try_match_immutable(src)?;
+    dst.try_match_immutable(a_plane)?;
+
+    let a_working_width = a_plane.width * a_plane.channels;
+    let src_working_width = src.width * src.channels;
+    let dst_working_width = dst.width * dst.channels;
+    let dst_stride = dst.stride();
+    for ((src, dst), a_plane) in src
+        .data
+        .chunks(src.stride())
+        .zip(dst.data.borrow_mut().chunks_mut(dst_stride))
+        .zip(a_plane.data.chunks(a_plane.stride()))
+    {
+        let src = &src[..src_working_width as usize];
+        let dst = &mut dst[..dst_working_width as usize];
+        let a_plane = &a_plane[..a_working_width as usize];
+        for ((src, dst), a_ch) in src
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .zip(dst.as_chunks_mut::<4>().0.iter_mut())
+            .zip(a_plane.iter())
+        {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst[3] = *a_ch;
+        }
+    }
+    Ok(())
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[target_feature(enable = "sse4.1")]
-#[inline]
-unsafe fn concat_alpha_sse(
-    width: u32,
-    mut _cx: usize,
-    src_ptr: *const f32,
-    a_ptr: *const f32,
-    dst_ptr: *mut f32,
-) {
-    while _cx + 4 < width as usize {
-        let xyz_chan_ptr = src_ptr.add(_cx * 3usize);
-        let a_chan_ptr = a_ptr.add(_cx);
-        let xyz0 = _mm_loadu_ps(xyz_chan_ptr);
-        let xyz1 = _mm_loadu_ps(xyz_chan_ptr.add(4));
-        let xyz2 = _mm_loadu_ps(xyz_chan_ptr.add(8));
-        let a_pixel = _mm_loadu_ps(a_chan_ptr);
-        let (x_p, y_p, z_p) = sse_deinterleave_rgb_ps(xyz0, xyz1, xyz2);
-        let (xyza0, xyza1, xyza2, xyza3) = sse_interleave_ps_rgba(x_p, y_p, z_p, a_pixel);
-        let xyza_chan_ptr = dst_ptr.add(_cx * 4usize);
-        _mm_storeu_ps(xyza_chan_ptr, xyza0);
-        _mm_storeu_ps(xyza_chan_ptr.add(4), xyza1);
-        _mm_storeu_ps(xyza_chan_ptr.add(8), xyza2);
-        _mm_storeu_ps(xyza_chan_ptr.add(12), xyza3);
-        _cx += 4;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::BufferStore;
+
+    fn make_src(width: u32, height: u32) -> ImageBuffer<'static, f32> {
+        let stride = width * 3;
+        let data = (0..stride * height)
+            .map(|i| (i as f32) / (stride * height) as f32)
+            .collect::<Vec<_>>();
+        ImageBuffer::from_vec(data, width, height, stride, 3).unwrap()
     }
-}
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[target_feature(enable = "avx2")]
-#[inline]
-unsafe fn concat_alpha_avx(
-    width: u32,
-    mut _cx: usize,
-    src_ptr: *const f32,
-    a_ptr: *const f32,
-    dst_ptr: *mut f32,
-) {
-    while _cx + 8 < width as usize {
-        let xyz_chan_ptr = src_ptr.add(_cx * 3usize);
-        let a_chan_ptr = a_ptr.add(_cx);
-        let xyz0 = _mm256_loadu_ps(xyz_chan_ptr);
-        let xyz1 = _mm256_loadu_ps(xyz_chan_ptr.add(8));
-        let xyz2 = _mm256_loadu_ps(xyz_chan_ptr.add(16));
-        let a_pixel = _mm256_loadu_ps(a_chan_ptr);
-        let (x_p, y_p, z_p) = avx2_deinterleave_rgb_ps(xyz0, xyz1, xyz2);
+    fn make_alpha(width: u32, height: u32, fill: f32) -> ImageBuffer<'static, f32> {
+        let stride = width;
+        let data = vec![fill; (stride * height) as usize];
+        ImageBuffer::from_vec(data, width, height, stride, 1).unwrap()
+    }
 
-        let xyza_chan_ptr = dst_ptr.add(_cx * 4usize);
+    fn make_dst(width: u32, height: u32) -> ImageBufferMut<'static, f32> {
+        let stride = width * 4;
+        let data = BufferStore::Owned(vec![0f32; (stride * height) as usize]);
+        ImageBufferMut::new(data, width, height, stride, 4).unwrap()
+    }
 
-        let (xyza0, xyza1, xyza2, xyza3) = avx2_interleave_rgba_ps(x_p, y_p, z_p, a_pixel);
-        _mm256_store_ps(xyza_chan_ptr, xyza0);
-        _mm256_store_ps(xyza_chan_ptr.add(8), xyza1);
-        _mm256_store_ps(xyza_chan_ptr.add(16), xyza2);
-        _mm256_store_ps(xyza_chan_ptr.add(32), xyza3);
-        _cx += 8;
+    #[test]
+    fn appends_alpha_values_correctly() {
+        let src = make_src(2, 2);
+        let alpha = make_alpha(2, 2, 0.5);
+        let mut dst = make_dst(2, 2);
+
+        append_alpha(&src, &mut dst, &alpha).unwrap();
+
+        let out = dst.data.borrow();
+        // every fourth element (the alpha channel) must equal 0.5
+        for pixel in out.chunks(4) {
+            assert_eq!(pixel[3], 0.5, "alpha channel mismatch");
+        }
+    }
+
+    #[test]
+    fn rgb_channels_are_preserved() {
+        let src = make_src(2, 1);
+        let alpha = make_alpha(2, 1, 1.0);
+        let mut dst = make_dst(2, 1);
+
+        append_alpha(&src, &mut dst, &alpha).unwrap();
+
+        let src_data = src.data;
+        let out = dst.data.borrow();
+        // pixels 0 and 1 — R, G, B must match src exactly
+        assert_eq!(out[0], src_data[0]);
+        assert_eq!(out[1], src_data[1]);
+        assert_eq!(out[2], src_data[2]);
+        assert_eq!(out[4], src_data[3]);
+        assert_eq!(out[5], src_data[4]);
+        assert_eq!(out[6], src_data[5]);
+    }
+
+    #[test]
+    fn works_with_single_pixel() {
+        let src = ImageBuffer::new(&[0.1f32, 0.2, 0.3], 1, 1, 3, 3).unwrap();
+        let alpha = ImageBuffer::new(&[0.9f32], 1, 1, 1, 1).unwrap();
+        let mut dst = make_dst(1, 1);
+
+        append_alpha(&src, &mut dst, &alpha).unwrap();
+
+        let out = dst.data.borrow();
+        assert_eq!(out[0], 0.1);
+        assert_eq!(out[1], 0.2);
+        assert_eq!(out[2], 0.3);
+        assert_eq!(out[3], 0.9);
+    }
+
+    // --- channel count validation ---
+
+    #[test]
+    fn rejects_src_with_wrong_channel_count() {
+        let stride = 4;
+        let data = vec![0f32; (stride * 1) as usize];
+        let src = ImageBuffer::new(data.leak(), 1, 1, stride, 4).unwrap();
+        let alpha = make_alpha(1, 1, 1.0);
+        let mut dst = make_dst(1, 1);
+
+        let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
+        assert!(matches!(err, ColorError::Generic(_)));
+    }
+
+    #[test]
+    fn rejects_dst_with_wrong_channel_count() {
+        let src = make_src(1, 1);
+        let alpha = make_alpha(1, 1, 1.0);
+        let stride = 3;
+        let data = BufferStore::Owned(vec![0f32; (stride * 1) as usize]);
+        let mut dst = ImageBufferMut::new(data, 1, 1, stride, 3).unwrap();
+
+        let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
+        assert!(matches!(err, ColorError::Generic(_)));
+    }
+
+    #[test]
+    fn rejects_alpha_plane_with_wrong_channel_count() {
+        let src = make_src(1, 1);
+        let stride = 2;
+        let data = vec![0f32; (stride * 1) as usize];
+        let alpha = ImageBuffer::new(data.leak(), 1, 1, stride, 2).unwrap();
+        let mut dst = make_dst(1, 1);
+
+        let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
+        assert!(matches!(err, ColorError::Generic(_)));
+    }
+
+    #[test]
+    fn rejects_mismatched_src_and_dst_dimensions() {
+        let src = make_src(2, 2);
+        let alpha = make_alpha(2, 2, 1.0);
+        let mut dst = make_dst(4, 4);
+
+        let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
+        assert!(matches!(err, ColorError::DimensionMismatch { .. }));
+    }
+
+    #[test]
+    fn rejects_mismatched_alpha_and_dst_dimensions() {
+        let src = make_src(2, 2);
+        let alpha = make_alpha(4, 4, 1.0);
+        let mut dst = make_dst(2, 2);
+
+        let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
+        assert!(matches!(err, ColorError::DimensionMismatch { .. }));
     }
 }

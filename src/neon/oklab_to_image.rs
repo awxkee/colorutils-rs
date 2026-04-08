@@ -58,12 +58,10 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u
 }
 
 #[inline(always)]
-pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
@@ -94,16 +92,14 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
         vdupq_n_f32(1.7076147010f32),
     );
 
-    while cx + 4 < width as usize {
-        let v_src_ptr = ((src as *mut u8).add(src_offset) as *mut f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+        let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                v_src_ptr, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7, c8,
+                src_ptr, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7, c8,
             );
-
-        let in_place_ptr =
-            ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
 
         if image_configuration.has_alpha() {
             let store_rows = match image_configuration {
@@ -114,7 +110,7 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
                     float32x4x4_t(b_row0_, g_row0_, r_row0_, a_row0_)
                 }
             };
-            vst4q_f32(in_place_ptr, store_rows);
+            vst4q_f32(dst_ptr, store_rows);
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -124,7 +120,7 @@ pub unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
                     float32x4x3_t(b_row0_, g_row0_, r_row0_)
                 }
             };
-            vst3q_f32(in_place_ptr, store_rows);
+            vst3q_f32(dst_ptr, store_rows);
         }
 
         cx += 4;

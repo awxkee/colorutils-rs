@@ -46,18 +46,15 @@ macro_rules! triple_to_oklab {
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     width: u32,
-    dst: *mut f32,
-    dst_offset: usize,
+    dst: &mut [f32],
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
         _mm_set1_ps(0.4122214708f32),
@@ -83,10 +80,10 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm_set1_ps(-0.8086757660f32),
     );
 
-    while cx + 4 < width as usize {
-        let in_place_ptr = dst_ptr.add(cx * channels);
+    while cx + 4 <= width as usize {
+        let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
         let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(in_place_ptr, image_configuration);
+            load_f32_and_deinterleave!(in_place_ptr.as_ptr(), image_configuration);
 
         let (l_oklab, a_oklab, b_oklab) = triple_to_oklab!(
             r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
@@ -94,9 +91,20 @@ pub unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
         );
 
         if image_configuration.has_alpha() {
-            store_and_interleave_v4_direct_f32!(in_place_ptr, l_oklab, a_oklab, b_oklab, a_chan);
+            store_and_interleave_v4_direct_f32!(
+                in_place_ptr.as_mut_ptr(),
+                l_oklab,
+                a_oklab,
+                b_oklab,
+                a_chan
+            );
         } else {
-            store_and_interleave_v3_direct_f32!(in_place_ptr, l_oklab, a_oklab, b_oklab);
+            store_and_interleave_v3_direct_f32!(
+                in_place_ptr.as_mut_ptr(),
+                l_oklab,
+                a_oklab,
+                b_oklab
+            );
         }
 
         cx += 4;

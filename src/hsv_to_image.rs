@@ -110,17 +110,17 @@ fn hsv_u16_to_channels<
                         }
                     };
 
-                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_r_channel_offset()) =
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.r_index()) =
                         rgb.r;
-                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_g_channel_offset()) =
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.g_index()) =
                         rgb.g;
-                    *dst_slice.get_unchecked_mut(hx + image_configuration.get_b_channel_offset()) =
+                    *dst_slice.get_unchecked_mut(hx + image_configuration.b_index()) =
                         rgb.b;
 
                     if image_configuration.has_alpha() {
                         let a = src.add(3).read_unaligned();
                         *dst_slice
-                            .get_unchecked_mut(hx + image_configuration.get_a_channel_offset()) =
+                            .get_unchecked_mut(hx + image_configuration.a_index()) =
                             a as u8;
                     }
                 }

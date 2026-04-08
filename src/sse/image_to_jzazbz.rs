@@ -114,26 +114,22 @@ macro_rules! triple_to_jzazbz {
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
-    dst: *mut f32,
-    dst_offset: usize,
     display_luminance: f32,
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let channels = image_configuration.get_channels_count();
     let mut cx = start_cx;
-
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
-
     let luminance = _mm_set1_ps(display_luminance);
 
-    while cx + 4 < width as usize {
-        let src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+        let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             load_f32_and_deinterleave!(src_ptr, image_configuration);
 

@@ -61,15 +61,15 @@ fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
             .chunks_exact_mut(channels)
             .zip(src.chunks_exact(channels))
         {
-            linear_chunk[image_configuration.get_r_channel_offset()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.get_r_channel_offset()] as usize);
-            linear_chunk[image_configuration.get_g_channel_offset()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.get_g_channel_offset()] as usize);
-            linear_chunk[image_configuration.get_b_channel_offset()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.get_b_channel_offset()] as usize);
+            linear_chunk[image_configuration.r_index()] = *lut_table
+                .get_unchecked(src_chunk[image_configuration.r_index()] as usize);
+            linear_chunk[image_configuration.g_index()] = *lut_table
+                .get_unchecked(src_chunk[image_configuration.g_index()] as usize);
+            linear_chunk[image_configuration.b_index()] = *lut_table
+                .get_unchecked(src_chunk[image_configuration.b_index()] as usize);
             if image_configuration.has_alpha() {
-                linear_chunk[image_configuration.get_a_channel_offset()] =
-                    src_chunk[image_configuration.get_a_channel_offset()] as f32 * (1. / 255.0);
+                linear_chunk[image_configuration.a_index()] =
+                    src_chunk[image_configuration.a_index()] as f32 * (1. / 255.0);
             }
         }
 
@@ -79,9 +79,9 @@ fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
             let px = x * channels;
 
             let src = linearized_row.get_unchecked(px..);
-            let r = *src.get_unchecked(image_configuration.get_r_channel_offset());
-            let g = *src.get_unchecked(image_configuration.get_g_channel_offset());
-            let b = *src.get_unchecked(image_configuration.get_b_channel_offset());
+            let r = *src.get_unchecked(image_configuration.r_index());
+            let g = *src.get_unchecked(image_configuration.g_index());
+            let b = *src.get_unchecked(image_configuration.b_index());
 
             let rgb = Rgb::<f32>::new(r, g, b);
             let dst_store = dst_ptr.add(px);
@@ -91,7 +91,7 @@ fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
             dst_store.add(2).write_unaligned(lalphabeta.beta);
 
             if image_configuration.has_alpha() {
-                let a = *src.get_unchecked(image_configuration.get_a_channel_offset());
+                let a = *src.get_unchecked(image_configuration.a_index());
                 dst_store.add(3).write_unaligned(a);
             }
         }

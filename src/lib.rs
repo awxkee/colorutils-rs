@@ -11,7 +11,9 @@
 )]
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx;
+mod buffer;
 mod concat_alpha;
+mod err;
 mod euclidean;
 mod gamma_curves;
 mod hsl;
@@ -131,6 +133,8 @@ pub use xyza_laba_to_image::luv_with_alpha_to_rgba;
 pub use xyza_laba_to_image::xyz_with_alpha_to_bgra;
 pub use xyza_laba_to_image::xyz_with_alpha_to_rgba;
 
+pub use buffer::{BufferStore, ImageBuffer, ImageBufferMut};
+pub use err::ColorError;
 pub use euclidean::EuclideanDistance;
 pub use image_to_jzazbz::bgr_to_jzazbz;
 pub use image_to_jzazbz::bgr_to_jzczhz;
