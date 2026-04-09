@@ -5,97 +5,86 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::image::ImageConfiguration;
-use crate::{LAlphaBeta, Rgb, TransferFunction, SRGB_TO_XYZ_D65};
-#[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
-#[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-use std::slice;
+use crate::{
+    ColorError, ImageBuffer, ImageBufferMut, LAlphaBeta, Rgb, TransferFunction, SRGB_TO_XYZ_D65,
+};
 
 #[inline(always)]
 fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [f32],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, f32>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
+    src.validate()?;
+    dst.validate()?;
+    dst.try_match_immutable_with_channels(src)?;
+    if src.channels != 3 && src.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let channels = image_configuration.get_channels_count();
-
-    let mut lut_table = vec![0f32; 256];
+    let mut lut_table = [0.; 256];
     for (i, element) in lut_table.iter_mut().enumerate() {
         *element = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
 
-    let dst_slice_safe_align = unsafe {
-        slice::from_raw_parts_mut(
-            dst.as_mut_ptr() as *mut u8,
-            dst_stride as usize * height as usize,
-        )
-    };
-
-    let iter;
-
-    #[cfg(feature = "rayon")]
-    {
-        iter = dst_slice_safe_align
-            .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize));
-    }
-    #[cfg(not(feature = "rayon"))]
-    {
-        iter = dst_slice_safe_align
-            .chunks_exact_mut(dst_stride as usize)
-            .zip(src.chunks_exact(src_stride as usize));
+    let mut a_lut_table = [0f32; 256];
+    for (i, lut) in a_lut_table.iter_mut().enumerate() {
+        *lut = i as f32 * (1. / 255.0);
     }
 
-    iter.for_each(|(dst, src)| unsafe {
-        let mut _cx = 0usize;
+    let dst_stride = dst.stride();
+    let src_r_width = src.width * src.channels;
+    let dst_r_width = dst.width * dst.channels;
 
-        let mut linearized_row = vec![0f32; width as usize * channels];
-        for (linear_chunk, src_chunk) in linearized_row
-            .chunks_exact_mut(channels)
-            .zip(src.chunks_exact(channels))
+    for (dst, src) in dst
+        .data
+        .borrow_mut()
+        .chunks_mut(dst_stride)
+        .zip(src.data.chunks(src.stride()))
+    {
+        let src = &src[..src_r_width as usize];
+        let dst = &mut dst[..dst_r_width as usize];
+
+        if image_configuration == ImageConfiguration::Bgr
+            || image_configuration == ImageConfiguration::Rgb
         {
-            linear_chunk[image_configuration.r_index()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.r_index()] as usize);
-            linear_chunk[image_configuration.g_index()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.g_index()] as usize);
-            linear_chunk[image_configuration.b_index()] = *lut_table
-                .get_unchecked(src_chunk[image_configuration.b_index()] as usize);
-            if image_configuration.has_alpha() {
-                linear_chunk[image_configuration.a_index()] =
-                    src_chunk[image_configuration.a_index()] as f32 * (1. / 255.0);
+            for (dst, src) in dst
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(src.as_chunks::<3>().0.iter())
+            {
+                let r = lut_table[src[image_configuration.r_index()] as usize];
+                let g = lut_table[src[image_configuration.g_index()] as usize];
+                let b = lut_table[src[image_configuration.b_index()] as usize];
+                let lalphabeta = LAlphaBeta::from_linear_rgb(Rgb::new(r, g, b), &SRGB_TO_XYZ_D65);
+                dst[0] = lalphabeta.l;
+                dst[1] = lalphabeta.alpha;
+                dst[2] = lalphabeta.beta;
+            }
+        } else if image_configuration == ImageConfiguration::Bgra
+            || image_configuration == ImageConfiguration::Rgba
+        {
+            for (dst, src) in dst
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(src.as_chunks::<4>().0.iter())
+            {
+                let r = lut_table[src[image_configuration.r_index()] as usize];
+                let g = lut_table[src[image_configuration.g_index()] as usize];
+                let b = lut_table[src[image_configuration.b_index()] as usize];
+                let lalphabeta = LAlphaBeta::from_linear_rgb(Rgb::new(r, g, b), &SRGB_TO_XYZ_D65);
+                dst[0] = lalphabeta.l;
+                dst[1] = lalphabeta.alpha;
+                dst[2] = lalphabeta.beta;
+                dst[3] = a_lut_table[src[image_configuration.a_index()] as usize];
             }
         }
+    }
 
-        let dst_ptr = dst.as_mut_ptr() as *mut f32;
-
-        for x in _cx..width as usize {
-            let px = x * channels;
-
-            let src = linearized_row.get_unchecked(px..);
-            let r = *src.get_unchecked(image_configuration.r_index());
-            let g = *src.get_unchecked(image_configuration.g_index());
-            let b = *src.get_unchecked(image_configuration.b_index());
-
-            let rgb = Rgb::<f32>::new(r, g, b);
-            let dst_store = dst_ptr.add(px);
-            let lalphabeta = LAlphaBeta::from_linear_rgb(rgb, &SRGB_TO_XYZ_D65);
-            dst_store.write_unaligned(lalphabeta.l);
-            dst_store.add(1).write_unaligned(lalphabeta.alpha);
-            dst_store.add(2).write_unaligned(lalphabeta.beta);
-
-            if image_configuration.has_alpha() {
-                let a = *src.get_unchecked(image_configuration.a_index());
-                dst_store.add(3).write_unaligned(a);
-            }
-        }
-    });
+    Ok(())
 }
 
 /// This function converts RGB to *lαβ* against D65 white point. This is much more effective than naive direct transformation
@@ -109,23 +98,11 @@ fn channels_to_lalphabeta<const CHANNELS_CONFIGURATION: u8>(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgb_to_lalphabeta(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [f32],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, f32>,
     transfer_function: TransferFunction,
-) {
-    channels_to_lalphabeta::<{ ImageConfiguration::Rgb as u8 }>(
-        src,
-        src_stride,
-        dst,
-        dst_stride,
-        width,
-        height,
-        transfer_function,
-    );
+) -> Result<(), ColorError> {
+    channels_to_lalphabeta::<{ ImageConfiguration::Rgb as u8 }>(src, dst, transfer_function)
 }
 
 /// This function converts RGBA to *lαβ* against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
@@ -139,23 +116,11 @@ pub fn rgb_to_lalphabeta(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn rgba_to_lalphabeta(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [f32],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, f32>,
     transfer_function: TransferFunction,
-) {
-    channels_to_lalphabeta::<{ ImageConfiguration::Rgba as u8 }>(
-        src,
-        src_stride,
-        dst,
-        dst_stride,
-        width,
-        height,
-        transfer_function,
-    );
+) -> Result<(), ColorError> {
+    channels_to_lalphabeta::<{ ImageConfiguration::Rgba as u8 }>(src, dst, transfer_function)
 }
 
 /// This function converts BGRA to *lαβ* against D65 white point and preserving and normalizing alpha channels keeping it at last positions. This is much more effective than naive direct transformation
@@ -169,23 +134,11 @@ pub fn rgba_to_lalphabeta(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgra_to_lalphabeta(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [f32],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, f32>,
     transfer_function: TransferFunction,
-) {
-    channels_to_lalphabeta::<{ ImageConfiguration::Bgra as u8 }>(
-        src,
-        src_stride,
-        dst,
-        dst_stride,
-        width,
-        height,
-        transfer_function,
-    );
+) -> Result<(), ColorError> {
+    channels_to_lalphabeta::<{ ImageConfiguration::Bgra as u8 }>(src, dst, transfer_function)
 }
 
 /// This function converts BGR to *lαβ* against D65 white point. This is much more effective than naive direct transformation
@@ -199,21 +152,9 @@ pub fn bgra_to_lalphabeta(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `transfer_function` - transfer function to linear colorspace
 pub fn bgr_to_lalphabeta(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [f32],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, f32>,
     transfer_function: TransferFunction,
-) {
-    channels_to_lalphabeta::<{ ImageConfiguration::Bgr as u8 }>(
-        src,
-        src_stride,
-        dst,
-        dst_stride,
-        width,
-        height,
-        transfer_function,
-    );
+) -> Result<(), ColorError> {
+    channels_to_lalphabeta::<{ ImageConfiguration::Bgr as u8 }>(src, dst, transfer_function)
 }

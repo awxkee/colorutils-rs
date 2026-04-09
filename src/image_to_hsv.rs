@@ -55,7 +55,7 @@ fn channels_to_hsv_u16<
             Some(sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     #[cfg(feature = "rayon")]
     {

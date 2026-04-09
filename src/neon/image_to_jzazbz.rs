@@ -107,7 +107,7 @@ pub(crate) unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, cons
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     while cx + 4 <= width as usize {

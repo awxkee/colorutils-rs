@@ -36,7 +36,7 @@ pub unsafe fn sse_channels_to_xyz_or_lab<
     }
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     let cq1 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));

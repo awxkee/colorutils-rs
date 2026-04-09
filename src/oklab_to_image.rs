@@ -52,7 +52,7 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
             .min(255.) as u8;
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let dst_stride = dst.stride();
     let src_r_width = src.width * src.channels;

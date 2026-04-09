@@ -28,7 +28,7 @@ fn linear_to_gamma_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: b
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut lut_table = vec![0u8; 256];
     for (i, lut) in lut_table.iter_mut().enumerate() {

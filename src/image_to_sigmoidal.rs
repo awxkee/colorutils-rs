@@ -382,8 +382,6 @@ mod tests {
         }
     }
 
-    // ── rgb vs rgba consistency ───────────────────────────────────────────────
-
     #[test]
     fn test_rgb_and_rgba_same_rgb_channels() {
         // RGB channels must be identical whether or not alpha is present

@@ -39,7 +39,7 @@ pub unsafe fn sse_channels_to_hsv_u16<
         panic!("Use alpha flag used on image without alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let v_scale = _mm_set1_ps(scale);
 

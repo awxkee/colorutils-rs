@@ -71,7 +71,7 @@ pub(crate) unsafe fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const 
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (

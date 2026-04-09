@@ -123,7 +123,7 @@ pub(crate) unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
     let luminance = _mm_set1_ps(display_luminance);
 

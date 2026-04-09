@@ -54,7 +54,7 @@ fn hsv_u16_to_channels<
             Some(neon_hsv_u16_to_image::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let scale = 1f32 / scale;
 

@@ -84,7 +84,7 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
     }
 
     iter.for_each(|(dst, src)| unsafe {
-        let channels = image_configuration.get_channels_count();
+        let channels = image_configuration.channel_count();
 
         let mut _cx = 0usize;
 

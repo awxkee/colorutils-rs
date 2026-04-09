@@ -39,7 +39,7 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut _wide_row_handler: Option<
         unsafe fn(

@@ -36,7 +36,7 @@ pub(crate) unsafe fn sse_image_to_sigmoidal_row<
         panic!("Use alpha flag used on image without alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     while cx + 16 <= width as usize {
         let src_ptr = src.get_unchecked(cx * channels..).as_ptr();

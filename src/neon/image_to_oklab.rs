@@ -45,7 +45,7 @@ pub unsafe fn neon_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (

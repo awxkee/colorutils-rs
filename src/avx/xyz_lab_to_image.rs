@@ -95,7 +95,7 @@ pub unsafe fn avx_xyz_to_channels<
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut cx = start_cx;
 

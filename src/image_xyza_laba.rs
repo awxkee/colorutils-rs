@@ -51,7 +51,7 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
         _wide_row_handler = Some(neon_channels_to_xyza_or_laba::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut lut_table = vec![0f32; 256];
     for (i, lut) in lut_table.iter_mut().enumerate() {

@@ -28,7 +28,7 @@ pub unsafe fn sse_channels_to_xyza_laba<const CHANNELS_CONFIGURATION: u8, const 
     const CHANNELS: usize = 4;
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     if !image_configuration.has_alpha() {
         panic!("Null alpha channel with requirements of linearized alpha if not supported");
     }

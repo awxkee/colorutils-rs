@@ -15,7 +15,7 @@ pub enum ImageConfiguration {
 
 impl ImageConfiguration {
     #[inline(always)]
-    pub const fn get_channels_count(&self) -> usize {
+    pub const fn channel_count(&self) -> usize {
         match self {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => 3,
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => 4,

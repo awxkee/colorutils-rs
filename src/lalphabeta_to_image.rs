@@ -23,7 +23,7 @@ fn lalphabeta_to_image<const CHANNELS_CONFIGURATION: u8>(
 ) {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut lut_table = vec![0u8; 2049];
     for (i, lut) in lut_table.iter_mut().enumerate() {

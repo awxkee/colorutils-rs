@@ -33,7 +33,7 @@ fn sigmoidal_to_image<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut _wide_row_handler: Option<unsafe fn(usize, *const f32, *mut u8, u32) -> usize> = None;
 
