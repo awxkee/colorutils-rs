@@ -26,7 +26,7 @@ pub use math::*;
 pub(crate) use oklab_to_image::avx_oklab_to_image;
 pub use support::*;
 pub(crate) use to_sigmoidal::avx_image_to_sigmoidal_row;
-pub use to_xyz_lab::*;
+pub(crate) use to_xyz_lab::avx2_image_to_xyz_lab;
 pub use utils::*;
 pub use xyz_lab_to_image::*;
 pub use xyza_laba_to_image::*;

@@ -118,70 +118,71 @@ pub(crate) unsafe fn avx2_triple_to_xyz(
     (x, y, z)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn avx2_triple_to_luv(
-    x: __m256,
-    y: __m256,
-    z: __m256,
-) -> (__m256, __m256, __m256) {
-    let zeros = _mm256_setzero_ps();
-    let den = _mm256_prefer_fma_ps(
-        _mm256_prefer_fma_ps(x, z, _mm256_set1_ps(3f32)),
-        y,
-        _mm256_set1_ps(15f32),
-    );
-    let nan_mask = _mm256_cmp_ps::<_CMP_LT_OS>(den, _mm256_set1_ps(0f32));
-    let l_low_mask = _mm256_cmp_ps::<_CMP_LT_OS>(y, _mm256_set1_ps(LUV_CUTOFF_FORWARD_Y));
-    let y_cbrt = _mm256_cbrt_ps(y);
-    let l = _mm256_select_ps(
-        l_low_mask,
-        _mm256_mul_ps(y, _mm256_set1_ps(LUV_MULTIPLIER_FORWARD_Y)),
-        _mm256_prefer_fma_ps(_mm256_set1_ps(-16f32), y_cbrt, _mm256_set1_ps(116f32)),
-    );
-    let u_prime = _mm256_div_ps(_mm256_mul_ps(x, _mm256_set1_ps(4f32)), den);
-    let v_prime = _mm256_div_ps(_mm256_mul_ps(y, _mm256_set1_ps(9f32)), den);
-    let sub_u_prime = _mm256_sub_ps(u_prime, _mm256_set1_ps(LUV_WHITE_U_PRIME));
-    let sub_v_prime = _mm256_sub_ps(v_prime, _mm256_set1_ps(LUV_WHITE_V_PRIME));
-    let l13 = _mm256_mul_ps(l, _mm256_set1_ps(13f32));
-    let u = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_u_prime));
-    let v = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_v_prime));
-    (l, u, v)
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_triple_to_luv(x: __m256, y: __m256, z: __m256) -> (__m256, __m256, __m256) {
+    unsafe {
+        let zeros = _mm256_setzero_ps();
+        let den = _mm256_prefer_fma_ps(
+            _mm256_prefer_fma_ps(x, z, _mm256_set1_ps(3f32)),
+            y,
+            _mm256_set1_ps(15f32),
+        );
+        let nan_mask = _mm256_cmp_ps::<_CMP_LT_OS>(den, _mm256_set1_ps(0f32));
+        let l_low_mask = _mm256_cmp_ps::<_CMP_LT_OS>(y, _mm256_set1_ps(LUV_CUTOFF_FORWARD_Y));
+        let y_cbrt = _mm256_cbrt_ps(y);
+        let l = _mm256_select_ps(
+            l_low_mask,
+            _mm256_mul_ps(y, _mm256_set1_ps(LUV_MULTIPLIER_FORWARD_Y)),
+            _mm256_prefer_fma_ps(_mm256_set1_ps(-16f32), y_cbrt, _mm256_set1_ps(116f32)),
+        );
+        let u_prime = _mm256_div_ps(_mm256_mul_ps(x, _mm256_set1_ps(4f32)), den);
+        let v_prime = _mm256_div_ps(_mm256_mul_ps(y, _mm256_set1_ps(9f32)), den);
+        let sub_u_prime = _mm256_sub_ps(u_prime, _mm256_set1_ps(LUV_WHITE_U_PRIME));
+        let sub_v_prime = _mm256_sub_ps(v_prime, _mm256_set1_ps(LUV_WHITE_V_PRIME));
+        let l13 = _mm256_mul_ps(l, _mm256_set1_ps(13f32));
+        let u = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_u_prime));
+        let v = _mm256_select_ps(nan_mask, zeros, _mm256_mul_ps(l13, sub_v_prime));
+        (l, u, v)
+    }
 }
 
-#[inline(always)]
-pub(crate) unsafe fn avx2_triple_to_lab(
-    x: __m256,
-    y: __m256,
-    z: __m256,
-) -> (__m256, __m256, __m256) {
-    let x = _mm256_mul_ps(x, _mm256_set1_ps(100f32 / 95.047f32));
-    let z = _mm256_mul_ps(z, _mm256_set1_ps(100f32 / 108.883f32));
-    let cbrt_x = _mm256_cbrt_ps(x);
-    let cbrt_y = _mm256_cbrt_ps(y);
-    let cbrt_z = _mm256_cbrt_ps(z);
-    let s_1 = _mm256_set1_ps(16.0 / 116.0);
-    let s_2 = _mm256_set1_ps(7.787);
-    let lower_x = _mm256_prefer_fma_ps(s_1, s_2, x);
-    let lower_y = _mm256_prefer_fma_ps(s_1, s_2, y);
-    let lower_z = _mm256_prefer_fma_ps(s_1, s_2, z);
-    let cutoff = _mm256_set1_ps(0.008856f32);
-    let x = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, cutoff), cbrt_x, lower_x);
-    let y = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(y, cutoff), cbrt_y, lower_y);
-    let z = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(z, cutoff), cbrt_z, lower_z);
-    let l = _mm256_prefer_fma_ps(_mm256_set1_ps(-16.0f32), y, _mm256_set1_ps(116.0f32));
-    let a = _mm256_mul_ps(_mm256_sub_ps(x, y), _mm256_set1_ps(500f32));
-    let b = _mm256_mul_ps(_mm256_sub_ps(y, z), _mm256_set1_ps(200f32));
-    (l, a, b)
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_triple_to_lab(x: __m256, y: __m256, z: __m256) -> (__m256, __m256, __m256) {
+    unsafe {
+        let x = _mm256_mul_ps(x, _mm256_set1_ps(100f32 / 95.047f32));
+        let z = _mm256_mul_ps(z, _mm256_set1_ps(100f32 / 108.883f32));
+        let cbrt_x = _mm256_cbrt_ps(x);
+        let cbrt_y = _mm256_cbrt_ps(y);
+        let cbrt_z = _mm256_cbrt_ps(z);
+        let s_1 = _mm256_set1_ps(16.0 / 116.0);
+        let s_2 = _mm256_set1_ps(7.787);
+        let lower_x = _mm256_prefer_fma_ps(s_1, s_2, x);
+        let lower_y = _mm256_prefer_fma_ps(s_1, s_2, y);
+        let lower_z = _mm256_prefer_fma_ps(s_1, s_2, z);
+        let cutoff = _mm256_set1_ps(0.008856f32);
+        let x = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(x, cutoff), cbrt_x, lower_x);
+        let y = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(y, cutoff), cbrt_y, lower_y);
+        let z = _mm256_select_ps(_mm256_cmp_ps::<_CMP_GT_OS>(z, cutoff), cbrt_z, lower_z);
+        let l = _mm256_prefer_fma_ps(_mm256_set1_ps(-16.0f32), y, _mm256_set1_ps(116.0f32));
+        let a = _mm256_mul_ps(_mm256_sub_ps(x, y), _mm256_set1_ps(500f32));
+        let b = _mm256_mul_ps(_mm256_sub_ps(y, z), _mm256_set1_ps(200f32));
+        (l, a, b)
+    }
 }
 
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 pub(crate) unsafe fn avx_triple_to_lch(
     x: __m256,
     y: __m256,
     z: __m256,
 ) -> (__m256, __m256, __m256) {
-    let (luv_l, luv_u, luv_v) = avx2_triple_to_luv(x, y, z);
-    let lch_c = _mm256_hypot_ps(luv_u, luv_v);
-    let lch_h = _mm256_atan2_ps(luv_v, luv_u);
-    (luv_l, lch_c, lch_h)
+    unsafe {
+        let (luv_l, luv_u, luv_v) = avx2_triple_to_luv(x, y, z);
+        let lch_c = _mm256_hypot_ps(luv_u, luv_v);
+        let lch_h = _mm256_atan2_ps(luv_v, luv_u);
+        (luv_l, lch_c, lch_h)
+    }
 }

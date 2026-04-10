@@ -34,8 +34,9 @@ pub unsafe fn sse_interleave_rgba(
     (rgba_0_lo, rgba_0_hi, rgba_1_lo, rgba_1_hi)
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128, __m128, __m128) {
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128, __m128, __m128) {
     const MASK_U0: i32 = shuffle(0, 0, 0, 0);
     let u0 = _mm_shuffle_ps::<MASK_U0>(a, b);
     const MASK_U1: i32 = shuffle(1, 1, 0, 0);

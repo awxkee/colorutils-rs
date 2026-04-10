@@ -25,11 +25,9 @@ pub unsafe fn sse_channels_to_hsv_u16<
     const TARGET: u8,
 >(
     start_cx: usize,
-    src: *const u8,
-    src_offset: usize,
+    src: &[u8],
     width: u32,
-    dst: *mut u16,
-    dst_offset: usize,
+    dst: &mut [u16],
     scale: f32,
 ) -> usize {
     let target: HsvTarget = TARGET.into();
@@ -43,10 +41,8 @@ pub unsafe fn sse_channels_to_hsv_u16<
 
     let v_scale = _mm_set1_ps(scale);
 
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut u16;
-
-    while cx + 16 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
+    while cx + 16 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave!(src_ptr, image_configuration);
 
@@ -91,10 +87,10 @@ pub unsafe fn sse_channels_to_hsv_u16<
         );
 
         if USE_ALPHA {
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v4_u16!(ptr, x_low, y_low, z_low, a_low);
         } else {
-            let ptr = dst_ptr.add(cx * channels);
+            let ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
             store_and_interleave_v3_u16!(ptr, x_low, y_low, z_low);
         }
 
@@ -136,10 +132,14 @@ pub unsafe fn sse_channels_to_hsv_u16<
         );
 
         if USE_ALPHA {
-            let ptr = dst_ptr.add(cx * channels + 8 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v4_u16!(ptr, x_high, y_high, z_high, a_high);
         } else {
-            let ptr = dst_ptr.add(cx * channels + 8 * channels);
+            let ptr = dst
+                .get_unchecked_mut(cx * channels + 8 * channels..)
+                .as_mut_ptr();
             store_and_interleave_v3_u16!(ptr, x_high, y_high, z_high);
         }
 

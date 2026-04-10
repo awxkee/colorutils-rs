@@ -171,8 +171,8 @@ pub fn rgba_to_sigmoidal(
 
 #[cfg(test)]
 mod tests {
-    use crate::BufferStore;
     use super::*;
+    use crate::BufferStore;
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -246,8 +246,6 @@ mod tests {
         let result = rgb_to_sigmoidal(&src, &mut dst);
         assert!(result.is_err(), "Should fail with 2 channels");
     }
-
-    // ── rgba_to_sigmoidal ─────────────────────────────────────────────────────
 
     #[test]
     fn test_rgba_to_sigmoidal_alpha_normalized_full() {

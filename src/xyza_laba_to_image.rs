@@ -140,31 +140,19 @@ fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             .chunks_exact_mut(channels)
             .zip(transient_row.chunks_exact(channels))
         {
-            let r_cast = (src_chunks[image_configuration.r_index()]
-                .min(1.)
-                .max(0.)
-                * 2048f32)
-                .round();
-            let g_cast = (src_chunks[image_configuration.g_index()]
-                .min(1.)
-                .max(0.)
-                * 2048f32)
-                .round();
-            let b_cast = (src_chunks[image_configuration.b_index()]
-                .min(1.)
-                .max(0.)
-                * 2048f32)
-                .round();
+            let r_cast =
+                (src_chunks[image_configuration.r_index()].min(1.).max(0.) * 2048f32).round();
+            let g_cast =
+                (src_chunks[image_configuration.g_index()].min(1.).max(0.) * 2048f32).round();
+            let b_cast =
+                (src_chunks[image_configuration.b_index()].min(1.).max(0.) * 2048f32).round();
             let a_cast = (src_chunks[image_configuration.a_index()] * 255.)
                 .min(255.)
                 .max(0.) as u8;
 
-            dst_chunk[image_configuration.r_index()] =
-                *lut_table.get_unchecked(r_cast as usize);
-            dst_chunk[image_configuration.g_index()] =
-                *lut_table.get_unchecked(g_cast as usize);
-            dst_chunk[image_configuration.b_index()] =
-                *lut_table.get_unchecked(b_cast as usize);
+            dst_chunk[image_configuration.r_index()] = *lut_table.get_unchecked(r_cast as usize);
+            dst_chunk[image_configuration.g_index()] = *lut_table.get_unchecked(g_cast as usize);
+            dst_chunk[image_configuration.b_index()] = *lut_table.get_unchecked(b_cast as usize);
             dst_chunk[image_configuration.a_index()] = a_cast;
         }
     });

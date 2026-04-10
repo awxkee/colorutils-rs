@@ -47,7 +47,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     {
         let src = &src[..src_r_width as usize];
         let dst = &mut dst[..dst_r_width as usize];
-        
+
         if image_configuration == ImageConfiguration::Bgr
             || image_configuration == ImageConfiguration::Rgb
         {

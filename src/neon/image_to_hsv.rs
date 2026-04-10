@@ -13,7 +13,7 @@ use std::arch::aarch64::*;
 
 #[allow(dead_code)]
 #[inline(always)]
-pub unsafe fn neon_channels_to_hsv<
+pub(crate) unsafe fn neon_channels_to_hsv<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
@@ -166,17 +166,15 @@ pub unsafe fn neon_channels_to_hsv<
 }
 
 #[inline(always)]
-pub unsafe fn neon_channels_to_hsv_u16<
+pub(crate) unsafe fn neon_channels_to_hsv_u16<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
 >(
     start_cx: usize,
-    src: *const u8,
-    src_offset: usize,
+    src: &[u8],
     width: u32,
-    dst: *mut u16,
-    dst_offset: usize,
+    dst: &mut [u16],
     scale: f32,
 ) -> usize {
     let target: HsvTarget = TARGET.into();
@@ -190,10 +188,8 @@ pub unsafe fn neon_channels_to_hsv_u16<
 
     let v_scale = vdupq_n_f32(scale);
 
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut u16;
-
-    while cx + 16 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
+    while cx + 16 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels);
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave!(src_ptr, image_configuration);
 
@@ -236,10 +232,16 @@ pub unsafe fn neon_channels_to_hsv_u16<
 
         if USE_ALPHA {
             let xyz_low_low = uint16x8x4_t(x_low, y_low, z_low, a_low);
-            vst4q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+            vst4q_u16(
+                dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                xyz_low_low,
+            );
         } else {
             let xyz_low_low = uint16x8x3_t(x_low, y_low, z_low);
-            vst3q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+            vst3q_u16(
+                dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                xyz_low_low,
+            );
         }
 
         let r_high = vmovl_high_u8(r_chan);
@@ -281,17 +283,25 @@ pub unsafe fn neon_channels_to_hsv_u16<
 
         if USE_ALPHA {
             let xyz_low_low = uint16x8x4_t(x_high, y_high, z_high, a_high);
-            vst4q_u16(dst_ptr.add(cx * channels + 8 * channels), xyz_low_low);
+            vst4q_u16(
+                dst.get_unchecked_mut(cx * channels + 8 * channels..)
+                    .as_mut_ptr(),
+                xyz_low_low,
+            );
         } else {
             let xyz_low_low = uint16x8x3_t(x_high, y_high, z_high);
-            vst3q_u16(dst_ptr.add(cx * channels + 8 * channels), xyz_low_low);
+            vst3q_u16(
+                dst.get_unchecked_mut(cx * channels + 8 * channels..)
+                    .as_mut_ptr(),
+                xyz_low_low,
+            );
         }
 
         cx += 16;
     }
 
-    while cx + 8 < width as usize {
-        let src_ptr = src.add(src_offset + cx * channels);
+    while cx + 8 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
 
         let (r_chan, g_chan, b_chan, a_chan) =
             load_u8_and_deinterleave_half!(src_ptr, image_configuration);
@@ -335,10 +345,16 @@ pub unsafe fn neon_channels_to_hsv_u16<
 
         if USE_ALPHA {
             let xyz_low_low = uint16x8x4_t(x_low, y_low, z_low, a_low);
-            vst4q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+            vst4q_u16(
+                dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                xyz_low_low,
+            );
         } else {
             let xyz_low_low = uint16x8x3_t(x_low, y_low, z_low);
-            vst3q_u16(dst_ptr.add(cx * channels), xyz_low_low);
+            vst3q_u16(
+                dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                xyz_low_low,
+            );
         }
 
         cx += 8;

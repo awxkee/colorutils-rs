@@ -14,22 +14,19 @@ use crate::xyz_target::XyzTarget;
 use std::arch::aarch64::*;
 
 #[inline(always)]
-pub unsafe fn neon_channels_to_xyz_or_lab<
+pub(crate) unsafe fn neon_channels_to_xyz_or_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
 >(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
+    src: &[f32],
+    dst: &mut [f32],
+    a_linearized: &mut [f32],
     width: u32,
-    dst: *mut f32,
-    dst_offset: usize,
-    a_linearized: *mut f32,
-    a_offset: usize,
     matrix: &[[f32; 3]; 3],
 ) -> usize {
-    if USE_ALPHA && a_linearized.is_null() {
+    if USE_ALPHA && a_linearized.is_empty() {
         panic!("Null alpha channel with requirements of linearized alpha if not supported");
     }
     let target: XyzTarget = TARGET.into();
@@ -47,10 +44,8 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
     let cq8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
     let cq9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
 
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
-
-    while cx + 4 < width as usize {
-        let src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
         let (r_chan, g_chan, b_chan, a_chan) =
             load_f32_and_deinterleave!(src_ptr, image_configuration);
 
@@ -81,12 +76,10 @@ pub unsafe fn neon_channels_to_xyz_or_lab<
         }
 
         let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
-        vst3q_f32(dst_ptr.add(cx * 3), xyz_low_low);
+        vst3q_f32(dst.get_unchecked_mut(cx * 3..).as_mut_ptr(), xyz_low_low);
 
         if USE_ALPHA {
-            let a_ptr = (a_linearized as *mut u8).add(a_offset) as *mut f32;
-
-            vst1q_f32(a_ptr.add(cx), a_chan);
+            vst1q_f32(a_linearized.get_unchecked_mut(cx..).as_mut_ptr(), a_chan);
         }
 
         cx += 4;

@@ -11,13 +11,7 @@ use crate::image_to_hsv_support::HsvTarget;
 use crate::neon::neon_channels_to_hsv_u16;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_channels_to_hsv_u16;
-use crate::Rgb;
-#[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
-#[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-#[cfg(feature = "rayon")]
-use std::slice;
+use crate::{ColorError, ImageBuffer, ImageBufferMut, Rgb};
 
 #[allow(clippy::type_complexity)]
 fn channels_to_hsv_u16<
@@ -25,23 +19,24 @@ fn channels_to_hsv_u16<
     const USE_ALPHA: bool,
     const TARGET: u8,
 >(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
+    src.validate()?;
+    dst.validate()?;
+    dst.try_match_immutable_with_channels(src)?;
+    if src.channels != 3 && src.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
     let target: HsvTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     if USE_ALPHA && !image_configuration.has_alpha() {
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let mut _wide_row_handler: Option<
-        unsafe fn(usize, *const u8, usize, u32, *mut u16, usize, f32) -> usize,
-    > = None;
+    let mut _wide_row_handler: Option<unsafe fn(usize, &[u8], u32, &mut [u16], f32) -> usize> =
+        None;
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
@@ -55,158 +50,94 @@ fn channels_to_hsv_u16<
             Some(sse_channels_to_hsv_u16::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let channels = image_configuration.channel_count();
+    let dst_stride = dst.stride();
+    let src_r_width = src.width * src.channels;
+    let dst_r_width = dst.width * dst.channels;
+    let width = src.width;
 
-    #[cfg(feature = "rayon")]
+    for (dst, src) in dst
+        .data
+        .borrow_mut()
+        .chunks_mut(dst_stride)
+        .zip(src.data.chunks(src.stride()))
     {
-        let dst_slice_safe_align = unsafe {
-            slice::from_raw_parts_mut(
-                dst.as_mut_ptr() as *mut u8,
-                dst_stride as usize * height as usize,
-            )
-        };
-        dst_slice_safe_align
-            .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src.par_chunks_exact(src_stride as usize))
-            .for_each(|(dst, src)| unsafe {
-                let mut _cx = 0usize;
+        let src = &src[..src_r_width as usize];
+        let dst = &mut dst[..dst_r_width as usize];
 
-                if let Some(dispatcher) = _wide_row_handler {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        0,
-                        width,
-                        dst.as_mut_ptr() as *mut u16,
-                        0,
-                        scale,
-                    );
-                }
+        let mut cx = 0usize;
 
-                let src_ptr = src.as_ptr();
-                let dst_ptr = dst.as_mut_ptr() as *mut u16;
+        if let Some(dispatcher) = _wide_row_handler {
+            cx = unsafe { dispatcher(cx, src, width, dst, scale) };
+        }
 
-                for x in _cx..width as usize {
-                    let px = x * channels;
-                    let src = src_ptr.add(px);
-                    let r = src
-                        .add(image_configuration.r_index())
-                        .read_unaligned();
-                    let g = src
-                        .add(image_configuration.g_index())
-                        .read_unaligned();
-                    let b = src
-                        .add(image_configuration.b_index())
-                        .read_unaligned();
-
-                    let rgb = Rgb::<u8>::new(r, g, b);
-                    let hx = x * channels;
-                    let dst = dst_ptr.add(hx);
-                    match target {
-                        HsvTarget::Hsv => {
-                            let hsv = rgb.to_hsv();
-
-                            dst.write_unaligned(hsv.h as u16);
-                            dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
-                            dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
-                        }
-                        HsvTarget::Hsl => {
-                            let hsl = rgb.to_hsl();
-
-                            dst.write_unaligned(hsl.h as u16);
-                            dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
-                            dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
-                        }
-                    }
-
-                    if image_configuration.has_alpha() {
-                        let a = src
-                            .add(image_configuration.a_index())
-                            .read_unaligned();
-                        dst.add(3).write_unaligned(a as u16);
-                    }
-                }
-            });
-    }
-
-    #[cfg(not(feature = "rayon"))]
-    {
-        let mut src_offset = 0usize;
-        let mut dst_offset = 0usize;
-
-        for _ in 0..height as usize {
-            let mut _cx = 0usize;
-
-            if let Some(dispatcher) = _wide_row_handler {
-                unsafe {
-                    _cx = dispatcher(
-                        _cx,
-                        src.as_ptr(),
-                        src_offset,
-                        width,
-                        dst.as_mut_ptr(),
-                        dst_offset,
-                        scale,
-                    )
-                }
-            }
-
-            let src_ptr = unsafe { src.as_ptr().add(src_offset) };
-            let dst_ptr = unsafe { (dst.as_mut_ptr() as *mut u8).add(dst_offset) as *mut u16 };
-
-            for x in _cx..width as usize {
-                let px = x * channels;
-                let src = unsafe { src_ptr.add(px) };
-                let r = unsafe {
-                    src.add(image_configuration.get_r_channel_offset())
-                        .read_unaligned()
-                };
-                let g = unsafe {
-                    src.add(image_configuration.get_g_channel_offset())
-                        .read_unaligned()
-                };
-                let b = unsafe {
-                    src.add(image_configuration.get_b_channel_offset())
-                        .read_unaligned()
-                };
-
+        if image_configuration == ImageConfiguration::Bgr
+            || image_configuration == ImageConfiguration::Rgb
+        {
+            let dst = &mut dst[cx * 3..];
+            let src = &src[cx * 3..];
+            for (dst, src) in dst
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(src.as_chunks::<3>().0.iter())
+            {
+                let r = src[image_configuration.r_index()];
+                let g = src[image_configuration.g_index()];
+                let b = src[image_configuration.b_index()];
                 let rgb = Rgb::<u8>::new(r, g, b);
-                let hx = x * channels;
-                let dst = unsafe { dst_ptr.add(hx) };
                 match target {
                     HsvTarget::Hsv => {
                         let hsv = rgb.to_hsv();
-                        unsafe {
-                            dst.write_unaligned(hsv.h as u16);
-                            dst.add(1).write_unaligned((hsv.s * scale).round() as u16);
-                            dst.add(2).write_unaligned((hsv.v * scale).round() as u16);
-                        }
+
+                        dst[0] = hsv.h as u16;
+                        dst[1] = (hsv.s * scale).round() as u16;
+                        dst[2] = (hsv.v * scale).round() as u16;
                     }
                     HsvTarget::Hsl => {
                         let hsl = rgb.to_hsl();
-                        unsafe {
-                            dst.write_unaligned(hsl.h as u16);
-                            dst.add(1).write_unaligned((hsl.s * scale).round() as u16);
-                            dst.add(2).write_unaligned((hsl.l * scale).round() as u16);
-                        }
-                    }
-                }
 
-                if image_configuration.has_alpha() {
-                    let a = unsafe {
-                        src.add(image_configuration.get_a_channel_offset())
-                            .read_unaligned()
-                    };
-                    unsafe {
-                        dst.add(3).write_unaligned(a as u16);
+                        dst[0] = hsl.h as u16;
+                        dst[1] = (hsl.s * scale).round() as u16;
+                        dst[2] = (hsl.l * scale).round() as u16;
                     }
                 }
             }
+        } else if image_configuration == ImageConfiguration::Bgra
+            || image_configuration == ImageConfiguration::Rgba
+        {
+            let dst = &mut dst[cx * 4..];
+            let src = &src[cx * 4..];
+            for (dst, src) in dst
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(src.as_chunks::<4>().0.iter())
+            {
+                let r = src[image_configuration.r_index()];
+                let g = src[image_configuration.g_index()];
+                let b = src[image_configuration.b_index()];
+                let rgb = Rgb::<u8>::new(r, g, b);
+                match target {
+                    HsvTarget::Hsv => {
+                        let hsv = rgb.to_hsv();
 
-            src_offset += src_stride as usize;
-            dst_offset += dst_stride as usize;
+                        dst[0] = hsv.h as u16;
+                        dst[1] = (hsv.s * scale).round() as u16;
+                        dst[2] = (hsv.v * scale).round() as u16;
+                    }
+                    HsvTarget::Hsl => {
+                        let hsl = rgb.to_hsl();
+
+                        dst[0] = hsl.h as u16;
+                        dst[1] = (hsl.s * scale).round() as u16;
+                        dst[2] = (hsl.l * scale).round() as u16;
+                    }
+                }
+                dst[3] = src[image_configuration.a_index()] as u16;
+            }
         }
     }
+    Ok(())
 }
 
 /// This function converts RGB to HSV. This is much more effective than naive direct transformation
@@ -220,17 +151,13 @@ fn channels_to_hsv_u16<
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and V is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,V in range [0, scale]
 pub fn rgb_to_hsv(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::Hsv as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
 }
 
 /// This function converts BGRA to HSV. Alpha channel is copied and leaved unchanged. This is much more effective than naive direct transformation
@@ -244,17 +171,13 @@ pub fn rgb_to_hsv(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and V is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,V in range [0, scale]
 pub fn bgra_to_hsv(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::Hsv as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
 }
 
 /// This function converts RGBA to HSV. Alpha channel is copied and leaved unchanged. This is much more effective than naive direct transformation
@@ -268,17 +191,13 @@ pub fn bgra_to_hsv(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and V is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,V in range [0, scale]
 pub fn rgba_to_hsv(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::Hsv as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
 }
 
 /// This function converts RGB to HSL. This is much more effective than naive direct transformation
@@ -292,17 +211,13 @@ pub fn rgba_to_hsv(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and L is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,L in range [0, scale]
 pub fn rgb_to_hsl(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Rgb as u8 }, false, { HsvTarget::Hsl as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
 }
 
 /// This function converts BGRA to HSL. Alpha channel is copied and leaved unchanged. This is much more effective than naive direct transformation
@@ -316,17 +231,13 @@ pub fn rgb_to_hsl(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and V is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,V in range [0, scale]
 pub fn bgra_to_hsl(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Bgra as u8 }, true, { HsvTarget::Hsl as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
 }
 
 /// This function converts RGBA to HSL. Alpha channel is copied and leaved unchanged. This is much more effective than naive direct transformation
@@ -340,15 +251,198 @@ pub fn bgra_to_hsl(
 /// * `dst_stride` - Bytes per row for dst data
 /// * `scale` - Natural range for S and V is [0,1] it may be more convenient and required for u16 transformation to scale it by 100 or any other number to keep S,V in range [0, scale]
 pub fn rgba_to_hsl(
-    src: &[u8],
-    src_stride: u32,
-    dst: &mut [u16],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, u8>,
+    dst: &mut ImageBufferMut<'_, u16>,
     scale: f32,
-) {
+) -> Result<(), ColorError> {
     channels_to_hsv_u16::<{ ImageConfiguration::Rgba as u8 }, true, { HsvTarget::Hsl as u8 }>(
-        src, src_stride, dst, dst_stride, width, height, scale,
-    );
+        src, dst, scale,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::BufferStore;
+    use std::borrow::Cow;
+
+    fn make_src(data: &[u8], width: u32, height: u32, channels: u32) -> ImageBuffer<'static, u8> {
+        ImageBuffer {
+            data: Cow::Owned(data.to_vec()),
+            width,
+            height,
+            channels,
+            stride: width * channels,
+        }
+    }
+
+    fn make_dst(
+        data: &[u16],
+        width: u32,
+        height: u32,
+        channels: u32,
+    ) -> ImageBufferMut<'static, u16> {
+        ImageBufferMut {
+            data: BufferStore::Owned(data.to_vec()),
+            width,
+            height,
+            channels,
+            stride: width * channels,
+        }
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_red() {
+        let src_data = [255u8, 0, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 0); // H = 0
+        assert_eq!(dst.data[1], 100); // S = 100%
+        assert_eq!(dst.data[2], 100); // V = 100%
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_green() {
+        let src_data = [0u8, 255, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 120);
+        assert_eq!(dst.data[1], 100);
+        assert_eq!(dst.data[2], 100);
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_blue() {
+        let src_data = [0u8, 0, 255];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 240); // H = 240
+        assert_eq!(dst.data[1], 100);
+        assert_eq!(dst.data[2], 100);
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_white() {
+        let src_data = [255u8, 255, 255];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[1], 0);
+        assert_eq!(dst.data[2], 100);
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_black() {
+        let src_data = [0u8, 0, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[1], 0); // S = 0
+        assert_eq!(dst.data[2], 0); // V = 0
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_scale() {
+        let src_data = [255u8, 0, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 255.0).unwrap();
+        assert_eq!(dst.data[1], 255); // S scaled to 255
+        assert_eq!(dst.data[2], 255); // V scaled to 255
+    }
+
+    #[test]
+    fn test_rgba_to_hsv_alpha_preserved() {
+        let src_data = [255u8, 0, 0, 128]; // red with alpha=128
+        let mut dst_data = [0u16; 4];
+        let src = make_src(&src_data, 1, 1, 4);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 4);
+        rgba_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 0); // H
+        assert_eq!(dst.data[1], 100); // S
+        assert_eq!(dst.data[2], 100); // V
+        assert_eq!(dst.data[3], 128);
+    }
+
+    #[test]
+    fn test_rgb_to_hsl_red() {
+        let src_data = [255u8, 0, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsl(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 0);
+        assert_eq!(dst.data[1], 100);
+        assert_eq!(dst.data[2], 50);
+    }
+
+    #[test]
+    fn test_rgb_to_hsl_white() {
+        let src_data = [255u8, 255, 255];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsl(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[1], 0); // S = 0
+        assert_eq!(dst.data[2], 100); // L = 100%
+    }
+
+    #[test]
+    fn test_rgb_to_hsl_black() {
+        let src_data = [0u8, 0, 0];
+        let mut dst_data = [0u16; 3];
+        let src = make_src(&src_data, 1, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 3);
+        rgb_to_hsl(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[1], 0); // S = 0
+        assert_eq!(dst.data[2], 0); // L = 0
+    }
+
+    #[test]
+    fn test_rgba_to_hsl_alpha_preserved() {
+        let src_data = [0u8, 255, 0, 200];
+        let mut dst_data = [0u16; 4];
+        let src = make_src(&src_data, 1, 1, 4);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 4);
+        rgba_to_hsl(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 120);
+        assert_eq!(dst.data[3], 200);
+    }
+
+    #[test]
+    fn test_rgb_to_hsv_multi_pixel() {
+        // red, green, blue side by side
+        let src_data = [255u8, 0, 0, 0, 255, 0, 0, 0, 255];
+        let mut dst_data = [0u16; 9];
+        let src = make_src(&src_data, 3, 1, 3);
+        let mut dst = make_dst(&mut dst_data, 3, 1, 3);
+        rgb_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 0); // red H
+        assert_eq!(dst.data[3], 120); // green H
+        assert_eq!(dst.data[6], 240); // blue H
+    }
+
+    // --- bgra_to_hsv ---
+
+    #[test]
+    fn test_bgra_to_hsv_red() {
+        let src_data = [0u8, 0, 255, 255];
+        let mut dst_data = [0u16; 4];
+        let src = make_src(&src_data, 1, 1, 4);
+        let mut dst = make_dst(&mut dst_data, 1, 1, 4);
+        bgra_to_hsv(&src, &mut dst, 100.0).unwrap();
+        assert_eq!(dst.data[0], 0); // H = 0 (red)
+        assert_eq!(dst.data[1], 100); // S
+        assert_eq!(dst.data[2], 100); // V
+        assert_eq!(dst.data[3], 255); // alpha
+    }
 }

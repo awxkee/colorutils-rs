@@ -148,8 +148,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         if image_configuration.has_alpha() {
                             let a_ptr = a_channel.as_ptr() as *const f32;
                             let a_f = a_ptr.add(x).read_unaligned();
-                            *dst.get_unchecked_mut(image_configuration.a_index()) =
-                                a_f;
+                            *dst.get_unchecked_mut(image_configuration.a_index()) = a_f;
                         }
                     }
 
@@ -157,19 +156,13 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[image_configuration.r_index()]
-                            .min(1.)
-                            .max(0.)
+                        let r_cast = (src_chunks[image_configuration.r_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.g_index()]
-                            .min(1.)
-                            .max(0.)
+                        let g_cast = (src_chunks[image_configuration.g_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.b_index()]
-                            .min(1.)
-                            .max(0.)
+                        let b_cast = (src_chunks[image_configuration.b_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
 
@@ -181,8 +174,7 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                             *lut_table.get_unchecked(b_cast.min(2048));
 
                         if image_configuration.has_alpha() {
-                            let a_cast = (src_chunks[image_configuration.a_index()]
-                                * 255.)
+                            let a_cast = (src_chunks[image_configuration.a_index()] * 255.)
                                 .min(255.)
                                 .max(0.) as u8;
                             dst_chunk[image_configuration.a_index()] = a_cast;
@@ -247,19 +239,13 @@ fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                         .chunks_exact_mut(channels)
                         .zip(transient_row.chunks_exact(channels))
                     {
-                        let r_cast = (src_chunks[image_configuration.r_index()]
-                            .min(1.)
-                            .max(0.)
+                        let r_cast = (src_chunks[image_configuration.r_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.g_index()]
-                            .min(1.)
-                            .max(0.)
+                        let g_cast = (src_chunks[image_configuration.g_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.b_index()]
-                            .min(1.)
-                            .max(0.)
+                        let b_cast = (src_chunks[image_configuration.b_index()].min(1.).max(0.)
                             * 2048f32)
                             .round() as usize;
 

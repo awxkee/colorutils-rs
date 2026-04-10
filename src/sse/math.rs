@@ -125,8 +125,9 @@ pub unsafe fn _mm_cmplt_epi32(a: __m128i, b: __m128i) -> __m128i {
     _mm_cmpgt_epi32(b, a)
 }
 
-#[inline(always)]
-pub unsafe fn _mm_color_matrix_ps(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub fn _mm_color_matrix_ps(
     r: __m128,
     g: __m128,
     b: __m128,
@@ -140,8 +141,10 @@ pub unsafe fn _mm_color_matrix_ps(
     c8: __m128,
     c9: __m128,
 ) -> (__m128, __m128, __m128) {
-    let new_r = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c2), b, c3), r, c1);
-    let new_g = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c5), b, c6), r, c4);
-    let new_b = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c8), b, c9), r, c7);
-    (new_r, new_g, new_b)
+    unsafe {
+        let new_r = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c2), b, c3), r, c1);
+        let new_g = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c5), b, c6), r, c4);
+        let new_b = _mm_prefer_fma_ps(_mm_prefer_fma_ps(_mm_mul_ps(g, c8), b, c9), r, c7);
+        (new_r, new_g, new_b)
+    }
 }

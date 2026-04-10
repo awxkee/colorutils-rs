@@ -89,12 +89,12 @@ fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8
             .chunks_exact_mut(channels)
             .zip(src.chunks_exact(channels))
         {
-            dst_chunk[image_configuration.r_index()] = *lut_table
-                .get_unchecked(src_chunks[image_configuration.r_index()] as usize);
-            dst_chunk[image_configuration.g_index()] = *lut_table
-                .get_unchecked(src_chunks[image_configuration.g_index()] as usize);
-            dst_chunk[image_configuration.b_index()] = *lut_table
-                .get_unchecked(src_chunks[image_configuration.b_index()] as usize);
+            dst_chunk[image_configuration.r_index()] =
+                *lut_table.get_unchecked(src_chunks[image_configuration.r_index()] as usize);
+            dst_chunk[image_configuration.g_index()] =
+                *lut_table.get_unchecked(src_chunks[image_configuration.g_index()] as usize);
+            dst_chunk[image_configuration.b_index()] =
+                *lut_table.get_unchecked(src_chunks[image_configuration.b_index()] as usize);
             dst_chunk[image_configuration.a_index()] =
                 src_chunks[image_configuration.a_index()] as f32 * (1. / 255.0);
         }
