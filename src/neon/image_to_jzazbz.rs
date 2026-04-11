@@ -7,7 +7,7 @@
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
-use crate::{load_f32_and_deinterleave, SRGB_TO_XYZ_D65};
+use crate::{SRGB_TO_XYZ_D65, load_f32_and_deinterleave};
 use erydanos::{vatan2q_f32, vhypotq_fast_f32, visnanq_f32, vmlafq_f32, vpowq_f32};
 use std::arch::aarch64::*;
 
@@ -97,8 +97,8 @@ macro_rules! triple_to_jzazbz {
     }};
 }
 
-#[inline(always)]
-pub(crate) unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: &[f32],
     dst: &mut [f32],
@@ -111,23 +111,25 @@ pub(crate) unsafe fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, cons
     let mut cx = start_cx;
 
     while cx + 4 <= width as usize {
-        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
-        let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
-        let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(src_ptr, image_configuration);
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_f32_and_deinterleave!(src_ptr, image_configuration);
 
-        let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_chan, g_chan, b_chan, target, display_luminance);
+            let (x_low_low, y_low_low, z_low_low) =
+                triple_to_jzazbz!(r_chan, g_chan, b_chan, target, display_luminance);
 
-        if image_configuration.has_alpha() {
-            let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_chan);
-            vst4q_f32(dst_ptr.add(cx * channels), xyz_low_low);
-        } else {
-            let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
-            vst3q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+            if image_configuration.has_alpha() {
+                let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_chan);
+                vst4q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+            } else {
+                let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
+                vst3q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+            }
+
+            cx += 4;
         }
-
-        cx += 4;
     }
 
     cx

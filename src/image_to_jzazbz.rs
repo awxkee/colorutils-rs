@@ -10,8 +10,8 @@ use crate::neon::neon_image_to_jzazbz;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_jzazbz;
 use crate::{
-    ColorError, ImageBuffer, ImageBufferMut, Jzazbz, Jzczhz, Rgb, TransferFunction, Xyz,
-    SRGB_TO_XYZ_D65,
+    ColorError, ImageBuffer, ImageBufferMut, Jzazbz, Jzczhz, Rgb, SRGB_TO_XYZ_D65,
+    TransferFunction, Xyz,
 };
 
 #[repr(u8)]

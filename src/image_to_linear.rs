@@ -30,7 +30,7 @@ fn channels_to_linear<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
         *lut = transfer_function.linearize(i as f32 * (1. / 255.0));
     }
 
-    let mut a_lut_table = [0f32; 256];
+    let mut a_lut_table = [0.; 256];
     for (i, lut) in a_lut_table.iter_mut().enumerate() {
         *lut = i as f32 * (1. / 255.0);
     }

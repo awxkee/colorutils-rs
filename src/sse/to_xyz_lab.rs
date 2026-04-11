@@ -36,56 +36,57 @@ pub(crate) unsafe fn sse_channels_to_xyz_or_lab<
     let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
-    let cq1 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
-    let cq2 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
-    let cq3 = _mm_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
-    let cq4 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
-    let cq5 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
-    let cq6 = _mm_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
-    let cq7 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
-    let cq8 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
-    let cq9 = _mm_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
+    let cq1 = _mm_set1_ps(matrix[0][0]);
+    let cq2 = _mm_set1_ps(matrix[0][1]);
+    let cq3 = _mm_set1_ps(matrix[0][2]);
+    let cq4 = _mm_set1_ps(matrix[1][0]);
+    let cq5 = _mm_set1_ps(matrix[1][1]);
+    let cq6 = _mm_set1_ps(matrix[1][2]);
+    let cq7 = _mm_set1_ps(matrix[2][0]);
+    let cq8 = _mm_set1_ps(matrix[2][1]);
+    let cq9 = _mm_set1_ps(matrix[2][2]);
 
     while cx + 4 <= width as usize {
-        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
-        let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(src_ptr, image_configuration);
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_f32_and_deinterleave!(src_ptr, image_configuration);
 
-        let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
-            r_chan, g_chan, b_chan, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-        );
+            let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
+                r_chan, g_chan, b_chan, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
+            );
 
-        match target {
-            XyzTarget::Lab => {
-                let (l, a, b) = sse_triple_to_lab(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = a;
-                z_low_low = b;
+            match target {
+                XyzTarget::Lab => {
+                    let (l, a, b) = sse_triple_to_lab(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = a;
+                    z_low_low = b;
+                }
+                XyzTarget::Xyz => {}
+                XyzTarget::Luv => {
+                    let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = u;
+                    z_low_low = v;
+                }
+                XyzTarget::Lch => {
+                    let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = c;
+                    z_low_low = h;
+                }
             }
-            XyzTarget::Xyz => {}
-            XyzTarget::Luv => {
-                let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = u;
-                z_low_low = v;
-            }
-            XyzTarget::Lch => {
-                let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = c;
-                z_low_low = h;
+
+            let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_low, y_low_low, z_low_low);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3), v0);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 4), v1);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 8), v2);
+
+            if USE_ALPHA {
+                _mm_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
             }
         }
-
-        let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_low, y_low_low, z_low_low);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3), v0);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 4), v1);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 8), v2);
-
-        if USE_ALPHA {
-            _mm_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
-        }
-
         cx += 4;
     }
 

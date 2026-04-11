@@ -78,27 +78,29 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         if image_configuration == ImageConfiguration::Bgr
             || image_configuration == ImageConfiguration::Rgb
         {
-            let transient_row = &mut transient_row[cx * 3..];
-            let src = &src[cx * 3usize..];
-            for (dst, src) in transient_row
-                .as_chunks_mut::<3>()
-                .0
-                .iter_mut()
-                .zip(src.as_chunks::<3>().0.iter())
             {
-                let rgb = match target {
-                    OklabTarget::Oklab => {
-                        let oklab = Oklab::new(src[0], src[1], src[2]);
-                        oklab.to_linear_rgb()
-                    }
-                    OklabTarget::Oklch => {
-                        let oklch = Oklch::new(src[0], src[1], src[2]);
-                        oklch.to_linear_rgb()
-                    }
-                };
-                dst[0] = rgb.r;
-                dst[1] = rgb.g;
-                dst[2] = rgb.b;
+                let transient_row = &mut transient_row[cx * 3..];
+                let src = &src[cx * 3usize..];
+                for (dst, src) in transient_row
+                    .as_chunks_mut::<3>()
+                    .0
+                    .iter_mut()
+                    .zip(src.as_chunks::<3>().0.iter())
+                {
+                    let rgb = match target {
+                        OklabTarget::Oklab => {
+                            let oklab = Oklab::new(src[0], src[1], src[2]);
+                            oklab.to_linear_rgb()
+                        }
+                        OklabTarget::Oklch => {
+                            let oklch = Oklch::new(src[0], src[1], src[2]);
+                            oklch.to_linear_rgb()
+                        }
+                    };
+                    dst[0] = rgb.r;
+                    dst[1] = rgb.g;
+                    dst[2] = rgb.b;
+                }
             }
 
             for (dst, src) in dst
@@ -122,28 +124,30 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         } else if image_configuration == ImageConfiguration::Bgra
             || image_configuration == ImageConfiguration::Rgba
         {
-            let transient_row = &mut transient_row[cx * 4..];
-            let src = &src[cx * 4usize..];
-            for (dst, src) in transient_row
-                .as_chunks_mut::<4>()
-                .0
-                .iter_mut()
-                .zip(src.as_chunks::<4>().0.iter())
             {
-                let rgb = match target {
-                    OklabTarget::Oklab => {
-                        let oklab = Oklab::new(src[0], src[1], src[2]);
-                        oklab.to_linear_rgb()
-                    }
-                    OklabTarget::Oklch => {
-                        let oklch = Oklch::new(src[0], src[1], src[2]);
-                        oklch.to_linear_rgb()
-                    }
-                };
-                dst[0] = rgb.r;
-                dst[1] = rgb.g;
-                dst[2] = rgb.b;
-                dst[3] = src[3];
+                let transient_row = &mut transient_row[cx * 4..];
+                let src = &src[cx * 4usize..];
+                for (dst, src) in transient_row
+                    .as_chunks_mut::<4>()
+                    .0
+                    .iter_mut()
+                    .zip(src.as_chunks::<4>().0.iter())
+                {
+                    let rgb = match target {
+                        OklabTarget::Oklab => {
+                            let oklab = Oklab::new(src[0], src[1], src[2]);
+                            oklab.to_linear_rgb()
+                        }
+                        OklabTarget::Oklch => {
+                            let oklch = Oklch::new(src[0], src[1], src[2]);
+                            oklch.to_linear_rgb()
+                        }
+                    };
+                    dst[0] = rgb.r;
+                    dst[1] = rgb.g;
+                    dst[2] = rgb.b;
+                    dst[3] = src[3];
+                }
             }
 
             for (dst, src) in dst

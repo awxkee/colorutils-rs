@@ -6,7 +6,7 @@
  */
 use crate::image::ImageConfiguration;
 use crate::{
-    ColorError, ImageBuffer, ImageBufferMut, LAlphaBeta, Rgb, TransferFunction, SRGB_TO_XYZ_D65,
+    ColorError, ImageBuffer, ImageBufferMut, LAlphaBeta, Rgb, SRGB_TO_XYZ_D65, TransferFunction,
 };
 
 #[inline(always)]

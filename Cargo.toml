@@ -3,7 +3,7 @@ workspace = { members = ["src/app"] }
 [package]
 name = "colorutils-rs"
 version = "0.7.6"
-edition = "2021"
+edition = "2024"
 description = "High performance utilities for color format handling and conversion."
 readme = "README.md"
 keywords = ["lab", "hsv", "xyz", "color", "colorspace"]

@@ -46,69 +46,71 @@ macro_rules! triple_to_oklab {
 }
 
 #[target_feature(enable = "sse4.1")]
-pub(crate) unsafe fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) fn sse_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     width: u32,
     dst: &mut [f32],
 ) -> usize {
-    let target: OklabTarget = TARGET.into();
-    let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.channel_count();
-    let mut cx = start_cx;
+    unsafe {
+        let target: OklabTarget = TARGET.into();
+        let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+        let channels = image_configuration.channel_count();
+        let mut cx = start_cx;
 
-    let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
-        _mm_set1_ps(0.4122214708f32),
-        _mm_set1_ps(0.5363325363f32),
-        _mm_set1_ps(0.0514459929f32),
-        _mm_set1_ps(0.2119034982f32),
-        _mm_set1_ps(0.6806995451f32),
-        _mm_set1_ps(0.1073969566f32),
-        _mm_set1_ps(0.0883024619f32),
-        _mm_set1_ps(0.2817188376f32),
-        _mm_set1_ps(0.6299787005f32),
-    );
-
-    let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
-        _mm_set1_ps(0.2104542553f32),
-        _mm_set1_ps(0.7936177850f32),
-        _mm_set1_ps(-0.0040720468f32),
-        _mm_set1_ps(1.9779984951f32),
-        _mm_set1_ps(-2.4285922050f32),
-        _mm_set1_ps(0.4505937099f32),
-        _mm_set1_ps(0.0259040371f32),
-        _mm_set1_ps(0.7827717662f32),
-        _mm_set1_ps(-0.8086757660f32),
-    );
-
-    while cx + 4 <= width as usize {
-        let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(in_place_ptr.as_ptr(), image_configuration);
-
-        let (l_oklab, a_oklab, b_oklab) = triple_to_oklab!(
-            r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
-            m5, m6, m7, m8
+        let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
+            _mm_set1_ps(0.4122214708f32),
+            _mm_set1_ps(0.5363325363f32),
+            _mm_set1_ps(0.0514459929f32),
+            _mm_set1_ps(0.2119034982f32),
+            _mm_set1_ps(0.6806995451f32),
+            _mm_set1_ps(0.1073969566f32),
+            _mm_set1_ps(0.0883024619f32),
+            _mm_set1_ps(0.2817188376f32),
+            _mm_set1_ps(0.6299787005f32),
         );
 
-        if image_configuration.has_alpha() {
-            store_and_interleave_v4_direct_f32!(
-                in_place_ptr.as_mut_ptr(),
-                l_oklab,
-                a_oklab,
-                b_oklab,
-                a_chan
+        let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
+            _mm_set1_ps(0.2104542553f32),
+            _mm_set1_ps(0.7936177850f32),
+            _mm_set1_ps(-0.0040720468f32),
+            _mm_set1_ps(1.9779984951f32),
+            _mm_set1_ps(-2.4285922050f32),
+            _mm_set1_ps(0.4505937099f32),
+            _mm_set1_ps(0.0259040371f32),
+            _mm_set1_ps(0.7827717662f32),
+            _mm_set1_ps(-0.8086757660f32),
+        );
+
+        while cx + 4 <= width as usize {
+            let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_f32_and_deinterleave!(in_place_ptr.as_ptr(), image_configuration);
+
+            let (l_oklab, a_oklab, b_oklab) = triple_to_oklab!(
+                r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3,
+                m4, m5, m6, m7, m8
             );
-        } else {
-            store_and_interleave_v3_direct_f32!(
-                in_place_ptr.as_mut_ptr(),
-                l_oklab,
-                a_oklab,
-                b_oklab
-            );
+
+            if image_configuration.has_alpha() {
+                store_and_interleave_v4_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    l_oklab,
+                    a_oklab,
+                    b_oklab,
+                    a_chan
+                );
+            } else {
+                store_and_interleave_v3_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    l_oklab,
+                    a_oklab,
+                    b_oklab
+                );
+            }
+
+            cx += 4;
         }
 
-        cx += 4;
+        cx
     }
-
-    cx
 }

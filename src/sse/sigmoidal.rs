@@ -12,28 +12,31 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline(always)]
-pub(crate) unsafe fn sse_color_to_sigmoidal(x: __m128) -> __m128 {
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_color_to_sigmoidal(x: __m128) -> __m128 {
     let x = _mm_mul_ps(x, _mm_set1_ps(1f32 / 255f32));
     let negg = _mm_neg_ps(x);
-    let den = _mm_add_ps(_mm_set1_ps(1f32), _mm_exp_ps(negg));
+    let den = _mm_add_ps(_mm_set1_ps(1f32), unsafe { _mm_exp_ps(negg) });
     let erase_nan_mask = _mm_cmpeq_ps(den, _mm_setzero_ps());
     let rcp = _mm_rcp_ps(den);
     _mm_select_ps(erase_nan_mask, _mm_setzero_ps(), rcp)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn sse_sigmoidal_to_color(x: __m128) -> __m128 {
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_sigmoidal_to_color(x: __m128) -> __m128 {
     let den = _mm_sub_ps(_mm_set1_ps(1f32), x);
     let zero_mask_1 = _mm_cmpeq_ps(den, _mm_setzero_ps());
     let k = _mm_mul_ps(x, _mm_rcp_ps(den));
     let zeros = _mm_setzero_ps();
     let zero_mask_2 = _mm_cmple_ps(k, zeros);
-    let ln = _mm_ln_fast_ps(k);
+    let ln = unsafe { _mm_ln_fast_ps(k) };
     _mm_select_ps(_mm_and_ps(zero_mask_1, zero_mask_2), zeros, ln)
 }
 
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "sse4.1")]
 pub(crate) unsafe fn sse_rgb_to_sigmoidal(
     r: __m128i,
     g: __m128i,
@@ -45,8 +48,9 @@ pub(crate) unsafe fn sse_rgb_to_sigmoidal(
     (sr, sg, sb)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn sse_sigmoidal_to_rgb(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_sigmoidal_to_rgb(
     sr: __m128,
     sg: __m128,
     sb: __m128,

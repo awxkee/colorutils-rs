@@ -5,7 +5,7 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::{EuclideanDistance, Oklab, Rgb, TaxicabDistance, TransferFunction};
-use erydanos::{eatan2f, ehypotf, Cosine, Sine};
+use erydanos::{Cosine, Sine, eatan2f, ehypotf};
 use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 

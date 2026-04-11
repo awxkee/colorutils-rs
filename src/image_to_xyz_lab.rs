@@ -8,7 +8,7 @@ use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
 use crate::xyz_target::XyzTarget;
 use crate::{
-    BufferStore, ColorError, ImageBuffer, ImageBufferMut, LCh, Lab, Luv, Rgb, Xyz, SRGB_TO_XYZ_D65,
+    BufferStore, ColorError, ImageBuffer, ImageBufferMut, LCh, Lab, Luv, Rgb, SRGB_TO_XYZ_D65, Xyz,
 };
 
 #[allow(clippy::type_complexity)]
@@ -21,11 +21,14 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
 ) -> Result<(), ColorError> {
     src.validate()?;
     dst.validate()?;
-    dst.try_match_immutable_with_channels(src)?;
+    dst.try_match_immutable(src)?;
     if USE_ALPHA {
         dst.try_match(a_plane)?;
     }
     if src.channels != 3 && src.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
+    if dst.channels != 3 {
         return Err(ColorError::UnsupportedChannelsCount(src.channels));
     }
     if USE_ALPHA {
@@ -103,9 +106,9 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 .iter_mut()
                 .zip(src.as_chunks::<3>().0.iter())
             {
-                dst[0] = lut_table[src[0] as usize];
-                dst[1] = lut_table[src[1] as usize];
-                dst[2] = lut_table[src[2] as usize];
+                dst[0] = lut_table[src[image_configuration.r_index()] as usize];
+                dst[1] = lut_table[src[image_configuration.g_index()] as usize];
+                dst[2] = lut_table[src[image_configuration.b_index()] as usize];
             }
         } else if image_configuration == ImageConfiguration::Bgra
             || image_configuration == ImageConfiguration::Rgba
@@ -116,10 +119,10 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
                 .iter_mut()
                 .zip(src.as_chunks::<4>().0.iter())
             {
-                dst[0] = lut_table[src[0] as usize];
-                dst[1] = lut_table[src[1] as usize];
-                dst[2] = lut_table[src[2] as usize];
-                dst[3] = a_lut_table[src[3] as usize];
+                dst[0] = lut_table[src[image_configuration.r_index()] as usize];
+                dst[1] = lut_table[src[image_configuration.g_index()] as usize];
+                dst[2] = lut_table[src[image_configuration.b_index()] as usize];
+                dst[3] = a_lut_table[src[image_configuration.a_index()] as usize];
             }
         }
 
@@ -238,17 +241,10 @@ pub fn rgb_to_xyz(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -271,17 +267,10 @@ pub fn bgr_to_xyz(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -302,17 +291,10 @@ pub fn srgb_to_xyz(
     src: &ImageBuffer<'_, u8>,
     dst: &mut ImageBufferMut<'_, f32>,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         &SRGB_TO_XYZ_D65,
         TransferFunction::Srgb,
     )
@@ -335,11 +317,10 @@ pub fn rgb_to_lab(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; 1];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(empty_vec), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -362,11 +343,10 @@ pub fn rgba_to_xyz(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; 1];
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(empty_vec), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -387,11 +367,10 @@ pub fn srgba_to_xyz(
     src: &ImageBuffer<'_, u8>,
     dst: &mut ImageBufferMut<'_, f32>,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; 1];
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(empty_vec), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         &SRGB_TO_XYZ_D65,
         TransferFunction::Srgb,
     )
@@ -553,17 +532,10 @@ pub fn bgr_to_lab(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -586,17 +558,10 @@ pub fn rgb_to_luv(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -619,17 +584,10 @@ pub fn bgr_to_luv(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -652,17 +610,10 @@ pub fn rgb_to_lch(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -685,18 +636,294 @@ pub fn bgr_to_lch(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty_vec = vec![0.; dst.width as usize * dst.height as usize];
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(
-            BufferStore::Owned(empty_vec),
-            dst.width,
-            dst.height,
-            dst.width,
-            1,
-        )?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
         matrix,
         transfer_function,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_src(data: Vec<u8>, width: u32, height: u32, channels: u32) -> ImageBuffer<'static, u8> {
+        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+    }
+
+    fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, f32> {
+        let len = (width * height * channels) as usize;
+        ImageBufferMut::new(
+            BufferStore::Owned(vec![0f32; len]),
+            width,
+            height,
+            width * channels,
+            channels,
+        )
+        .unwrap()
+    }
+
+    fn make_alpha(width: u32, height: u32) -> ImageBufferMut<'static, f32> {
+        let len = (width * height) as usize;
+        ImageBufferMut::new(BufferStore::Owned(vec![0f32; len]), width, height, width, 1).unwrap()
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    fn assert_approx(a: f32, b: f32, eps: f32, label: &str) {
+        assert!((a - b).abs() < eps, "{label}: expected {b}, got {a}");
+    }
+
+    // ── black / white sanity ──────────────────────────────────────────────────
+
+    #[test]
+    fn rgb_to_xyz_black() {
+        let src = make_src(vec![0u8; 3], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        rgb_to_xyz(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0.0, 1e-5, "X");
+        assert_approx(d[1], 0.0, 1e-5, "Y");
+        assert_approx(d[2], 0.0, 1e-5, "Z");
+    }
+
+    #[test]
+    fn rgb_to_xyz_white() {
+        let src = make_src(vec![255u8; 3], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        rgb_to_xyz(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        // D65 white point
+        assert_approx(d[0], 0.9505, 1e-3, "X");
+        assert_approx(d[1], 1.0000, 1e-3, "Y");
+        assert_approx(d[2], 1.0890, 1e-3, "Z");
+    }
+
+    #[test]
+    fn bgr_to_xyz_white() {
+        // BGR white is identical to RGB white
+        let src = make_src(vec![255u8; 3], 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        rgb_to_xyz(&src, &mut dst_rgb, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        bgr_to_xyz(&src, &mut dst_bgr, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let r = dst_rgb.data.borrow();
+        let b = dst_bgr.data.borrow();
+        for i in 0..3 {
+            assert_approx(b[i], r[i], 1e-5, &format!("channel {i}"));
+        }
+    }
+
+    // ── sRGB convenience wrappers ─────────────────────────────────────────────
+
+    #[test]
+    fn srgb_to_xyz_matches_rgb_to_xyz() {
+        let data = vec![100u8, 150u8, 200u8];
+        let src = make_src(data.clone(), 1, 1, 3);
+        let src2 = make_src(data, 1, 1, 3);
+        let mut dst1 = make_dst(1, 1, 3);
+        let mut dst2 = make_dst(1, 1, 3);
+        srgb_to_xyz(&src, &mut dst1).unwrap();
+        rgb_to_xyz(&src2, &mut dst2, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d1 = dst1.data.borrow();
+        let d2 = dst2.data.borrow();
+        for i in 0..3 {
+            assert_approx(d1[i], d2[i], 1e-6, &format!("channel {i}"));
+        }
+    }
+
+    #[test]
+    fn srgba_to_xyz_matches_rgba_to_xyz() {
+        let data = vec![100u8, 150u8, 200u8, 255u8];
+        let src = make_src(data.clone(), 1, 1, 4);
+        let src2 = make_src(data, 1, 1, 4);
+        let mut dst1 = make_dst(1, 1, 3);
+        let mut dst2 = make_dst(1, 1, 3);
+        srgba_to_xyz(&src, &mut dst1).unwrap();
+        rgba_to_xyz(&src2, &mut dst2, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d1 = dst1.data.borrow();
+        let d2 = dst2.data.borrow();
+        for i in 0..3 {
+            assert_approx(d1[i], d2[i], 1e-6, &format!("channel {i}"));
+        }
+    }
+
+    // ── Lab ───────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn rgb_to_lab_white() {
+        let src = make_src(vec![255u8; 3], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        rgb_to_lab(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 100.0, 0.5, "L*");
+        assert_approx(d[1], 0.0, 0.5, "a*");
+        assert_approx(d[2], 0.0, 0.5, "b*");
+    }
+
+    #[test]
+    fn rgb_to_lab_black() {
+        let src = make_src(vec![0u8; 3], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        rgb_to_lab(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0.0, 0.1, "L*");
+    }
+
+    #[test]
+    fn bgr_to_lab_matches_rgb_to_lab_for_grey() {
+        // Grey pixels are BGR-invariant
+        let data = vec![128u8, 128u8, 128u8];
+        let src_rgb = make_src(data.clone(), 1, 1, 3);
+        let src_bgr = make_src(data, 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        rgb_to_lab(
+            &src_rgb,
+            &mut dst_rgb,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        bgr_to_lab(
+            &src_bgr,
+            &mut dst_bgr,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        let r = dst_rgb.data.borrow();
+        let b = dst_bgr.data.borrow();
+        for i in 0..3 {
+            assert_approx(b[i], r[i], 1e-4, &format!("channel {i}"));
+        }
+    }
+
+    // ── RGBA → XYZA (alpha preservation) ─────────────────────────────────────
+
+    #[test]
+    fn rgba_to_xyza_alpha_passthrough() {
+        // Alpha = 128 → normalised to 128/255 ≈ 0.502
+        let src = make_src(vec![255, 255, 255, 128], 1, 1, 4);
+        let mut dst = make_dst(1, 1, 3);
+        let mut alpha = make_alpha(1, 1);
+        rgba_to_xyza(
+            &src,
+            &mut dst,
+            &mut alpha,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        let a = alpha.data.borrow();
+        assert_approx(a[0], 128.0 / 255.0, 1e-4, "alpha");
+    }
+
+    #[test]
+    fn srgba_to_xyza_alpha_passthrough() {
+        let src = make_src(vec![0, 0, 0, 64], 1, 1, 4);
+        let mut dst = make_dst(1, 1, 3);
+        let mut alpha = make_alpha(1, 1);
+        srgba_to_xyza(&src, &mut dst, &mut alpha).unwrap();
+        let a = alpha.data.borrow();
+        assert_approx(a[0], 64.0 / 255.0, 1e-4, "alpha");
+    }
+
+    #[test]
+    fn bgr_to_luv_matches_rgb_for_grey() {
+        let data = vec![200u8, 200u8, 200u8];
+        let src_rgb = make_src(data.clone(), 1, 1, 3);
+        let src_bgr = make_src(data, 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        rgb_to_luv(
+            &src_rgb,
+            &mut dst_rgb,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        bgr_to_luv(
+            &src_bgr,
+            &mut dst_bgr,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        let r = dst_rgb.data.borrow();
+        let b = dst_bgr.data.borrow();
+        for i in 0..3 {
+            assert_approx(b[i], r[i], 1e-4, &format!("channel {i}"));
+        }
+    }
+
+    #[test]
+    fn bgr_to_lch_matches_rgb_for_grey() {
+        let data = vec![100u8, 100u8, 100u8];
+        let src_rgb = make_src(data.clone(), 1, 1, 3);
+        let src_bgr = make_src(data, 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        rgb_to_lch(
+            &src_rgb,
+            &mut dst_rgb,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        bgr_to_lch(
+            &src_bgr,
+            &mut dst_bgr,
+            &SRGB_TO_XYZ_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        let r = dst_rgb.data.borrow();
+        let b = dst_bgr.data.borrow();
+        for i in 0..3 {
+            assert_approx(b[i], r[i], 1e-4, &format!("channel {i}"));
+        }
+    }
+
+    // ── multi-pixel / stride ──────────────────────────────────────────────────
+
+    #[test]
+    fn rgb_to_xyz_multi_pixel_consistent() {
+        // 3 identical pixels — all outputs must be identical
+        let pixel = [100u8, 149u8, 237u8]; // cornflower blue-ish
+        let src = make_src(pixel.repeat(3), 3, 1, 3);
+        let mut dst = make_dst(3, 1, 3);
+        rgb_to_xyz(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        for px in 1..3 {
+            for ch in 0..3 {
+                assert_approx(d[px * 3 + ch], d[ch], 1e-5, &format!("px{px} ch{ch}"));
+            }
+        }
+    }
+
+    #[test]
+    fn rgb_to_lab_multi_row() {
+        // 1x2 image, both rows identical white → both Lab rows must match
+        let src = make_src(vec![255u8; 6], 1, 2, 3);
+        let mut dst = make_dst(1, 2, 3);
+        rgb_to_lab(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        for ch in 0..3 {
+            assert_approx(d[ch], d[3 + ch], 1e-5, &format!("row mismatch ch{ch}"));
+        }
+    }
+
+    // ── error paths ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn wrong_channel_count_returns_error() {
+        // 2-channel source is unsupported
+        let src = make_src(vec![0u8; 2], 1, 1, 2);
+        let mut dst = make_dst(1, 1, 3);
+        let result = rgb_to_xyz(&src, &mut dst, &SRGB_TO_XYZ_D65, TransferFunction::Srgb);
+        assert!(result.is_err());
+    }
 }

@@ -12,7 +12,7 @@ use erydanos::{vcosq_f32, visnanq_f32, vmlafq_f32, vpowq_f32, vsinq_f32};
 use crate::image::ImageConfiguration;
 use crate::image_to_jzazbz::JzazbzTarget;
 use crate::neon::math::{vcolorq_matrix_f32, vpowq_n_f32};
-use crate::{load_f32_and_deinterleave_direct, XYZ_TO_SRGB_D65};
+use crate::{XYZ_TO_SRGB_D65, load_f32_and_deinterleave_direct};
 
 macro_rules! perceptual_quantizer_inverse {
     ($color: expr) => {{
@@ -33,89 +33,92 @@ macro_rules! perceptual_quantizer_inverse {
     }};
 }
 
-#[inline(always)]
-unsafe fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
+#[inline]
+#[target_feature(enable = "neon")]
+fn neon_jzazbz_gamma_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
     target: JzazbzTarget,
     luminance: f32,
 ) -> (float32x4_t, float32x4_t, float32x4_t, float32x4_t) {
-    let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (jz, mut az, mut bz, a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
+    unsafe {
+        let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+        let (jz, mut az, mut bz, a_f32) =
+            load_f32_and_deinterleave_direct!(src, image_configuration);
 
-    if target == JzazbzTarget::Jzczhz {
-        let cz = az;
-        let hz = bz;
-        az = vmulq_f32(cz, vcosq_f32(hz));
-        bz = vmulq_f32(cz, vsinq_f32(hz));
+        if target == JzazbzTarget::Jzczhz {
+            let cz = az;
+            let hz = bz;
+            az = vmulq_f32(cz, vcosq_f32(hz));
+            bz = vmulq_f32(cz, vsinq_f32(hz));
+        }
+
+        let jz = vaddq_f32(jz, vdupq_n_f32(1.6295499532821566e-11));
+        let iz = vdivq_f32(
+            jz,
+            vmlafq_f32(jz, vdupq_n_f32(0.56f32), vdupq_n_f32(0.44f32)),
+        );
+
+        let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
+            vdupq_n_f32(1f32),
+            vdupq_n_f32(1.386050432715393e-1),
+            vdupq_n_f32(5.804731615611869e-2),
+            vdupq_n_f32(1f32),
+            vdupq_n_f32(-1.386050432715393e-1),
+            vdupq_n_f32(-5.804731615611891e-2),
+            vdupq_n_f32(1f32),
+            vdupq_n_f32(-9.601924202631895e-2),
+            vdupq_n_f32(-8.118918960560390e-1),
+        );
+
+        let (mut l_l, mut l_m, mut l_s) =
+            vcolorq_matrix_f32(iz, az, bz, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+
+        l_l = perceptual_quantizer_inverse!(l_l);
+        l_m = perceptual_quantizer_inverse!(l_m);
+        l_s = perceptual_quantizer_inverse!(l_s);
+
+        let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
+            vdupq_n_f32(1.661373055774069e+00),
+            vdupq_n_f32(-9.145230923250668e-01),
+            vdupq_n_f32(2.313620767186147e-01),
+            vdupq_n_f32(-3.250758740427037e-01),
+            vdupq_n_f32(1.571847038366936e+00),
+            vdupq_n_f32(-2.182538318672940e-01),
+            vdupq_n_f32(-9.098281098284756e-02),
+            vdupq_n_f32(-3.127282905230740e-01),
+            vdupq_n_f32(1.522766561305260e+00),
+        );
+
+        let (mut x, mut y, mut z) =
+            vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+
+        x = vmulq_n_f32(x, luminance);
+        y = vmulq_n_f32(y, luminance);
+        z = vmulq_n_f32(z, luminance);
+
+        let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
+            vdupq_n_f32(XYZ_TO_SRGB_D65[0][0]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[0][1]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[0][2]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[1][0]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[1][1]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[1][2]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[2][0]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[2][1]),
+            vdupq_n_f32(XYZ_TO_SRGB_D65[2][2]),
+        );
+
+        let (r_l, g_l, b_l) = vcolorq_matrix_f32(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
+
+        (r_l, g_l, b_l, a_f32)
     }
-
-    let jz = vaddq_f32(jz, vdupq_n_f32(1.6295499532821566e-11));
-    let iz = vdivq_f32(
-        jz,
-        vmlafq_f32(jz, vdupq_n_f32(0.56f32), vdupq_n_f32(0.44f32)),
-    );
-
-    let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
-        vdupq_n_f32(1f32),
-        vdupq_n_f32(1.386050432715393e-1),
-        vdupq_n_f32(5.804731615611869e-2),
-        vdupq_n_f32(1f32),
-        vdupq_n_f32(-1.386050432715393e-1),
-        vdupq_n_f32(-5.804731615611891e-2),
-        vdupq_n_f32(1f32),
-        vdupq_n_f32(-9.601924202631895e-2),
-        vdupq_n_f32(-8.118918960560390e-1),
-    );
-
-    let (mut l_l, mut l_m, mut l_s) =
-        vcolorq_matrix_f32(iz, az, bz, m0, m1, m2, m3, m4, m5, m6, m7, m8);
-
-    l_l = perceptual_quantizer_inverse!(l_l);
-    l_m = perceptual_quantizer_inverse!(l_m);
-    l_s = perceptual_quantizer_inverse!(l_s);
-
-    let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
-        vdupq_n_f32(1.661373055774069e+00),
-        vdupq_n_f32(-9.145230923250668e-01),
-        vdupq_n_f32(2.313620767186147e-01),
-        vdupq_n_f32(-3.250758740427037e-01),
-        vdupq_n_f32(1.571847038366936e+00),
-        vdupq_n_f32(-2.182538318672940e-01),
-        vdupq_n_f32(-9.098281098284756e-02),
-        vdupq_n_f32(-3.127282905230740e-01),
-        vdupq_n_f32(1.522766561305260e+00),
-    );
-
-    let (mut x, mut y, mut z) =
-        vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
-
-    x = vmulq_n_f32(x, luminance);
-    y = vmulq_n_f32(y, luminance);
-    z = vmulq_n_f32(z, luminance);
-
-    let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(1)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(2)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(0)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(1)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(2)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(0)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(1)),
-        vdupq_n_f32(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(2)),
-    );
-
-    let (r_l, g_l, b_l) = vcolorq_matrix_f32(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
-
-    (r_l, g_l, b_l, a_f32)
 }
 
-pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: u32,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
     display_luminance: f32,
 ) -> usize {
@@ -126,16 +129,15 @@ pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGE
 
     let luminance_scale: f32 = 1. / display_luminance;
 
-    while cx + 4 < width as usize {
-        let offset_src_ptr =
-            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let offset_src_ptr = unsafe { src.get_unchecked(cx * channels..).as_ptr() };
 
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
             neon_jzazbz_gamma_vld::<CHANNELS_CONFIGURATION>(src_ptr_0, target, luminance_scale);
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
+        let dst_ptr = unsafe { dst.get_unchecked_mut(cx * channels) };
 
         if image_configuration.has_alpha() {
             let store_rows = match image_configuration {
@@ -146,7 +148,9 @@ pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGE
                     float32x4x4_t(b_row0_, g_row0_, r_row0_, a_row0_)
                 }
             };
-            vst4q_f32(dst_ptr, store_rows);
+            unsafe {
+                vst4q_f32(dst_ptr, store_rows);
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -156,7 +160,9 @@ pub unsafe fn neon_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGE
                     float32x4x3_t(b_row0_, g_row0_, r_row0_)
                 }
             };
-            vst3q_f32(dst_ptr, store_rows);
+            unsafe {
+                vst3q_f32(dst_ptr, store_rows);
+            }
         }
 
         cx += 4;

@@ -8,12 +8,9 @@
 use erydanos::vpowq_fast_f32;
 use std::arch::aarch64::*;
 
-#[inline(always)]
-pub(crate) unsafe fn prefer_vfmaq_f32(
-    a: float32x4_t,
-    b: float32x4_t,
-    c: float32x4_t,
-) -> float32x4_t {
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn prefer_vfmaq_f32(a: float32x4_t, b: float32x4_t, c: float32x4_t) -> float32x4_t {
     #[cfg(target_arch = "aarch64")]
     {
         vfmaq_f32(a, b, c)
@@ -24,18 +21,21 @@ pub(crate) unsafe fn prefer_vfmaq_f32(
     }
 }
 
-#[inline(always)]
-pub unsafe fn vpowjq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
-    vpowq_fast_f32(val, n)
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn vpowjq_f32(val: float32x4_t, n: float32x4_t) -> float32x4_t {
+    unsafe { vpowq_fast_f32(val, n) }
 }
 
-#[inline(always)]
-pub unsafe fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn vpowq_n_f32(t: float32x4_t, power: f32) -> float32x4_t {
     vpowjq_f32(t, vdupq_n_f32(power))
 }
 
-#[inline(always)]
-pub unsafe fn vcolorq_matrix_f32(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn vcolorq_matrix_f32(
     r: float32x4_t,
     g: float32x4_t,
     b: float32x4_t,
@@ -54,7 +54,8 @@ pub unsafe fn vcolorq_matrix_f32(
     let new_b = prefer_vfmaq_f32(prefer_vfmaq_f32(vmulq_f32(g, c8), b, c9), r, c7);
     (new_r, new_g, new_b)
 }
-#[inline(always)]
-pub(crate) unsafe fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn vcubeq_f32(x: float32x4_t) -> float32x4_t {
     vmulq_f32(vmulq_f32(x, x), x)
 }

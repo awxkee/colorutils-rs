@@ -18,8 +18,8 @@ use crate::sse::{
 };
 use crate::sse::{sse_interleave_ps_rgb, sse_interleave_ps_rgba};
 use crate::{
-    load_f32_and_deinterleave_direct, store_and_interleave_v3_f32, store_and_interleave_v4_f32,
-    XYZ_TO_SRGB_D65,
+    XYZ_TO_SRGB_D65, load_f32_and_deinterleave_direct, store_and_interleave_v3_f32,
+    store_and_interleave_v4_f32,
 };
 use erydanos::{_mm_cos_ps, _mm_isnan_ps, _mm_mlaf_ps, _mm_pow_ps, _mm_sin_ps};
 
@@ -43,28 +43,34 @@ macro_rules! perceptual_quantizer_inverse {
     }};
 }
 
-#[inline(always)]
-unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
     luminance_scale: __m128,
 ) -> (__m128, __m128, __m128, __m128) {
     let target: JzazbzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let (jz, mut az, mut bz, a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
+    let (jz, mut az, mut bz, a_f32) =
+        unsafe { load_f32_and_deinterleave_direct!(src, image_configuration) };
 
     if target == JzazbzTarget::Jzczhz {
         let cz = az;
         let hz = bz;
-        az = _mm_mul_ps(cz, _mm_cos_ps(hz));
-        bz = _mm_mul_ps(cz, _mm_sin_ps(hz));
+        unsafe {
+            az = _mm_mul_ps(cz, _mm_cos_ps(hz));
+            bz = _mm_mul_ps(cz, _mm_sin_ps(hz));
+        }
     }
 
     let jz = _mm_add_ps(jz, _mm_set1_ps(1.6295499532821566e-11));
-    let iz = _mm_div_ps(
-        jz,
-        _mm_mlaf_ps(jz, _mm_set1_ps(0.56f32), _mm_set1_ps(0.44f32)),
-    );
+    let iz = unsafe {
+        _mm_div_ps(
+            jz,
+            _mm_mlaf_ps(jz, _mm_set1_ps(0.56f32), _mm_set1_ps(0.44f32)),
+        )
+    };
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
         _mm_set1_ps(1f32),
@@ -81,9 +87,11 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     let (mut l_l, mut l_m, mut l_s) =
         _mm_color_matrix_ps(iz, az, bz, m0, m1, m2, m3, m4, m5, m6, m7, m8);
 
-    l_l = perceptual_quantizer_inverse!(l_l);
-    l_m = perceptual_quantizer_inverse!(l_m);
-    l_s = perceptual_quantizer_inverse!(l_s);
+    unsafe {
+        l_l = perceptual_quantizer_inverse!(l_l);
+        l_m = perceptual_quantizer_inverse!(l_m);
+        l_s = perceptual_quantizer_inverse!(l_s);
+    }
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
         _mm_set1_ps(1.661373055774069e+00),
@@ -105,15 +113,15 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     z = _mm_mul_ps(z, luminance_scale);
 
     let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(0).get_unchecked(2)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(1).get_unchecked(2)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(0)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(1)),
-        _mm_set1_ps(*XYZ_TO_SRGB_D65.get_unchecked(2).get_unchecked(2)),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[0][0]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[0][1]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[0][2]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[1][0]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[1][1]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[1][2]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[2][0]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[2][1]),
+        _mm_set1_ps(XYZ_TO_SRGB_D65[2][2]),
     );
 
     let (r_l, g_l, b_l) = _mm_color_matrix_ps(x, y, z, x0, x1, x2, x3, x4, x5, x6, x7, x8);
@@ -121,12 +129,10 @@ unsafe fn sse_jzazbz_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: u32,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
     display_luminance: f32,
 ) -> usize {
@@ -136,28 +142,35 @@ pub unsafe fn sse_jzazbz_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET
 
     let luminance_scale = _mm_set1_ps(1. / display_luminance);
 
-    while cx + 8 < width as usize {
-        let offset_src_ptr =
-            ((src as *const u8).add(src_offset as usize) as *const f32).add(cx * channels);
+    while cx + 8 <= width as usize {
+        let offset_src_ptr = unsafe { src.get_unchecked(cx * channels..) };
 
         let src_ptr_0 = offset_src_ptr;
 
         let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_0, luminance_scale);
+            sse_jzazbz_vld::<CHANNELS_CONFIGURATION, TARGET>(src_ptr_0.as_ptr(), luminance_scale);
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
+        let dst_ptr = unsafe { dst.get_unchecked_mut(cx * channels..).as_mut_ptr() };
 
-        if image_configuration.has_alpha() {
-            store_and_interleave_v4_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_,
-                a_row0_
-            );
-        } else {
-            store_and_interleave_v3_f32!(dst_ptr, image_configuration, r_row0_, g_row0_, b_row0_);
+        unsafe {
+            if image_configuration.has_alpha() {
+                store_and_interleave_v4_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_,
+                    a_row0_
+                );
+            } else {
+                store_and_interleave_v3_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_
+                );
+            }
         }
 
         cx += 8;

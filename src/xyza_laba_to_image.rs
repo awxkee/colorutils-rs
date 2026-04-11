@@ -5,421 +5,226 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::avx_xyza_to_image;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use crate::neon::neon_xyza_to_image;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_xyza_to_image;
+use crate::xyz_lab_to_image::xyz_target_to_rgb;
 use crate::xyz_target::XyzTarget;
-use crate::{LCh, Lab, Luv, Xyz};
-#[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
-#[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-use std::slice;
+use crate::{ColorError, ImageBuffer, ImageBufferMut};
 
-#[allow(clippy::type_complexity)]
 fn xyz_with_alpha_to_channels<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let source: XyzTarget = TARGET.into();
+) -> Result<(), ColorError> {
+    dst.validate()?;
+    src.validate()?;
+    dst.try_match_immutable_with_channels(src)?;
+    if src.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
+
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+    let source: XyzTarget = TARGET.into();
+
     if !image_configuration.has_alpha() {
         panic!("Alpha may be set only on images with alpha");
     }
 
     let mut _wide_row_handler: Option<
-        unsafe fn(usize, *const f32, usize, *mut f32, usize, u32, &[[f32; 3]; 3]) -> usize,
+        unsafe fn(usize, &[f32], &mut [f32], u32, &[[f32; 3]; 3]) -> usize,
     > = None;
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
+        use crate::neon::neon_xyza_to_image;
         _wide_row_handler = Some(neon_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("sse4.1") {
+        use crate::sse::sse_xyza_to_image;
         _wide_row_handler = Some(sse_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("avx2") {
+        use crate::avx::avx_xyza_to_image;
         _wide_row_handler = Some(avx_xyza_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
-    let mut lut_table = vec![0u8; 2049];
-    for (i, element) in lut_table.iter_mut().enumerate() {
-        *element = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.).min(255.) as u8;
+    let channels = image_configuration.channel_count();
+
+    let mut lut_table = [0u8; 65536];
+    for (i, lut) in lut_table[..2049].iter_mut().enumerate() {
+        *lut = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
+            .round()
+            .min(255.) as u8;
     }
 
-    let src_slice_safe_align = unsafe {
-        slice::from_raw_parts(
-            src.as_ptr() as *const u8,
-            src_stride as usize * height as usize,
-        )
-    };
+    let dst_stride = dst.stride();
+    let src_r_width = src.width * src.channels;
+    let dst_r_width = dst.width * dst.channels;
+    let width = src.width;
 
-    let iter;
-    #[cfg(feature = "rayon")]
+    let mut transient_row = vec![0f32; width as usize * channels];
+
+    for (dst, src) in dst
+        .data
+        .borrow_mut()
+        .chunks_mut(dst_stride)
+        .zip(src.data.chunks(src.stride()))
     {
-        iter = dst
-            .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
-    }
-    #[cfg(not(feature = "rayon"))]
-    {
-        iter = dst
-            .chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
-    }
+        let src = &src[..src_r_width as usize];
+        let dst = &mut dst[..dst_r_width as usize];
 
-    iter.for_each(|(dst, src)| unsafe {
-        let channels = image_configuration.channel_count();
-
-        let mut _cx = 0usize;
-
-        let mut transient_row = vec![0f32; width as usize * channels];
-
+        let mut cx = 0usize;
         if let Some(dispatcher) = _wide_row_handler {
-            _cx = dispatcher(
-                _cx,
-                src.as_ptr() as *const f32,
-                0,
-                transient_row.as_mut_ptr(),
-                0,
-                width,
-                matrix,
-            )
+            cx = unsafe { dispatcher(0, src, &mut transient_row, width, matrix) };
         }
 
-        let src_ptr = src.as_ptr() as *mut f32;
-
-        for x in _cx..width as usize {
-            let px = x * 4;
-            let l_x = src_ptr.add(px).read_unaligned();
-            let l_y = src_ptr.add(px + 1).read_unaligned();
-            let l_z = src_ptr.add(px + 2).read_unaligned();
-            let rgb = match source {
-                XyzTarget::Lab => {
-                    let lab = Lab::new(l_x, l_y, l_z);
-                    lab.to_linear_rgb(matrix)
-                }
-                XyzTarget::Xyz => {
-                    let xyz = Xyz::new(l_x, l_y, l_z);
-                    xyz.to_linear_rgb(matrix)
-                }
-                XyzTarget::Luv => {
-                    let luv = Luv::new(l_x, l_y, l_z);
-                    luv.to_linear_rgb(matrix)
-                }
-                XyzTarget::Lch => {
-                    let lch = LCh::new(l_x, l_y, l_z);
-                    lch.to_linear_rgb(matrix)
-                }
-            };
-
-            let l_a = src_ptr.add(px + 3).read_unaligned();
-            let dst = transient_row.get_unchecked_mut((x * channels)..);
-            *dst.get_unchecked_mut(image_configuration.r_index()) = rgb.r;
-            *dst.get_unchecked_mut(image_configuration.g_index()) = rgb.g;
-            *dst.get_unchecked_mut(image_configuration.b_index()) = rgb.b;
-            *dst.get_unchecked_mut(image_configuration.a_index()) = l_a;
-        }
-
-        for (dst_chunk, src_chunks) in dst
-            .chunks_exact_mut(channels)
-            .zip(transient_row.chunks_exact(channels))
+        for (transient, src) in transient_row[cx * channels..]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(src[cx * 4..].as_chunks::<4>().0.iter())
         {
-            let r_cast =
-                (src_chunks[image_configuration.r_index()].min(1.).max(0.) * 2048f32).round();
-            let g_cast =
-                (src_chunks[image_configuration.g_index()].min(1.).max(0.) * 2048f32).round();
-            let b_cast =
-                (src_chunks[image_configuration.b_index()].min(1.).max(0.) * 2048f32).round();
-            let a_cast = (src_chunks[image_configuration.a_index()] * 255.)
-                .min(255.)
-                .max(0.) as u8;
-
-            dst_chunk[image_configuration.r_index()] = *lut_table.get_unchecked(r_cast as usize);
-            dst_chunk[image_configuration.g_index()] = *lut_table.get_unchecked(g_cast as usize);
-            dst_chunk[image_configuration.b_index()] = *lut_table.get_unchecked(b_cast as usize);
-            dst_chunk[image_configuration.a_index()] = a_cast;
+            let rgb = xyz_target_to_rgb(source, src, matrix);
+            transient[image_configuration.r_index()] = rgb.r;
+            transient[image_configuration.g_index()] = rgb.g;
+            transient[image_configuration.b_index()] = rgb.b;
+            transient[image_configuration.a_index()] = src[3];
         }
-    });
+
+        for (dst, src) in dst
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(transient_row.as_chunks::<4>().0.iter())
+        {
+            let r = (src[image_configuration.r_index()] * 2048.).round() as u16;
+            let g = (src[image_configuration.g_index()] * 2048.).round() as u16;
+            let b = (src[image_configuration.b_index()] * 2048.).round() as u16;
+            dst[image_configuration.r_index()] = lut_table[r.min(2048) as usize];
+            dst[image_configuration.g_index()] = lut_table[g.min(2048) as usize];
+            dst[image_configuration.b_index()] = lut_table[b.min(2048) as usize];
+            dst[image_configuration.a_index()] = (src[image_configuration.a_index()] * 255.)
+                .clamp(0., 255.)
+                .round() as u8;
+        }
+    }
+
+    Ok(())
 }
 
-/// This function converts LAB with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive RGBA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lab_with_alpha_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LAB with separate alpha channel to BGRA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive BGRA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lab_with_alpha_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LUV with separate alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LUV data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive RGBA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn luv_with_alpha_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Luv as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LUV with separate alpha channel to BGRA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LUV data
-/// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
-/// * `dst` - A mutable slice to receive BGRA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn luv_with_alpha_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts XYZ with separate alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains XYZa data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive RGBA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn xyz_with_alpha_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts XYZ with separate alpha channel to BGRA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains XYZ data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive BGRA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn xyz_with_alpha_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LCH with separate alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LCHa data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive RGBA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lch_with_alpha_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Rgba as u8 }, { XyzTarget::Lch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LCH with separate alpha channel to BGRA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LCHa data
-/// * `src_stride` - Bytes per row for src data.
-/// * `dst` - A mutable slice to receive BGRA data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lch_with_alpha_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_with_alpha_to_channels::<{ ImageConfiguration::Bgra as u8 }, { XyzTarget::Lch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         matrix,
         transfer_function,
-    );
+    )
 }

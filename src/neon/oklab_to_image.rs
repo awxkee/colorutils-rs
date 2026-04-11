@@ -13,8 +13,9 @@ use crate::image_to_oklab::OklabTarget;
 use crate::load_f32_and_deinterleave_direct;
 use crate::neon::math::vcolorq_matrix_f32;
 
-#[inline(always)]
-unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[inline]
+#[target_feature(enable = "neon")]
+fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
     m0: float32x4_t,
     m1: float32x4_t,
@@ -35,29 +36,31 @@ unsafe fn neon_oklab_gamma_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u
     c7: float32x4_t,
     c8: float32x4_t,
 ) -> (float32x4_t, float32x4_t, float32x4_t, float32x4_t) {
-    let target: OklabTarget = TARGET.into();
-    let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let (l, mut a, mut b, a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
+    unsafe {
+        let target: OklabTarget = TARGET.into();
+        let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+        let (l, mut a, mut b, a_f32) = load_f32_and_deinterleave_direct!(src, image_configuration);
 
-    if target == OklabTarget::Oklch {
-        let a0 = vmulq_f32(a, vcosq_f32(b));
-        let b0 = vmulq_f32(a, vsinq_f32(b));
-        a = a0;
-        b = b0;
+        if target == OklabTarget::Oklch {
+            let a0 = vmulq_f32(a, vcosq_f32(b));
+            let b0 = vmulq_f32(a, vsinq_f32(b));
+            a = a0;
+            b = b0;
+        }
+
+        let (mut l_l, mut l_m, mut l_s) =
+            vcolorq_matrix_f32(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+
+        l_l = vmulq_f32(vmulq_f32(l_l, l_l), l_l);
+        l_m = vmulq_f32(vmulq_f32(l_m, l_m), l_m);
+        l_s = vmulq_f32(vmulq_f32(l_s, l_s), l_s);
+
+        let (r_l, g_l, b_l) = vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+        (r_l, g_l, b_l, a_f32)
     }
-
-    let (mut l_l, mut l_m, mut l_s) =
-        vcolorq_matrix_f32(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
-
-    l_l = vmulq_f32(vmulq_f32(l_l, l_l), l_l);
-    l_m = vmulq_f32(vmulq_f32(l_m, l_m), l_m);
-    l_s = vmulq_f32(vmulq_f32(l_s, l_s), l_s);
-
-    let (r_l, g_l, b_l) = vcolorq_matrix_f32(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
-    (r_l, g_l, b_l, a_f32)
 }
 
-#[inline(always)]
+#[target_feature(enable = "neon")]
 pub(crate) unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     src: &[f32],
@@ -93,34 +96,36 @@ pub(crate) unsafe fn neon_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const
     );
 
     while cx + 4 <= width as usize {
-        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
-        let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) =
-            neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
-                src_ptr, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7, c8,
-            );
+            let (r_row0_, g_row0_, b_row0_, a_row0_) =
+                neon_oklab_gamma_vld::<CHANNELS_CONFIGURATION, TARGET>(
+                    src_ptr, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7, c8,
+                );
 
-        if image_configuration.has_alpha() {
-            let store_rows = match image_configuration {
-                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
-                    float32x4x4_t(r_row0_, g_row0_, b_row0_, a_row0_)
-                }
-                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
-                    float32x4x4_t(b_row0_, g_row0_, r_row0_, a_row0_)
-                }
-            };
-            vst4q_f32(dst_ptr, store_rows);
-        } else {
-            let store_rows = match image_configuration {
-                ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
-                    float32x4x3_t(r_row0_, g_row0_, b_row0_)
-                }
-                ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
-                    float32x4x3_t(b_row0_, g_row0_, r_row0_)
-                }
-            };
-            vst3q_f32(dst_ptr, store_rows);
+            if image_configuration.has_alpha() {
+                let store_rows = match image_configuration {
+                    ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                        float32x4x4_t(r_row0_, g_row0_, b_row0_, a_row0_)
+                    }
+                    ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                        float32x4x4_t(b_row0_, g_row0_, r_row0_, a_row0_)
+                    }
+                };
+                vst4q_f32(dst_ptr, store_rows);
+            } else {
+                let store_rows = match image_configuration {
+                    ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
+                        float32x4x3_t(r_row0_, g_row0_, b_row0_)
+                    }
+                    ImageConfiguration::Bgra | ImageConfiguration::Bgr => {
+                        float32x4x3_t(b_row0_, g_row0_, r_row0_)
+                    }
+                };
+                vst3q_f32(dst_ptr, store_rows);
+            }
         }
 
         cx += 4;

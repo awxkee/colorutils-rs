@@ -22,12 +22,9 @@ use crate::{
     store_and_interleave_v4_f32,
 };
 
-#[inline(always)]
-unsafe fn avx_xyz_lab_vld<
-    const CHANNELS_CONFIGURATION: u8,
-    const USE_ALPHA: bool,
-    const TARGET: u8,
->(
+#[inline]
+#[target_feature(enable = "avx2")]
+fn avx_xyz_lab_vld<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
     src: *const f32,
     c1: __m256,
     c2: __m256,
@@ -39,54 +36,53 @@ unsafe fn avx_xyz_lab_vld<
     c8: __m256,
     c9: __m256,
 ) -> (__m256, __m256, __m256) {
-    let target: XyzTarget = TARGET.into();
-    let lab_pixel_0 = _mm256_loadu_ps(src);
-    let lab_pixel_1 = _mm256_loadu_ps(src.add(8));
-    let lab_pixel_2 = _mm256_loadu_ps(src.add(16));
-    let (mut r_f32, mut g_f32, mut b_f32) =
-        avx2_deinterleave_rgb_ps(lab_pixel_0, lab_pixel_1, lab_pixel_2);
+    unsafe {
+        let target: XyzTarget = TARGET.into();
+        let lab_pixel_0 = _mm256_loadu_ps(src);
+        let lab_pixel_1 = _mm256_loadu_ps(src.add(8));
+        let lab_pixel_2 = _mm256_loadu_ps(src.add(16));
+        let (mut r_f32, mut g_f32, mut b_f32) =
+            avx2_deinterleave_rgb_ps(lab_pixel_0, lab_pixel_1, lab_pixel_2);
 
-    match target {
-        XyzTarget::Lab => {
-            let (x, y, z) = avx_lab_to_xyz(r_f32, g_f32, b_f32);
-            r_f32 = x;
-            g_f32 = y;
-            b_f32 = z;
+        match target {
+            XyzTarget::Lab => {
+                let (x, y, z) = avx_lab_to_xyz(r_f32, g_f32, b_f32);
+                r_f32 = x;
+                g_f32 = y;
+                b_f32 = z;
+            }
+            XyzTarget::Luv => {
+                let (x, y, z) = avx_luv_to_xyz(r_f32, g_f32, b_f32);
+                r_f32 = x;
+                g_f32 = y;
+                b_f32 = z;
+            }
+            XyzTarget::Lch => {
+                let (x, y, z) = avx_lch_to_xyz(r_f32, g_f32, b_f32);
+                r_f32 = x;
+                g_f32 = y;
+                b_f32 = z;
+            }
+            _ => {}
         }
-        XyzTarget::Luv => {
-            let (x, y, z) = avx_luv_to_xyz(r_f32, g_f32, b_f32);
-            r_f32 = x;
-            g_f32 = y;
-            b_f32 = z;
-        }
-        XyzTarget::Lch => {
-            let (x, y, z) = avx_lch_to_xyz(r_f32, g_f32, b_f32);
-            r_f32 = x;
-            g_f32 = y;
-            b_f32 = z;
-        }
-        _ => {}
+
+        let (linear_r, linear_g, linear_b) =
+            _mm256_color_matrix_ps(r_f32, g_f32, b_f32, c1, c2, c3, c4, c5, c6, c7, c8, c9);
+
+        (linear_r, linear_g, linear_b)
     }
-
-    let (linear_r, linear_g, linear_b) =
-        _mm256_color_matrix_ps(r_f32, g_f32, b_f32, c1, c2, c3, c4, c5, c6, c7, c8, c9);
-
-    (linear_r, linear_g, linear_b)
 }
 
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx_xyz_to_channels<
+pub(crate) fn avx_xyz_to_channels<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
 >(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    a_channel: *const f32,
-    a_offset: usize,
-    dst: *mut f32,
-    dst_offset: usize,
+    src: &[f32],
+    a_channel: &[f32],
+    dst: &mut [f32],
     width: u32,
     matrix: &[[f32; 3]; 3],
 ) -> usize {
@@ -99,20 +95,20 @@ pub unsafe fn avx_xyz_to_channels<
 
     let mut cx = start_cx;
 
-    let c1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
-    let c2 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
-    let c3 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
-    let c4 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
-    let c5 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
-    let c6 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
-    let c7 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
-    let c8 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
-    let c9 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
+    let c1 = _mm256_set1_ps(matrix[0][0]);
+    let c2 = _mm256_set1_ps(matrix[0][1]);
+    let c3 = _mm256_set1_ps(matrix[0][2]);
+    let c4 = _mm256_set1_ps(matrix[1][0]);
+    let c5 = _mm256_set1_ps(matrix[1][1]);
+    let c6 = _mm256_set1_ps(matrix[1][2]);
+    let c7 = _mm256_set1_ps(matrix[2][0]);
+    let c8 = _mm256_set1_ps(matrix[2][1]);
+    let c9 = _mm256_set1_ps(matrix[2][2]);
 
     const CHANNELS: usize = 3usize;
 
-    while cx + 8 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+    while cx + 8 <= width as usize {
+        let offset_src_ptr = unsafe { src.get_unchecked(cx * CHANNELS..).as_ptr() };
 
         let src_ptr_0 = offset_src_ptr;
 
@@ -121,35 +117,39 @@ pub unsafe fn avx_xyz_to_channels<
                 src_ptr_0, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset) as *mut f32).add(cx * channels);
+        let dst_ptr = unsafe { dst.get_unchecked_mut(cx * channels..).as_mut_ptr() };
 
         if USE_ALPHA {
-            let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
-            let a_row = _mm256_loadu_ps(offset_a_src_ptr);
+            let offset_a_src_ptr = unsafe { a_channel.get_unchecked(cx..).as_ptr() };
+            let a_row = unsafe { _mm256_loadu_ps(offset_a_src_ptr) };
 
-            avx_store_and_interleave_v4_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_,
-                a_row
-            );
+            unsafe {
+                avx_store_and_interleave_v4_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_,
+                    a_row
+                );
+            }
         } else {
-            avx_store_and_interleave_v3_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_
-            );
+            unsafe {
+                avx_store_and_interleave_v3_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_
+                );
+            }
         }
 
         cx += 8;
     }
 
-    while cx + 4 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        let offset_src_ptr = unsafe { src.get_unchecked(cx * channels..).as_ptr() };
 
         let src_ptr_0 = offset_src_ptr;
 
@@ -167,22 +167,32 @@ pub unsafe fn avx_xyz_to_channels<
                 _mm256_castps256_ps128(c9),
             );
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset) as *mut f32).add(cx * channels);
+        let dst_ptr = unsafe { dst.get_unchecked_mut(cx * channels..).as_mut_ptr() };
 
         if USE_ALPHA {
-            let offset_a_src_ptr = ((a_channel as *const u8).add(a_offset) as *const f32).add(cx);
-            let a_row = _mm_loadu_ps(offset_a_src_ptr);
+            unsafe {
+                let offset_a_src_ptr = a_channel.get_unchecked(cx..).as_ptr();
+                let a_row = _mm_loadu_ps(offset_a_src_ptr);
 
-            store_and_interleave_v4_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_,
-                a_row
-            );
+                store_and_interleave_v4_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_,
+                    a_row
+                );
+            }
         } else {
-            store_and_interleave_v3_f32!(dst_ptr, image_configuration, r_row0_, g_row0_, b_row0_);
+            unsafe {
+                store_and_interleave_v3_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_
+                );
+            }
         }
 
         cx += 4;

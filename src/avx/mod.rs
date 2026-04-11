@@ -7,7 +7,6 @@
 
 mod cie;
 mod from_sigmoidal;
-mod gamma_curves;
 mod image_to_oklab;
 mod math;
 mod oklab_to_image;
@@ -20,13 +19,13 @@ mod utils;
 mod xyz_lab_to_image;
 mod xyza_laba_to_image;
 
-pub use from_sigmoidal::avx_from_sigmoidal_row;
+pub(crate) use from_sigmoidal::avx_from_sigmoidal_row;
 pub(crate) use image_to_oklab::avx_image_to_oklab;
-pub use math::*;
+pub(crate) use math::*;
 pub(crate) use oklab_to_image::avx_oklab_to_image;
 pub use support::*;
 pub(crate) use to_sigmoidal::avx_image_to_sigmoidal_row;
 pub(crate) use to_xyz_lab::avx2_image_to_xyz_lab;
-pub use utils::*;
-pub use xyz_lab_to_image::*;
-pub use xyza_laba_to_image::*;
+pub(crate) use utils::*;
+pub(crate) use xyz_lab_to_image::avx_xyz_to_channels;
+pub(crate) use xyza_laba_to_image::avx_xyza_to_image;

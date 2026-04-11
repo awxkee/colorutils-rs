@@ -13,8 +13,8 @@ use crate::oklch::Oklch;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_image_to_oklab;
 use crate::{
-    bgr_to_linear, bgra_to_linear, rgb_to_linear, rgba_to_linear, ColorError, ImageBuffer,
-    ImageBufferMut, Oklab, Rgb, TransferFunction,
+    ColorError, ImageBuffer, ImageBufferMut, Oklab, Rgb, TransferFunction, bgr_to_linear,
+    bgra_to_linear, rgb_to_linear, rgba_to_linear,
 };
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -92,7 +92,7 @@ fn channels_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
             cx = unsafe { dispatcher(cx, width, dst) };
         }
 
-        let rem = &mut dst_row[cx..];
+        let rem = &mut dst_row[cx * image_configuration.channel_count()..];
         if image_configuration.has_alpha() {
             for dst in rem.as_chunks_mut::<4>().0.iter_mut() {
                 let rgb = Rgb::<f32>::new(

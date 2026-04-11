@@ -77,30 +77,32 @@ pub(crate) unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const 
     );
 
     while cx + 8 <= width as usize {
-        let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(in_place_ptr.as_ptr());
+        unsafe {
+            let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
+            let (r_chan, g_chan, b_chan, a_chan) =
+                avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(in_place_ptr.as_ptr());
 
-        let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
-            m5, m6, m7, m8
-        );
+            let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
+                r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3,
+                m4, m5, m6, m7, m8
+            );
 
-        if image_configuration.has_alpha() {
-            avx_store_and_interleave_v4_direct_f32!(
-                in_place_ptr.as_mut_ptr(),
-                x_low_low,
-                y_low_low,
-                z_low_low,
-                a_chan
-            );
-        } else {
-            avx_store_and_interleave_v3_direct_f32!(
-                in_place_ptr.as_mut_ptr(),
-                x_low_low,
-                y_low_low,
-                z_low_low
-            );
+            if image_configuration.has_alpha() {
+                avx_store_and_interleave_v4_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    x_low_low,
+                    y_low_low,
+                    z_low_low,
+                    a_chan
+                );
+            } else {
+                avx_store_and_interleave_v3_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    x_low_low,
+                    y_low_low,
+                    z_low_low
+                );
+            }
         }
 
         cx += 8;

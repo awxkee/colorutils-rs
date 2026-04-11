@@ -15,8 +15,9 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
     ((z << 6) | (y << 4) | (x << 2) | w) as i32
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_rgba(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_rgba(
     r: __m128i,
     g: __m128i,
     b: __m128i,
@@ -58,8 +59,9 @@ pub(crate) fn sse_interleave_ps_rgb(a: __m128, b: __m128, c: __m128) -> (__m128,
     (v0, v1, v2)
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_ps_rgba(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_ps_rgba(
     a: __m128,
     b: __m128,
     c: __m128,
@@ -76,8 +78,9 @@ pub unsafe fn sse_interleave_ps_rgba(
     (v0, v1, v2, v3)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgba(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgba(
     rgba0: __m128i,
     rgba1: __m128i,
     rgba2: __m128i,
@@ -113,8 +116,9 @@ pub unsafe fn sse_deinterleave_rgba(
     (r1, r2, r3, r4)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgb_ps(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgb_ps(
     t0: __m128,
     t1: __m128,
     t2: __m128,
@@ -136,8 +140,9 @@ pub unsafe fn sse_deinterleave_rgb_ps(
     (v0, v1, v2)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgb(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgb(
     rgb0: __m128i,
     rgb1: __m128i,
     rgb2: __m128i,
@@ -178,8 +183,9 @@ pub unsafe fn sse_deinterleave_rgb(
     (r0r1r2, g0g1g2, b0b1b2)
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_rgb(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_rgb(
     r: __m128i,
     g: __m128i,
     b: __m128i,
@@ -199,8 +205,9 @@ pub unsafe fn sse_interleave_rgb(
     (v0, v1, v2)
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_rgb_epi16(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_rgb_epi16(
     a: __m128i,
     b: __m128i,
     c: __m128i,
@@ -218,8 +225,9 @@ pub unsafe fn sse_interleave_rgb_epi16(
     (v0, v1, v2)
 }
 
-#[inline(always)]
-pub unsafe fn sse_interleave_rgba_epi16(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_interleave_rgba_epi16(
     a: __m128i,
     b: __m128i,
     c: __m128i,
@@ -237,8 +245,9 @@ pub unsafe fn sse_interleave_rgba_epi16(
     (v0, v1, v2, v3)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgba_epi16(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgba_epi16(
     u0: __m128i,
     u1: __m128i,
     u2: __m128i,
@@ -261,8 +270,9 @@ pub unsafe fn sse_deinterleave_rgba_epi16(
     (a, b, c, d)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgb_epi16(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgb_epi16(
     v0: __m128i,
     v1: __m128i,
     v2: __m128i,
@@ -280,8 +290,9 @@ pub unsafe fn sse_deinterleave_rgb_epi16(
     (a0, b0, c0)
 }
 
-#[inline(always)]
-pub unsafe fn sse_deinterleave_rgba_ps(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn sse_deinterleave_rgba_ps(
     t0: __m128,
     t1: __m128,
     t2: __m128,
@@ -298,38 +309,50 @@ pub unsafe fn sse_deinterleave_rgba_ps(
     (v0, v1, v2, v3)
 }
 
-#[inline(always)]
-pub unsafe fn _mm_loadu_si128_x4(ptr: *const u8) -> (__m128i, __m128i, __m128i, __m128i) {
-    (
-        _mm_loadu_si128(ptr as *const __m128i),
-        _mm_loadu_si128(ptr.add(16) as *const __m128i),
-        _mm_loadu_si128(ptr.add(32) as *const __m128i),
-        _mm_loadu_si128(ptr.add(48) as *const __m128i),
-    )
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn _mm_loadu_si128_x4(ptr: *const u8) -> (__m128i, __m128i, __m128i, __m128i) {
+    unsafe {
+        (
+            _mm_loadu_si128(ptr as *const __m128i),
+            _mm_loadu_si128(ptr.add(16) as *const __m128i),
+            _mm_loadu_si128(ptr.add(32) as *const __m128i),
+            _mm_loadu_si128(ptr.add(48) as *const __m128i),
+        )
+    }
 }
 
-#[inline(always)]
-pub unsafe fn _mm_storeu_ps_x4(ptr: *mut f32, set: (__m128, __m128, __m128, __m128)) {
-    _mm_storeu_ps(ptr, set.0);
-    _mm_storeu_ps(ptr.add(4), set.1);
-    _mm_storeu_ps(ptr.add(8), set.2);
-    _mm_storeu_ps(ptr.add(12), set.3);
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn _mm_storeu_ps_x4(ptr: *mut f32, set: (__m128, __m128, __m128, __m128)) {
+    unsafe {
+        _mm_storeu_ps(ptr, set.0);
+        _mm_storeu_ps(ptr.add(4), set.1);
+        _mm_storeu_ps(ptr.add(8), set.2);
+        _mm_storeu_ps(ptr.add(12), set.3);
+    }
 }
 
-#[inline(always)]
-pub unsafe fn _mm_loadu_ps_x4(ptr: *const f32) -> (__m128, __m128, __m128, __m128) {
-    (
-        _mm_loadu_ps(ptr),
-        _mm_loadu_ps(ptr.add(4)),
-        _mm_loadu_ps(ptr.add(8)),
-        _mm_loadu_ps(ptr.add(12)),
-    )
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn _mm_loadu_ps_x4(ptr: *const f32) -> (__m128, __m128, __m128, __m128) {
+    unsafe {
+        (
+            _mm_loadu_ps(ptr),
+            _mm_loadu_ps(ptr.add(4)),
+            _mm_loadu_ps(ptr.add(8)),
+            _mm_loadu_ps(ptr.add(12)),
+        )
+    }
 }
 
-#[inline(always)]
-pub unsafe fn _mm_storeu_si128_x4(ptr: *mut u8, set: (__m128i, __m128i, __m128i, __m128i)) {
-    _mm_storeu_si128(ptr as *mut __m128i, set.0);
-    _mm_storeu_si128(ptr.add(16) as *mut __m128i, set.1);
-    _mm_storeu_si128(ptr.add(32) as *mut __m128i, set.2);
-    _mm_storeu_si128(ptr.add(48) as *mut __m128i, set.3);
+#[inline]
+#[target_feature(enable = "sse4.1")]
+pub(crate) fn _mm_storeu_si128_x4(ptr: *mut u8, set: (__m128i, __m128i, __m128i, __m128i)) {
+    unsafe {
+        _mm_storeu_si128(ptr as *mut __m128i, set.0);
+        _mm_storeu_si128(ptr.add(16) as *mut __m128i, set.1);
+        _mm_storeu_si128(ptr.add(32) as *mut __m128i, set.2);
+        _mm_storeu_si128(ptr.add(48) as *mut __m128i, set.3);
+    }
 }

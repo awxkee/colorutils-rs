@@ -11,7 +11,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 use crate::avx::cie::{
-    avx2_triple_to_lab, avx2_triple_to_luv, avx2_triple_to_xyz, avx_triple_to_lch,
+    avx_triple_to_lch, avx2_triple_to_lab, avx2_triple_to_luv, avx2_triple_to_xyz,
 };
 use crate::avx::routines::avx_vld_f32_and_deinterleave;
 use crate::avx::*;
@@ -25,7 +25,7 @@ use crate::xyz_target::XyzTarget;
 use crate::{avx_store_and_interleave_v3_direct_f32, load_f32_and_deinterleave};
 
 #[target_feature(enable = "avx2")]
-pub(crate) unsafe fn avx2_image_to_xyz_lab<
+pub(crate) fn avx2_image_to_xyz_lab<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
@@ -45,106 +45,110 @@ pub(crate) unsafe fn avx2_image_to_xyz_lab<
     let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
-    let cq1 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(0));
-    let cq2 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(1));
-    let cq3 = _mm256_set1_ps(*matrix.get_unchecked(0).get_unchecked(2));
-    let cq4 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(0));
-    let cq5 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(1));
-    let cq6 = _mm256_set1_ps(*matrix.get_unchecked(1).get_unchecked(2));
-    let cq7 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(0));
-    let cq8 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(1));
-    let cq9 = _mm256_set1_ps(*matrix.get_unchecked(2).get_unchecked(2));
+    let cq1 = _mm256_set1_ps(matrix[0][0]);
+    let cq2 = _mm256_set1_ps(matrix[0][1]);
+    let cq3 = _mm256_set1_ps(matrix[0][2]);
+    let cq4 = _mm256_set1_ps(matrix[1][0]);
+    let cq5 = _mm256_set1_ps(matrix[1][1]);
+    let cq6 = _mm256_set1_ps(matrix[1][2]);
+    let cq7 = _mm256_set1_ps(matrix[2][0]);
+    let cq8 = _mm256_set1_ps(matrix[2][1]);
+    let cq9 = _mm256_set1_ps(matrix[2][2]);
 
     while cx + 8 <= width as usize {
-        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
-        let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(src_ptr);
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let (r_chan, g_chan, b_chan, a_chan) =
+                avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(src_ptr);
 
-        let (mut x_low_low, mut y_low_low, mut z_low_low) = avx2_triple_to_xyz(
-            r_chan, g_chan, b_chan, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
-        );
+            let (mut x_low_low, mut y_low_low, mut z_low_low) = avx2_triple_to_xyz(
+                r_chan, g_chan, b_chan, cq1, cq2, cq3, cq4, cq5, cq6, cq7, cq8, cq9,
+            );
 
-        match target {
-            XyzTarget::Lab => {
-                let (l, a, b) = avx2_triple_to_lab(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = a;
-                z_low_low = b;
+            match target {
+                XyzTarget::Lab => {
+                    let (l, a, b) = avx2_triple_to_lab(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = a;
+                    z_low_low = b;
+                }
+                XyzTarget::Xyz => {}
+                XyzTarget::Luv => {
+                    let (l, u, v) = avx2_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = u;
+                    z_low_low = v;
+                }
+                XyzTarget::Lch => {
+                    let (l, c, h) = avx_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = c;
+                    z_low_low = h;
+                }
             }
-            XyzTarget::Xyz => {}
-            XyzTarget::Luv => {
-                let (l, u, v) = avx2_triple_to_luv(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = u;
-                z_low_low = v;
-            }
-            XyzTarget::Lch => {
-                let (l, c, h) = avx_triple_to_lch(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = c;
-                z_low_low = h;
-            }
-        }
 
-        let write_dst_ptr = dst.get_unchecked_mut(cx * 3..).as_mut_ptr();
-        avx_store_and_interleave_v3_direct_f32!(write_dst_ptr, x_low_low, y_low_low, z_low_low);
+            let write_dst_ptr = dst.get_unchecked_mut(cx * 3..).as_mut_ptr();
+            avx_store_and_interleave_v3_direct_f32!(write_dst_ptr, x_low_low, y_low_low, z_low_low);
 
-        if USE_ALPHA {
-            _mm256_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
+            if USE_ALPHA {
+                _mm256_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
+            }
         }
 
         cx += 8;
     }
 
     while cx + 4 <= width as usize {
-        let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
-        let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(src_ptr, image_configuration);
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_f32_and_deinterleave!(src_ptr, image_configuration);
 
-        let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
-            r_chan,
-            g_chan,
-            b_chan,
-            _mm256_castps256_ps128(cq1),
-            _mm256_castps256_ps128(cq2),
-            _mm256_castps256_ps128(cq3),
-            _mm256_castps256_ps128(cq4),
-            _mm256_castps256_ps128(cq5),
-            _mm256_castps256_ps128(cq6),
-            _mm256_castps256_ps128(cq7),
-            _mm256_castps256_ps128(cq8),
-            _mm256_castps256_ps128(cq9),
-        );
+            let (mut x_low_low, mut y_low_low, mut z_low_low) = sse_triple_to_xyz(
+                r_chan,
+                g_chan,
+                b_chan,
+                _mm256_castps256_ps128(cq1),
+                _mm256_castps256_ps128(cq2),
+                _mm256_castps256_ps128(cq3),
+                _mm256_castps256_ps128(cq4),
+                _mm256_castps256_ps128(cq5),
+                _mm256_castps256_ps128(cq6),
+                _mm256_castps256_ps128(cq7),
+                _mm256_castps256_ps128(cq8),
+                _mm256_castps256_ps128(cq9),
+            );
 
-        match target {
-            XyzTarget::Lab => {
-                let (l, a, b) = sse_triple_to_lab(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = a;
-                z_low_low = b;
+            match target {
+                XyzTarget::Lab => {
+                    let (l, a, b) = sse_triple_to_lab(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = a;
+                    z_low_low = b;
+                }
+                XyzTarget::Xyz => {}
+                XyzTarget::Luv => {
+                    let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = u;
+                    z_low_low = v;
+                }
+                XyzTarget::Lch => {
+                    let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
+                    x_low_low = l;
+                    y_low_low = c;
+                    z_low_low = h;
+                }
             }
-            XyzTarget::Xyz => {}
-            XyzTarget::Luv => {
-                let (l, u, v) = sse_triple_to_luv(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = u;
-                z_low_low = v;
-            }
-            XyzTarget::Lch => {
-                let (l, c, h) = sse_triple_to_lch(x_low_low, y_low_low, z_low_low);
-                x_low_low = l;
-                y_low_low = c;
-                z_low_low = h;
-            }
-        }
 
-        let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_low, y_low_low, z_low_low);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3), v0);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 4), v1);
-        _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 8), v2);
+            let (v0, v1, v2) = sse_interleave_ps_rgb(x_low_low, y_low_low, z_low_low);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3), v0);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 4), v1);
+            _mm_storeu_ps(dst.get_unchecked_mut(cx * 3 + 8), v2);
 
-        if USE_ALPHA {
-            _mm_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
+            if USE_ALPHA {
+                _mm_storeu_ps(a_linearized.get_unchecked_mut(cx), a_chan);
+            }
         }
 
         cx += 4;
