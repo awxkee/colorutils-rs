@@ -20,8 +20,3 @@ rust-version = "1.89.0"
 erydanos = "0.2"
 half = "2.6"
 num-traits = "0.2"
-rayon = { version = "1.10", optional = true }
-
-[features]
-default = ["rayon"]
-rayon = ["dep:rayon"]

@@ -168,7 +168,6 @@ dependencies = [
  "erydanos",
  "half",
  "num-traits",
- "rayon",
 ]
 
 [[package]]

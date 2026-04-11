@@ -185,7 +185,7 @@ mod tests_linear_f32_to_gamma {
         height: u32,
         channels: u32,
     ) -> ImageBuffer<'static, f32> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
@@ -193,7 +193,6 @@ mod tests_linear_f32_to_gamma {
             BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
             width,
             height,
-            width * channels,
             channels,
         )
         .unwrap()
@@ -496,14 +495,14 @@ mod tests_linear_f32_to_gamma {
 
     #[test]
     fn rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 4], 1, 1, 4, 4).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 4], 1, 1, 4).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(linear_to_rgb(&src, &mut dst, TransferFunction::Srgb).is_err());
     }
 
     #[test]
     fn rgba_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 3], 1, 1, 3, 3).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 3], 1, 1, 3).unwrap();
         let mut dst = make_dst(1, 1, 4);
         assert!(linear_to_rgba(&src, &mut dst, TransferFunction::Srgb).is_err());
     }

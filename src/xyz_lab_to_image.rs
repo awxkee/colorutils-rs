@@ -193,7 +193,7 @@ pub fn xyz_to_rgb(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
@@ -209,7 +209,7 @@ pub fn xyz_to_bgr(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
@@ -223,7 +223,7 @@ pub fn xyz_to_srgb(
     src: &ImageBuffer<'_, f32>,
     dst: &mut ImageBufferMut<'_, u8>,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
@@ -239,7 +239,7 @@ pub fn lab_to_rgb(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
@@ -255,7 +255,7 @@ pub fn lab_to_bgr(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
@@ -269,7 +269,7 @@ pub fn lab_to_srgb(
     src: &ImageBuffer<'_, f32>,
     dst: &mut ImageBufferMut<'_, u8>,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
@@ -315,7 +315,7 @@ pub fn luv_to_rgb(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
@@ -331,7 +331,7 @@ pub fn luv_to_bgr(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
@@ -347,7 +347,7 @@ pub fn lch_to_rgb(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
@@ -363,7 +363,7 @@ pub fn lch_to_bgr(
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
 ) -> Result<(), ColorError> {
-    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
@@ -384,7 +384,7 @@ mod tests_xyz_to_channels {
         height: u32,
         channels: u32,
     ) -> ImageBuffer<'static, f32> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
@@ -392,14 +392,13 @@ mod tests_xyz_to_channels {
             BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
             width,
             height,
-            width * channels,
             channels,
         )
         .unwrap()
     }
 
     fn make_alpha(data: Vec<f32>, width: u32, height: u32) -> ImageBuffer<'static, f32> {
-        ImageBuffer::from_vec(data, width, height, width, 1).unwrap()
+        ImageBuffer::from_vec(data, width, height, 1).unwrap()
     }
 
     fn assert_approx(a: u8, b: u8, eps: u8, label: &str) {
@@ -922,28 +921,28 @@ mod tests_xyz_to_channels {
 
     #[test]
     fn xyz_to_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
     }
 
     #[test]
     fn lab_to_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
     }
 
     #[test]
     fn luv_to_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(luv_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
     }
 
     #[test]
     fn lch_to_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(lch_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
     }

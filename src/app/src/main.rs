@@ -68,15 +68,9 @@ fn main() {
         let src_stride = width * components as u32;
         let start_time = Instant::now();
         rgba_to_oklab(
-            &ImageBuffer::new(src_bytes, width, height, src_stride, 4).unwrap(),
-            &mut ImageBufferMut::new(
-                BufferStore::Borrowed(&mut lab_store),
-                width,
-                height,
-                src_stride,
-                4,
-            )
-            .unwrap(),
+            &ImageBuffer::new(src_bytes, width, height, 4).unwrap(),
+            &mut ImageBufferMut::new(BufferStore::Borrowed(&mut lab_store), width, height, 4)
+                .unwrap(),
             TransferFunction::Srgb,
         )
         .unwrap();
@@ -106,15 +100,9 @@ fn main() {
 
         let start_time = Instant::now();
         oklab_to_rgba(
-            &ImageBuffer::new(&lab_store, width, height, src_stride, 4).unwrap(),
-            &mut ImageBufferMut::new(
-                BufferStore::Borrowed(&mut dst_slice),
-                width,
-                height,
-                src_stride,
-                4,
-            )
-            .unwrap(),
+            &ImageBuffer::new(&lab_store, width, height, 4).unwrap(),
+            &mut ImageBufferMut::new(BufferStore::Borrowed(&mut dst_slice), width, height, 4)
+                .unwrap(),
             TransferFunction::Srgb,
         )
         .unwrap();

@@ -69,7 +69,7 @@ mod tests_plane_to_linear {
     use crate::BufferStore;
 
     fn make_src(data: Vec<u8>, width: u32, height: u32) -> ImageBuffer<'static, u8> {
-        ImageBuffer::from_vec(data, width, height, width, 1).unwrap()
+        ImageBuffer::from_vec(data, width, height, 1).unwrap()
     }
 
     fn make_dst(width: u32, height: u32) -> ImageBufferMut<'static, f32> {
@@ -77,7 +77,6 @@ mod tests_plane_to_linear {
             BufferStore::Owned(vec![0f32; (width * height) as usize]),
             width,
             height,
-            width,
             1,
         )
         .unwrap()
@@ -234,7 +233,7 @@ mod tests_plane_to_linear {
 
     #[test]
     fn rejects_multi_channel_src() {
-        let src = ImageBuffer::from_vec(vec![0u8; 3], 1, 1, 3, 3).unwrap();
+        let src = ImageBuffer::from_vec(vec![0u8; 3], 1, 1, 3).unwrap();
         let mut dst = make_dst(1, 1);
         assert!(plane_to_linear(&src, &mut dst, TransferFunction::Srgb).is_err());
     }
