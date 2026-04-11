@@ -5,7 +5,6 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::{EuclideanDistance, Jzazbz, Rgb, TaxicabDistance, TransferFunction, Xyz};
-use erydanos::{Cosine, Sine, eatan2f, ehypot3f, ehypotf};
 use num_traits::Pow;
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
@@ -58,24 +57,24 @@ impl Jzczhz {
     /// Converts Jzazbz to polar coordinates Jzczhz
     #[inline]
     pub fn from_jzazbz(jzazbz: Jzazbz) -> Jzczhz {
-        let cz = ehypotf(jzazbz.az, jzazbz.bz);
-        let hz = eatan2f(jzazbz.bz, jzazbz.az);
+        let cz = f32::hypot(jzazbz.az, jzazbz.bz);
+        let hz = f32::atan2(jzazbz.bz, jzazbz.az);
         Jzczhz::new(jzazbz.jz, cz, hz)
     }
 
     /// Converts Jzczhz into Jzazbz
     #[inline]
     pub fn to_jzazbz(&self) -> Jzazbz {
-        let az = self.cz * self.hz.ecos();
-        let bz = self.cz * self.hz.esin();
+        let az = self.cz * self.hz.cos();
+        let bz = self.cz * self.hz.sin();
         Jzazbz::new(self.jz, az, bz)
     }
 
     /// Converts Jzczhz into Jzazbz
     #[inline]
     pub fn to_jzazbz_with_luminance(&self, display_luminance: f32) -> Jzazbz {
-        let az = self.cz * self.hz.ecos();
-        let bz = self.cz * self.hz.esin();
+        let az = self.cz * self.hz.cos();
+        let bz = self.cz * self.hz.sin();
         Jzazbz::new_with_luminance(self.jz, az, bz, display_luminance)
     }
 
@@ -142,8 +141,8 @@ impl Jzczhz {
         let djz = self.jz - other.jz;
         let dcz = self.cz - other.cz;
         let dhz = self.hz - other.hz;
-        let dh = 2f32 * (self.cz * other.cz).sqrt() * (dhz * 0.5f32).esin();
-        ehypot3f(djz, dcz, dh)
+        let dh = 2f32 * (self.cz * other.cz).sqrt() * (dhz * 0.5f32).sin();
+        (djz * djz + dcz * dcz + dh * dh).sqrt()
     }
 }
 
