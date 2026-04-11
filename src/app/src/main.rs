@@ -64,19 +64,22 @@ fn main() {
 
     {
         let mut lab_store: Vec<f32> = vec![];
-        let store_stride = width as usize * components * std::mem::size_of::<f32>();
         lab_store.resize(width as usize * components * height as usize, 0.);
         let src_stride = width * components as u32;
         let start_time = Instant::now();
         rgba_to_oklab(
-            src_bytes,
-            src_stride,
-            &mut lab_store,
-            store_stride as u32,
-            width,
-            height,
+            &ImageBuffer::new(src_bytes, width, height, src_stride, 4).unwrap(),
+            &mut ImageBufferMut::new(
+                BufferStore::Borrowed(&mut lab_store),
+                width,
+                height,
+                src_stride,
+                4,
+            )
+            .unwrap(),
             TransferFunction::Srgb,
-        );
+        )
+        .unwrap();
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds
         println!("RGBA To HSV: {:.2?}", elapsed_time);
@@ -85,7 +88,6 @@ fn main() {
         // let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
         // append_alpha(&mut destination, dst_stride, &store, store_stride as u32, &alpha_store, alpha_stride as u32, width, height);
 
-        let lab_stride = width as usize * 3usize * std::mem::size_of::<f32>();
         //
         // let mut src_shift = 0usize;
         // for _ in 0..height as usize {
@@ -104,14 +106,18 @@ fn main() {
 
         let start_time = Instant::now();
         oklab_to_rgba(
-            &lab_store,
-            store_stride as u32,
-            &mut dst_slice,
-            src_stride,
-            width,
-            height,
+            &ImageBuffer::new(&lab_store, width, height, src_stride, 4).unwrap(),
+            &mut ImageBufferMut::new(
+                BufferStore::Borrowed(&mut dst_slice),
+                width,
+                height,
+                src_stride,
+                4,
+            )
+            .unwrap(),
             TransferFunction::Srgb,
-        );
+        )
+        .unwrap();
 
         let elapsed_time = start_time.elapsed();
         // Print the elapsed time in milliseconds

@@ -17,8 +17,9 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline(always)]
-unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
+#[inline]
+#[target_feature(enable = "sse4.1")]
+fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     src: *const f32,
     oklab_target: OklabTarget,
     m0: __m128,
@@ -40,40 +41,41 @@ unsafe fn sse_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     c7: __m128,
     c8: __m128,
 ) -> (__m128, __m128, __m128, __m128) {
-    let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+    unsafe {
+        let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let (l, mut a, mut b, a_f32) = load_f32_and_deinterleave!(src, image_configuration);
+        let (l, mut a, mut b, a_f32) = load_f32_and_deinterleave!(src, image_configuration);
 
-    if oklab_target == OklabTarget::Oklch {
-        let a0 = _mm_mul_ps(a, _mm_cos_ps(b));
-        let b0 = _mm_mul_ps(a, _mm_sin_ps(b));
-        a = a0;
-        b = b0;
+        if oklab_target == OklabTarget::Oklch {
+            let a0 = _mm_mul_ps(a, _mm_cos_ps(b));
+            let b0 = _mm_mul_ps(a, _mm_sin_ps(b));
+            a = a0;
+            b = b0;
+        }
+
+        let (mut l_l, mut l_m, mut l_s) =
+            _mm_color_matrix_ps(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+
+        l_l = _mm_cube_ps(l_l);
+        l_m = _mm_cube_ps(l_m);
+        l_s = _mm_cube_ps(l_s);
+
+        let (r_l, g_l, b_l) =
+            _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
+        (r_l, g_l, b_l, a_f32)
     }
-
-    let (mut l_l, mut l_m, mut l_s) =
-        _mm_color_matrix_ps(l, a, b, m0, m1, m2, m3, m4, m5, m6, m7, m8);
-
-    l_l = _mm_cube_ps(l_l);
-    l_m = _mm_cube_ps(l_m);
-    l_s = _mm_cube_ps(l_s);
-
-    let (r_l, g_l, b_l) = _mm_color_matrix_ps(l_l, l_m, l_s, c0, c1, c2, c3, c4, c5, c6, c7, c8);
-    (r_l, g_l, b_l, a_f32)
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
@@ -100,29 +102,37 @@ pub unsafe fn sse_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm_set1_ps(1.7076147010f32),
     );
 
-    while cx + 4 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 4 <= width as usize {
+        unsafe {
+            let offset_src_ptr = src.get_unchecked(cx * channels..).as_ptr();
 
-        let src_ptr_0 = offset_src_ptr;
+            let src_ptr_0 = offset_src_ptr;
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7,
-            c8,
-        );
-
-        let dst_ptr = ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
-
-        if image_configuration.has_alpha() {
-            store_and_interleave_v4_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_,
-                a_row0_
+            let (r_row0_, g_row0_, b_row0_, a_row0_) = sse_oklab_vld::<CHANNELS_CONFIGURATION>(
+                src_ptr_0, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6,
+                c7, c8,
             );
-        } else {
-            store_and_interleave_v3_f32!(dst_ptr, image_configuration, r_row0_, g_row0_, b_row0_);
+
+            let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
+
+            if image_configuration.has_alpha() {
+                store_and_interleave_v4_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_,
+                    a_row0_
+                );
+            } else {
+                store_and_interleave_v3_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_
+                );
+            }
         }
 
         cx += 4;

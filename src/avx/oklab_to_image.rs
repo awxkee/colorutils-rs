@@ -18,9 +18,10 @@ use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 use crate::{avx_store_and_interleave_v3_f32, avx_store_and_interleave_v4_f32};
 
-#[inline(always)]
-unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
-    src: *const f32,
+#[inline]
+#[target_feature(enable = "avx2")]
+fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
+    src: &[f32],
     oklab_target: OklabTarget,
     m0: __m256,
     m1: __m256,
@@ -42,13 +43,15 @@ unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
     c8: __m256,
 ) -> (__m256, __m256, __m256, __m256) {
     let (l, mut a, mut b, a_f32) =
-        avx_vld_f32_and_deinterleave_direct::<CHANNELS_CONFIGURATION>(src);
+        avx_vld_f32_and_deinterleave_direct::<CHANNELS_CONFIGURATION>(src.as_ptr());
 
     if oklab_target == OklabTarget::Oklch {
-        let a0 = _mm256_mul_ps(a, _mm256_cos_ps(b));
-        let b0 = _mm256_mul_ps(a, _mm256_sin_ps(b));
-        a = a0;
-        b = b0;
+        unsafe {
+            let a0 = _mm256_mul_ps(a, _mm256_cos_ps(b));
+            let b0 = _mm256_mul_ps(a, _mm256_sin_ps(b));
+            a = a0;
+            b = b0;
+        }
     }
 
     let (mut l_l, mut l_m, mut l_s) =
@@ -63,17 +66,15 @@ unsafe fn avx_oklab_vld<const CHANNELS_CONFIGURATION: u8>(
 }
 
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    dst: *mut f32,
-    dst_offset: u32,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
 
     let (m0, m1, m2, m3, m4, m5, m6, m7, m8) = (
@@ -100,35 +101,37 @@ pub unsafe fn avx_oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm256_set1_ps(1.7076147010f32),
     );
 
-    while cx + 8 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
+    while cx + 8 <= width as usize {
+        unsafe {
+            let offset_src_ptr = src.get_unchecked(cx * channels..);
 
-        let src_ptr_0 = offset_src_ptr;
+            let src_ptr_0 = offset_src_ptr;
 
-        let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
-            src_ptr_0, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6, c7,
-            c8,
-        );
-
-        let dst_ptr = ((dst as *mut u8).add(dst_offset as usize) as *mut f32).add(cx * channels);
-
-        if image_configuration.has_alpha() {
-            avx_store_and_interleave_v4_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_,
-                a_row0_
+            let (r_row0_, g_row0_, b_row0_, a_row0_) = avx_oklab_vld::<CHANNELS_CONFIGURATION>(
+                src_ptr_0, target, m0, m1, m2, m3, m4, m5, m6, m7, m8, c0, c1, c2, c3, c4, c5, c6,
+                c7, c8,
             );
-        } else {
-            avx_store_and_interleave_v3_f32!(
-                dst_ptr,
-                image_configuration,
-                r_row0_,
-                g_row0_,
-                b_row0_
-            );
+
+            let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
+
+            if image_configuration.has_alpha() {
+                avx_store_and_interleave_v4_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_,
+                    a_row0_
+                );
+            } else {
+                avx_store_and_interleave_v3_f32!(
+                    dst_ptr,
+                    image_configuration,
+                    r_row0_,
+                    g_row0_,
+                    b_row0_
+                );
+            }
         }
 
         cx += 8;

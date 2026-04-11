@@ -11,18 +11,16 @@ use crate::image::ImageConfiguration;
 use crate::image_to_hsv_support::HsvTarget;
 use crate::neon::{neon_hsl_to_rgb, neon_hsv_to_rgb};
 
-#[inline]
-pub unsafe fn neon_hsv_u16_to_image<
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_hsv_u16_to_image<
     const CHANNELS_CONFIGURATION: u8,
     const USE_ALPHA: bool,
     const TARGET: u8,
 >(
     start_cx: usize,
-    src: *const u16,
-    src_offset: usize,
+    src: &[u16],
+    dst: &mut [u8],
     width: u32,
-    dst: *mut u8,
-    dst_offset: usize,
     scale: f32,
 ) -> usize {
     let target: HsvTarget = TARGET.into();
@@ -32,24 +30,23 @@ pub unsafe fn neon_hsv_u16_to_image<
         panic!("Use alpha flag used on image without alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let v_scale = vdupq_n_f32(scale);
-    let dst_ptr = dst.add(dst_offset);
 
-    while cx + 16 < width as usize {
+    while cx + 16 <= width as usize {
         let (h_chan, s_chan, v_chan, a_chan_lo);
-        let src_ptr = ((src as *const u8).add(src_offset) as *const u16).add(cx * channels);
+        let src_ptr = unsafe { src.get_unchecked(cx * channels..).as_ptr() };
 
         match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let hsv_pixel = vld3q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld3q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
                 a_chan_lo = vdupq_n_u16(255);
             }
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-                let hsv_pixel = vld4q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld4q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
@@ -79,18 +76,18 @@ pub unsafe fn neon_hsv_u16_to_image<
         let g_chan_16_lo = vcombine_u16(vmovn_u32(g_low), vmovn_u32(g_high));
         let b_chan_16_lo = vcombine_u16(vmovn_u32(b_low), vmovn_u32(b_high));
 
-        let src_ptr = src_ptr.add(8 * channels);
+        let src_ptr = unsafe { src_ptr.add(8 * channels) };
         let (h_chan, s_chan, v_chan, a_chan_hi);
         match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let hsv_pixel = vld3q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld3q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
                 a_chan_hi = vdupq_n_u16(255);
             }
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-                let hsv_pixel = vld4q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld4q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
@@ -134,7 +131,9 @@ pub unsafe fn neon_hsv_u16_to_image<
                     uint8x16x4_t(b_chan, g_chan, r_chan, a_chan)
                 }
             };
-            vst4q_u8(dst_ptr.add(cx * channels), pixel_set);
+            unsafe {
+                vst4q_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+            }
         } else {
             let pixel_set = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -144,26 +143,28 @@ pub unsafe fn neon_hsv_u16_to_image<
                     uint8x16x3_t(b_chan, g_chan, r_chan)
                 }
             };
-            vst3q_u8(dst_ptr.add(cx * channels), pixel_set);
+            unsafe {
+                vst3q_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+            }
         }
 
         cx += 16;
     }
 
-    while cx + 8 < width as usize {
+    while cx + 8 <= width as usize {
         let (h_chan, s_chan, v_chan, a_chan);
-        let src_ptr = ((src as *const u8).add(src_offset) as *const u16).add(cx * channels);
+        let src_ptr = unsafe { src.get_unchecked(cx * channels..).as_ptr() };
 
         match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Bgr => {
-                let hsv_pixel = vld3q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld3q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
                 a_chan = vdupq_n_u16(255);
             }
             ImageConfiguration::Rgba | ImageConfiguration::Bgra => {
-                let hsv_pixel = vld4q_u16(src_ptr);
+                let hsv_pixel = unsafe { vld4q_u16(src_ptr) };
                 h_chan = hsv_pixel.0;
                 s_chan = hsv_pixel.1;
                 v_chan = hsv_pixel.2;
@@ -202,11 +203,15 @@ pub unsafe fn neon_hsv_u16_to_image<
                 ImageConfiguration::Rgb => {}
                 ImageConfiguration::Rgba => {
                     let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, a_chan);
-                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                    unsafe {
+                        vst4_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
                 ImageConfiguration::Bgra => {
                     let pixel_set = uint8x8x4_t(b_chan, g_chan, r_chan, a_chan);
-                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                    unsafe {
+                        vst4_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
                 ImageConfiguration::Bgr => {}
             }
@@ -214,19 +219,27 @@ pub unsafe fn neon_hsv_u16_to_image<
             match image_configuration {
                 ImageConfiguration::Rgb => {
                     let pixel_set = uint8x8x3_t(r_chan, g_chan, b_chan);
-                    vst3_u8(dst_ptr.add(cx * channels), pixel_set);
+                    unsafe {
+                        vst3_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
                 ImageConfiguration::Rgba => {
-                    let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, vdup_n_u8(0));
-                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                    let pixel_set = uint8x8x4_t(r_chan, g_chan, b_chan, vdup_n_u8(255));
+                    unsafe {
+                        vst4_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
                 ImageConfiguration::Bgra => {
-                    let pixel_set = uint8x8x4_t(b_chan, g_chan, r_chan, vdup_n_u8(0));
-                    vst4_u8(dst_ptr.add(cx * channels), pixel_set);
+                    let pixel_set = uint8x8x4_t(b_chan, g_chan, r_chan, vdup_n_u8(255));
+                    unsafe {
+                        vst4_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
                 ImageConfiguration::Bgr => {
                     let pixel_set = uint8x8x3_t(b_chan, g_chan, r_chan);
-                    vst3_u8(dst_ptr.add(cx * channels), pixel_set);
+                    unsafe {
+                        vst3_u8(dst.get_unchecked_mut(cx * channels), pixel_set);
+                    }
                 }
             }
         }

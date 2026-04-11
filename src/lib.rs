@@ -7,11 +7,14 @@
 #![allow(
     clippy::too_many_arguments,
     clippy::excessive_precision,
-    clippy::manual_clamp
+    clippy::manual_clamp,
+    clippy::type_complexity
 )]
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx;
+mod buffer;
 mod concat_alpha;
+mod err;
 mod euclidean;
 mod gamma_curves;
 mod hsl;
@@ -103,8 +106,8 @@ pub use rgba::Rgb565;
 pub use rgba::Rgba;
 pub use rgba::Rgba1010102;
 pub use rgba::ToRgb565;
-pub use rgba::ToRgba1010102;
 pub use rgba::ToRgba8;
+pub use rgba::ToRgba1010102;
 pub use rgba::ToRgbaF16;
 pub use rgba::ToRgbaF32;
 pub use xyb::Xyb;
@@ -131,6 +134,8 @@ pub use xyza_laba_to_image::luv_with_alpha_to_rgba;
 pub use xyza_laba_to_image::xyz_with_alpha_to_bgra;
 pub use xyza_laba_to_image::xyz_with_alpha_to_rgba;
 
+pub use buffer::{BufferStore, ImageBuffer, ImageBufferMut};
+pub use err::ColorError;
 pub use euclidean::EuclideanDistance;
 pub use image_to_jzazbz::bgr_to_jzazbz;
 pub use image_to_jzazbz::bgr_to_jzczhz;

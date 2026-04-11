@@ -18,9 +18,7 @@ macro_rules! color_dodge {
 
 #[macro_export]
 macro_rules! color_linear_burn {
-    ($base: expr, $other: expr) => {{
-        ($base + $other - 1.).max(0.)
-    }};
+    ($base: expr, $other: expr) => {{ ($base + $other - 1.).max(0.) }};
 }
 
 #[macro_export]
@@ -36,30 +34,22 @@ macro_rules! color_burn {
 
 #[macro_export]
 macro_rules! color_darken {
-    ($base: expr, $other: expr) => {{
-        $base.min($other)
-    }};
+    ($base: expr, $other: expr) => {{ $base.min($other) }};
 }
 
 #[macro_export]
 macro_rules! color_lighten {
-    ($base: expr, $other: expr) => {{
-        $base.max($other)
-    }};
+    ($base: expr, $other: expr) => {{ $base.max($other) }};
 }
 
 #[macro_export]
 macro_rules! color_screen {
-    ($base: expr, $other: expr) => {{
-        $base + $other - $base * $other
-    }};
+    ($base: expr, $other: expr) => {{ $base + $other - $base * $other }};
 }
 
 #[macro_export]
 macro_rules! color_add {
-    ($base: expr, $other: expr) => {{
-        ($base + $other).min(1.)
-    }};
+    ($base: expr, $other: expr) => {{ ($base + $other).min(1.) }};
 }
 
 #[macro_export]
@@ -119,16 +109,12 @@ macro_rules! color_reflect {
 
 #[macro_export]
 macro_rules! color_difference {
-    ($base: expr, $other: expr) => {{
-        ($base - $other).abs()
-    }};
+    ($base: expr, $other: expr) => {{ ($base - $other).abs() }};
 }
 
 #[macro_export]
 macro_rules! pdf_lum {
-    ($base: expr) => {{
-        0.3 * $base.r + 0.59 * $base.g + 0.11 * $base.g
-    }};
+    ($base: expr) => {{ 0.3 * $base.r + 0.59 * $base.g + 0.11 * $base.g }};
 }
 
 #[macro_export]
@@ -189,9 +175,7 @@ macro_rules! color_soft_light {
 
 #[macro_export]
 macro_rules! color_exclusion {
-    ($base: expr, $other: expr) => {{
-        $base + $other - 2. * $base * $other
-    }};
+    ($base: expr, $other: expr) => {{ $base + $other - 2. * $base * $other }};
 }
 
 #[macro_export]
@@ -217,11 +201,7 @@ macro_rules! adjust_saturation {
 
 #[inline]
 pub(crate) fn op_color_dodge(a: f32, b: f32) -> f32 {
-    if b == 1.0 {
-        b
-    } else {
-        (a / (1.0 - b)).min(1.)
-    }
+    if b == 1.0 { b } else { (a / (1.0 - b)).min(1.) }
 }
 
 #[inline]

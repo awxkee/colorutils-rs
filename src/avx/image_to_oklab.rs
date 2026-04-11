@@ -42,18 +42,15 @@ macro_rules! triple_to_oklab {
 }
 
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
     width: u32,
-    dst: *mut f32,
-    dst_offset: usize,
+    dst: &mut [f32],
 ) -> usize {
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
-
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
 
     let (c0, c1, c2, c3, c4, c5, c6, c7, c8) = (
         _mm256_set1_ps(0.4122214708f32),
@@ -79,26 +76,33 @@ pub unsafe fn avx_image_to_oklab<const CHANNELS_CONFIGURATION: u8, const TARGET:
         _mm256_set1_ps(-0.8086757660f32),
     );
 
-    while cx + 8 < width as usize {
-        let in_place_ptr = dst_ptr.add(cx * channels);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(in_place_ptr);
+    while cx + 8 <= width as usize {
+        unsafe {
+            let in_place_ptr = dst.get_unchecked_mut(cx * channels..);
+            let (r_chan, g_chan, b_chan, a_chan) =
+                avx_vld_f32_and_deinterleave::<CHANNELS_CONFIGURATION>(in_place_ptr.as_ptr());
 
-        let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
-            r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3, m4,
-            m5, m6, m7, m8
-        );
-
-        if image_configuration.has_alpha() {
-            avx_store_and_interleave_v4_direct_f32!(
-                in_place_ptr,
-                x_low_low,
-                y_low_low,
-                z_low_low,
-                a_chan
+            let (x_low_low, y_low_low, z_low_low) = triple_to_oklab!(
+                r_chan, g_chan, b_chan, target, c0, c1, c2, c3, c4, c5, c6, c7, c8, m0, m1, m2, m3,
+                m4, m5, m6, m7, m8
             );
-        } else {
-            avx_store_and_interleave_v3_direct_f32!(in_place_ptr, x_low_low, y_low_low, z_low_low);
+
+            if image_configuration.has_alpha() {
+                avx_store_and_interleave_v4_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    x_low_low,
+                    y_low_low,
+                    z_low_low,
+                    a_chan
+                );
+            } else {
+                avx_store_and_interleave_v3_direct_f32!(
+                    in_place_ptr.as_mut_ptr(),
+                    x_low_low,
+                    y_low_low,
+                    z_low_low
+                );
+            }
         }
 
         cx += 8;

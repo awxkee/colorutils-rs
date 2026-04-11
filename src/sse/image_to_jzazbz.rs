@@ -19,8 +19,8 @@ use crate::sse::{
 };
 use crate::sse::{sse_deinterleave_rgb_ps, sse_deinterleave_rgba_ps};
 use crate::{
-    load_f32_and_deinterleave, store_and_interleave_v3_direct_f32,
-    store_and_interleave_v4_direct_f32, SRGB_TO_XYZ_D65,
+    SRGB_TO_XYZ_D65, load_f32_and_deinterleave, store_and_interleave_v3_direct_f32,
+    store_and_interleave_v4_direct_f32,
 };
 
 macro_rules! perceptual_quantizer {
@@ -114,37 +114,35 @@ macro_rules! triple_to_jzazbz {
 }
 
 #[target_feature(enable = "sse4.1")]
-pub unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+pub(crate) unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
-    dst: *mut f32,
-    dst_offset: usize,
     display_luminance: f32,
 ) -> usize {
     let target: JzazbzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
     let mut cx = start_cx;
-
-    let dst_ptr = (dst as *mut u8).add(dst_offset) as *mut f32;
-
     let luminance = _mm_set1_ps(display_luminance);
 
-    while cx + 4 < width as usize {
-        let src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * channels);
-        let (r_chan, g_chan, b_chan, a_chan) =
-            load_f32_and_deinterleave!(src_ptr, image_configuration);
+    while cx + 4 <= width as usize {
+        unsafe {
+            let src_ptr = src.get_unchecked(cx * channels..).as_ptr();
+            let dst_ptr = dst.get_unchecked_mut(cx * channels..).as_mut_ptr();
+            let (r_chan, g_chan, b_chan, a_chan) =
+                load_f32_and_deinterleave!(src_ptr, image_configuration);
 
-        let (x_low_low, y_low_low, z_low_low) =
-            triple_to_jzazbz!(r_chan, g_chan, b_chan, target, luminance);
-        if image_configuration.has_alpha() {
-            let ptr = dst_ptr.add(cx * 4);
-            store_and_interleave_v4_direct_f32!(ptr, x_low_low, y_low_low, z_low_low, a_chan);
-        } else {
-            let ptr = dst_ptr.add(cx * 3);
-            store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
+            let (x_low_low, y_low_low, z_low_low) =
+                triple_to_jzazbz!(r_chan, g_chan, b_chan, target, luminance);
+            if image_configuration.has_alpha() {
+                let ptr = dst_ptr.add(cx * 4);
+                store_and_interleave_v4_direct_f32!(ptr, x_low_low, y_low_low, z_low_low, a_chan);
+            } else {
+                let ptr = dst_ptr.add(cx * 3);
+                store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
+            }
         }
 
         cx += 4;

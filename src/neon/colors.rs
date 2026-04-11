@@ -9,8 +9,9 @@ use crate::neon::math::prefer_vfmaq_f32;
 use erydanos::vfmodq_f32;
 use std::arch::aarch64::*;
 
-#[inline(always)]
-pub unsafe fn neon_hsl_to_rgb(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_hsl_to_rgb(
     h: float32x4_t,
     s: float32x4_t,
     l: float32x4_t,
@@ -23,16 +24,18 @@ pub unsafe fn neon_hsl_to_rgb(
         vsubq_f32(ones, vabsq_f32(vsubq_f32(vmulq_n_f32(l, 2f32), ones))),
         s,
     );
-    let x = vmulq_f32(
-        vsubq_f32(
-            ones,
-            vabsq_f32(vsubq_f32(
-                vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(2f32)),
+    let x = unsafe {
+        vmulq_f32(
+            vsubq_f32(
                 ones,
-            )),
-        ),
-        c,
-    );
+                vabsq_f32(vsubq_f32(
+                    vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(2f32)),
+                    ones,
+                )),
+            ),
+            c,
+        )
+    };
 
     let zeros = vdupq_n_f32(0f32);
     let m = vsubq_f32(l, vmulq_n_f32(c, 0.5f32));
@@ -87,8 +90,9 @@ pub unsafe fn neon_hsl_to_rgb(
     (vcvtaq_u32_f32(r), vcvtaq_u32_f32(g), vcvtaq_u32_f32(b))
 }
 
-#[inline(always)]
-pub unsafe fn neon_hsv_to_rgb(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_hsv_to_rgb(
     h: float32x4_t,
     s: float32x4_t,
     v: float32x4_t,
@@ -97,15 +101,17 @@ pub unsafe fn neon_hsv_to_rgb(
     let s = vmulq_f32(s, scale);
     let v = vmulq_f32(v, scale);
     let c = vmulq_f32(s, v);
-    let h_prime = vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(6f32));
+    let h_prime = unsafe { vfmodq_f32(vmulq_n_f32(h, 1f32 / 60f32), vdupq_n_f32(6f32)) };
     let ones = vdupq_n_f32(1f32);
-    let x = vmulq_f32(
-        vsubq_f32(
-            ones,
-            vabsq_f32(vsubq_f32(vfmodq_f32(h_prime, vdupq_n_f32(2f32)), ones)),
-        ),
-        c,
-    );
+    let x = unsafe {
+        vmulq_f32(
+            vsubq_f32(
+                ones,
+                vabsq_f32(vsubq_f32(vfmodq_f32(h_prime, vdupq_n_f32(2f32)), ones)),
+            ),
+            c,
+        )
+    };
     let zeros = vdupq_n_f32(0f32);
     let m = vsubq_f32(v, c);
     let (mut r, mut g, mut b) = (zeros, zeros, zeros);
@@ -158,8 +164,9 @@ pub unsafe fn neon_hsv_to_rgb(
     (vcvtaq_u32_f32(r), vcvtaq_u32_f32(g), vcvtaq_u32_f32(b))
 }
 
-#[inline(always)]
-pub unsafe fn neon_rgb_to_hsv(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_rgb_to_hsv(
     r: uint32x4_t,
     g: uint32x4_t,
     b: uint32x4_t,
@@ -178,14 +185,16 @@ pub unsafe fn neon_rgb_to_hsv(
     let is_b_max = vceqq_f32(c_max, b);
     let immediate_zero_flag = vceqzq_f32(delta);
     let mut h = vdupq_n_f32(0f32);
-    h = vbslq_f32(
-        is_r_max,
-        vmulq_n_f32(
-            vfmodq_f32(vmulq_f32(vsubq_f32(g, b), rcp_delta), vdupq_n_f32(6f32)),
-            60f32,
-        ),
-        h,
-    );
+    h = unsafe {
+        vbslq_f32(
+            is_r_max,
+            vmulq_n_f32(
+                vfmodq_f32(vmulq_f32(vsubq_f32(g, b), rcp_delta), vdupq_n_f32(6f32)),
+                60f32,
+            ),
+            h,
+        )
+    };
     let adding_2 = vdupq_n_f32(2f32);
     h = vbslq_f32(
         is_g_max,
@@ -216,8 +225,9 @@ pub unsafe fn neon_rgb_to_hsv(
     (h, vmulq_f32(s, scale), vmulq_f32(v, scale))
 }
 
-#[inline(always)]
-pub unsafe fn neon_rgb_to_hsl(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_rgb_to_hsl(
     r: uint32x4_t,
     g: uint32x4_t,
     b: uint32x4_t,
@@ -236,14 +246,16 @@ pub unsafe fn neon_rgb_to_hsl(
     let is_b_max = vceqq_f32(c_max, b);
     let immediate_zero_flag = vceqzq_f32(delta);
     let mut h = vdupq_n_f32(0f32);
-    h = vbslq_f32(
-        is_r_max,
-        vmulq_n_f32(
-            vfmodq_f32(vmulq_f32(vsubq_f32(g, b), rcp_delta), vdupq_n_f32(6f32)),
-            60f32,
-        ),
-        h,
-    );
+    h = unsafe {
+        vbslq_f32(
+            is_r_max,
+            vmulq_n_f32(
+                vfmodq_f32(vmulq_f32(vsubq_f32(g, b), rcp_delta), vdupq_n_f32(6f32)),
+                60f32,
+            ),
+            h,
+        )
+    };
     let adding_2 = vdupq_n_f32(2f32);
     h = vbslq_f32(
         is_g_max,

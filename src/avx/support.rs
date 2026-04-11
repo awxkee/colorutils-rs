@@ -19,7 +19,8 @@ pub const fn shuffle(z: u32, y: u32, x: u32, w: u32) -> i32 {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
 pub unsafe fn demote_i16_to_u8(s_1: __m256i, s_2: __m256i) -> __m256i {
     let packed = _mm256_packus_epi16(s_1, s_2);
@@ -28,7 +29,8 @@ pub unsafe fn demote_i16_to_u8(s_1: __m256i, s_2: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
 pub unsafe fn avx2_interleave_even(x: __m256i) -> __m256i {
     #[rustfmt::skip]
@@ -44,7 +46,8 @@ pub unsafe fn avx2_interleave_even(x: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
 pub unsafe fn avx2_interleave_even_2_epi8(a: __m256i, b: __m256i) -> __m256i {
     let mask_a = _mm256_slli_epi16::<8>(_mm256_srli_epi16::<8>(a));
@@ -54,9 +57,10 @@ pub unsafe fn avx2_interleave_even_2_epi8(a: __m256i, b: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_interleave_odd_2_epi8(a: __m256i, b: __m256i) -> __m256i {
+pub(crate) fn avx2_interleave_odd_2_epi8(a: __m256i, b: __m256i) -> __m256i {
     let mask_a = _mm256_set1_epi16(0x00FF);
     let masked_a = _mm256_slli_epi16::<8>(_mm256_and_si256(a, mask_a));
     let b_s = _mm256_and_si256(b, mask_a);
@@ -64,9 +68,10 @@ pub unsafe fn avx2_interleave_odd_2_epi8(a: __m256i, b: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_interleave_odd(x: __m256i) -> __m256i {
+pub(crate) fn avx2_interleave_odd(x: __m256i) -> __m256i {
     #[rustfmt::skip]
     let shuffle = _mm256_setr_epi8(1, 1, 3, 3,
                                        5, 5, 7, 7,
@@ -80,7 +85,8 @@ pub unsafe fn avx2_interleave_odd(x: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "sse4.1")]
 #[allow(dead_code)]
 pub unsafe fn sse_interleave_odd(x: __m128i) -> __m128i {
     #[rustfmt::skip]
@@ -89,8 +95,9 @@ pub unsafe fn sse_interleave_odd(x: __m128i) -> __m128i {
     _mm_shuffle_epi8(x, shuffle)
 }
 
-#[inline(always)]
-pub unsafe fn avx2_interleave_rgb(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_interleave_rgb(
     r: __m256i,
     g: __m256i,
     b: __m256i,
@@ -134,7 +141,7 @@ pub unsafe fn avx2_interleave_rgb(
 
 #[inline]
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx2_deinterleave_rgb_epi32(
+pub(crate) fn avx2_deinterleave_rgb_epi32(
     bgr0: __m256i,
     bgr1: __m256i,
     bgr2: __m256i,
@@ -152,8 +159,9 @@ pub unsafe fn avx2_deinterleave_rgb_epi32(
     (b0, g0, r0)
 }
 
-#[inline(always)]
-pub unsafe fn avx2_deinterleave_rgb_epi8(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_deinterleave_rgb_epi8(
     rgb0: __m256i,
     rgb1: __m256i,
     rgb2: __m256i,
@@ -227,7 +235,7 @@ pub unsafe fn avx2_deinterleave_rgb_epi8(
 
 #[inline]
 #[target_feature(enable = "avx2")]
-pub unsafe fn avx2_deinterleave_rgb_ps(
+pub(crate) fn avx2_deinterleave_rgb_ps(
     rgb0: __m256,
     rgb1: __m256,
     rgb2: __m256,
@@ -251,8 +259,9 @@ pub unsafe fn avx2_deinterleave_rgb_ps(
 //     _mm256_permute4x64_epi64::<MASK>(v)
 // }
 
-#[inline(always)]
-pub unsafe fn avx2_deinterleave_rgba_epi8(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_deinterleave_rgba_epi8(
     rgba0: __m256i,
     rgba1: __m256i,
     rgba2: __m256i,
@@ -292,18 +301,22 @@ pub unsafe fn avx2_deinterleave_rgba_epi8(
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i) {
+pub(crate) fn avx2_store_u8_rgb(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i) {
     let (rgb1, rgb2, rgb3) = avx2_interleave_rgb(r, g, b);
 
-    _mm256_storeu_si256(ptr as *mut __m256i, rgb1);
-    _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgb2);
-    _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgb3);
+    unsafe {
+        _mm256_storeu_si256(ptr as *mut __m256i, rgb1);
+        _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgb2);
+        _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgb3);
+    }
 }
 
-#[inline(always)]
-pub unsafe fn avx2_interleave_rgba_epi8(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_interleave_rgba_epi8(
     a: __m256i,
     b: __m256i,
     c: __m256i,
@@ -327,9 +340,10 @@ pub unsafe fn avx2_interleave_rgba_epi8(
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_deinterleave_rgba_epi32(
+pub(crate) fn avx2_deinterleave_rgba_epi32(
     p0: __m256i,
     p1: __m256i,
     p2: __m256i,
@@ -353,9 +367,10 @@ pub unsafe fn avx2_deinterleave_rgba_epi32(
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_interleave_rgba_epi32(
+pub(crate) fn avx2_interleave_rgba_epi32(
     a: __m256i,
     b: __m256i,
     c: __m256i,
@@ -378,8 +393,9 @@ pub unsafe fn avx2_interleave_rgba_epi32(
     (bgra0, bgra1, bgra2, bgra3)
 }
 
-#[inline(always)]
-pub unsafe fn avx2_interleave_rgba_ps(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_interleave_rgba_ps(
     r: __m256,
     g: __m256,
     b: __m256,
@@ -399,8 +415,9 @@ pub unsafe fn avx2_interleave_rgba_ps(
     )
 }
 
-#[inline(always)]
-pub unsafe fn avx2_deinterleave_rgba_ps(
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_deinterleave_rgba_ps(
     r: __m256,
     g: __m256,
     b: __m256,
@@ -421,19 +438,23 @@ pub unsafe fn avx2_deinterleave_rgba_ps(
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i, a: __m256i) {
+pub(crate) fn avx2_store_u8_rgba(ptr: *mut u8, r: __m256i, g: __m256i, b: __m256i, a: __m256i) {
     let (rgba0, rgba1, rgba2, rgba3) = avx2_interleave_rgba_epi8(r, g, b, a);
 
-    _mm256_storeu_si256(ptr as *mut __m256i, rgba0);
-    _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgba1);
-    _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgba2);
-    _mm256_storeu_si256(ptr.add(96) as *mut __m256i, rgba3);
+    unsafe {
+        _mm256_storeu_si256(ptr as *mut __m256i, rgba0);
+        _mm256_storeu_si256(ptr.add(32) as *mut __m256i, rgba1);
+        _mm256_storeu_si256(ptr.add(64) as *mut __m256i, rgba2);
+        _mm256_storeu_si256(ptr.add(96) as *mut __m256i, rgba3);
+    }
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
 pub unsafe fn avx2_pairwise_add(v: __m256i) -> __m256i {
     let sums = _mm256_maddubs_epi16(v, _mm256_set1_epi8(1));
@@ -444,9 +465,10 @@ pub unsafe fn avx2_pairwise_add(v: __m256i) -> __m256i {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[inline(always)]
+#[inline]
+#[target_feature(enable = "avx2")]
 #[allow(dead_code)]
-pub unsafe fn avx2_div_by255(v: __m256i) -> __m256i {
+pub(crate) fn avx2_div_by255(v: __m256i) -> __m256i {
     let rounding = _mm256_set1_epi16(1 << 7);
     let x = _mm256_adds_epi16(v, rounding);
     let multiplier = _mm256_set1_epi16(-32640);

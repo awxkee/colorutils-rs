@@ -12,12 +12,12 @@ use crate::{
 };
 use std::arch::aarch64::*;
 
-#[inline(always)]
-pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool>(
     start_cx: usize,
-    src: *const u8,
+    src: &[u8],
+    dst: &mut [f32],
     width: u32,
-    dst: *mut f32,
 ) -> usize {
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
     let mut cx = start_cx;
@@ -25,14 +25,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
         panic!("Use alpha flag used on image without alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
-    let dst_ptr = dst;
-
-    while cx + 16 < width as usize {
-        let src_ptr = src.add(cx * channels);
+    while cx + 16 <= width as usize {
+        let src_ptr = unsafe { src.get_unchecked(cx * channels..) };
         let (r_chan, g_chan, b_chan, a_chan) =
-            load_u8_and_deinterleave!(src_ptr, image_configuration);
+            unsafe { load_u8_and_deinterleave!(src_ptr.as_ptr(), image_configuration) };
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));
@@ -57,7 +55,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_low_low, y_low_low, x_low_low, a_low_low)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -67,7 +70,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_low_low, y_low_low, x_low_low)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         let r_low_high = vmovl_high_u16(r_low);
@@ -86,7 +94,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_low_high, y_low_high, x_low_high, a_low_high)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -96,7 +110,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_low_high, y_low_high, x_low_high)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         let r_high = vmovl_high_u8(r_chan);
@@ -125,7 +145,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_high_low, y_high_low, x_high_low, a_high_low)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels * 2), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels * 2..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -135,7 +161,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_high_low, y_high_low, x_high_low)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels * 2), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels * 2..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         let r_high_high = vmovl_high_u16(r_high);
@@ -155,7 +187,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_high_high, y_high_high, x_high_high, a_high_high)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels * 3), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels * 3..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -165,16 +203,22 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_high_high, y_high_high, x_high_high)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels * 3), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels * 3..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         cx += 16;
     }
 
-    while cx + 8 < width as usize {
-        let src_ptr = src.add(cx * channels);
+    while cx + 8 <= width as usize {
+        let src_ptr = unsafe { src.get_unchecked(cx * channels..).as_ptr() };
         let (r_chan, g_chan, b_chan, a_chan) =
-            load_u8_and_deinterleave_half!(src_ptr, image_configuration);
+            unsafe { load_u8_and_deinterleave_half!(src_ptr, image_configuration) };
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));
@@ -199,7 +243,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_low_low, y_low_low, x_low_low, a_low_low)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -209,7 +258,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_low_low, y_low_low, x_low_low)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         let r_low_high = vmovl_high_u16(r_low);
@@ -228,7 +282,13 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_low_high, y_low_high, x_low_high, a_low_high)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels + 4 * channels), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -238,16 +298,22 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_low_high, y_low_high, x_low_high)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels + 4 * channels), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels + 4 * channels..)
+                        .as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         cx += 8;
     }
 
-    while cx + 4 < width as usize {
-        let src_ptr = src.add(cx * channels);
+    while cx + 4 <= width as usize {
+        let src_ptr = unsafe { src.get_unchecked(cx * channels..) };
         let (r_chan, g_chan, b_chan, a_chan) =
-            load_u8_and_deinterleave_quarter!(src_ptr, image_configuration);
+            unsafe { load_u8_and_deinterleave_quarter!(src_ptr.as_ptr(), image_configuration) };
 
         let r_low = vmovl_u8(vget_low_u8(r_chan));
         let g_low = vmovl_u8(vget_low_u8(g_chan));
@@ -272,7 +338,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x4_t(z_low_low, y_low_low, x_low_low, a_low_low)
                 }
             };
-            vst4q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst4q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         } else {
             let store_rows = match image_configuration {
                 ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -282,7 +353,12 @@ pub unsafe fn neon_image_to_sigmoidal<const CHANNELS_CONFIGURATION: u8, const US
                     float32x4x3_t(z_low_low, y_low_low, x_low_low)
                 }
             };
-            vst3q_f32(dst_ptr.add(cx * channels), store_rows);
+            unsafe {
+                vst3q_f32(
+                    dst.get_unchecked_mut(cx * channels..).as_mut_ptr(),
+                    store_rows,
+                );
+            }
         }
 
         cx += 4;

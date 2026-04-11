@@ -10,32 +10,25 @@ use crate::image::ImageConfiguration;
 use crate::image_to_oklab::OklabTarget;
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 use crate::neon::neon_oklab_to_image;
-use crate::oklch::Oklch;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::sse::sse_oklab_to_image;
-use crate::{Oklab, Rgb, TransferFunction};
-#[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
-#[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-use std::slice;
+use crate::{ColorError, ImageBuffer, ImageBufferMut, Oklab, Oklch, Rgb, TransferFunction};
 
-#[allow(clippy::type_complexity)]
 fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
+    dst.validate()?;
+    src.validate()?;
+    dst.try_match_immutable_with_channels(src)?;
+    if src.channels != 3 && src.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
     let target: OklabTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
 
-    let mut _wide_row_handle: Option<
-        unsafe fn(usize, *const f32, usize, *mut f32, u32, u32) -> usize,
-    > = None;
+    let mut _wide_row_handle: Option<unsafe fn(usize, &[f32], &mut [f32], u32) -> usize> = None;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("sse4.1") {
@@ -52,103 +45,134 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
         _wide_row_handle = Some(neon_oklab_to_image::<CHANNELS_CONFIGURATION, TARGET>);
     }
 
-    let mut lut_table = vec![0u8; 2049];
-    for (i, lut) in lut_table.iter_mut().enumerate() {
-        *lut = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.).min(255.) as u8;
-    }
-
-    let channels = image_configuration.get_channels_count();
-
-    let src_slice_safe_align = unsafe {
-        slice::from_raw_parts(
-            src.as_ptr() as *const u8,
-            src_stride as usize * height as usize,
-        )
-    };
-
-    let iter;
-    #[cfg(feature = "rayon")]
-    {
-        iter = dst
-            .par_chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.par_chunks_exact(src_stride as usize));
-    }
-
-    #[cfg(not(feature = "rayon"))]
-    {
-        iter = dst
-            .chunks_exact_mut(dst_stride as usize)
-            .zip(src_slice_safe_align.chunks_exact(src_stride as usize));
-    }
-
-    iter.for_each(|(dst, src)| unsafe {
-        let mut _cx = 0usize;
-
-        let mut transient_row = vec![0f32; width as usize * channels];
-
-        let src_ptr = src.as_ptr() as *mut f32;
-
-        if let Some(dispatcher) = _wide_row_handle {
-            _cx = dispatcher(_cx, src_ptr, 0, transient_row.as_mut_ptr(), 0, width)
-        }
-
-        for x in _cx..width as usize {
-            let px = x * channels;
-            let source_p = src_ptr.add(px);
-            let l_x = source_p.read_unaligned();
-            let l_y = source_p.add(1).read_unaligned();
-            let l_z = source_p.add(2).read_unaligned();
-            let rgb = match target {
-                OklabTarget::Oklab => {
-                    let oklab = Oklab::new(l_x, l_y, l_z);
-                    oklab.to_linear_rgb()
-                }
-                OklabTarget::Oklch => {
-                    let oklch = Oklch::new(l_x, l_y, l_z);
-                    oklch.to_linear_rgb()
-                }
-            };
-
-            let v_dst = transient_row.get_unchecked_mut((x * channels)..);
-            *v_dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-            *v_dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-            *v_dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-            if image_configuration.has_alpha() {
-                let l_a = source_p.add(3).read_unaligned();
-                *v_dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) = l_a;
-            }
-        }
-
-        for (dst_chunks, src_chunks) in dst
-            .chunks_exact_mut(channels)
-            .zip(transient_row.chunks_exact_mut(channels))
-        {
-            let rgb = (Rgb::<f32>::new(
-                src_chunks[image_configuration.get_r_channel_offset()]
-                    .max(0.)
-                    .min(1.),
-                src_chunks[image_configuration.get_g_channel_offset()]
-                    .max(0.)
-                    .min(1.),
-                src_chunks[image_configuration.get_b_channel_offset()]
-                    .max(0.)
-                    .min(1.),
-            ) * Rgb::<f32>::dup(2048f32))
+    let mut lut_table = [0u8; 65535];
+    for (i, lut) in lut_table[..2049].iter_mut().enumerate() {
+        *lut = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
             .round()
-            .cast::<u16>();
+            .min(255.) as u8;
+    }
 
-            dst_chunks[image_configuration.get_r_channel_offset()] =
-                *lut_table.get_unchecked((rgb.r as usize).min(2048));
-            dst_chunks[image_configuration.get_g_channel_offset()] =
-                *lut_table.get_unchecked((rgb.g as usize).min(2048));
-            dst_chunks[image_configuration.get_b_channel_offset()] =
-                *lut_table.get_unchecked((rgb.b as usize).min(2048));
-            if image_configuration.has_alpha() {
-                let a_lin = (src_chunks[3] * 255f32).round() as u8;
-                dst_chunks[image_configuration.get_a_channel_offset()] = a_lin;
+    let channels = image_configuration.channel_count();
+
+    let dst_stride = dst.stride();
+    let src_r_width = src.width * src.channels;
+    let dst_r_width = dst.width * dst.channels;
+    let width = src.width;
+
+    let mut transient_row = vec![0f32; src.width as usize * channels];
+
+    for (dst, src) in dst
+        .data
+        .borrow_mut()
+        .chunks_mut(dst_stride)
+        .zip(src.data.chunks(src.stride()))
+    {
+        let src = &src[..src_r_width as usize];
+        let dst = &mut dst[..dst_r_width as usize];
+
+        let mut cx = 0usize;
+        if let Some(dispatcher) = _wide_row_handle {
+            cx = unsafe { dispatcher(cx, src, &mut transient_row, width) };
+        }
+
+        if image_configuration == ImageConfiguration::Bgr
+            || image_configuration == ImageConfiguration::Rgb
+        {
+            {
+                let transient_row = &mut transient_row[cx * 3..];
+                let src = &src[cx * 3usize..];
+                for (dst, src) in transient_row
+                    .as_chunks_mut::<3>()
+                    .0
+                    .iter_mut()
+                    .zip(src.as_chunks::<3>().0.iter())
+                {
+                    let rgb = match target {
+                        OklabTarget::Oklab => {
+                            let oklab = Oklab::new(src[0], src[1], src[2]);
+                            oklab.to_linear_rgb()
+                        }
+                        OklabTarget::Oklch => {
+                            let oklch = Oklch::new(src[0], src[1], src[2]);
+                            oklch.to_linear_rgb()
+                        }
+                    };
+                    dst[0] = rgb.r;
+                    dst[1] = rgb.g;
+                    dst[2] = rgb.b;
+                }
+            }
+
+            for (dst, src) in dst
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(transient_row.as_chunks::<3>().0.iter())
+            {
+                let rgb = (Rgb::<f32>::new(
+                    src[0].max(0.).min(1.),
+                    src[1].max(0.).min(1.),
+                    src[2].max(0.).min(1.),
+                ) * Rgb::<f32>::dup(2048f32))
+                .round()
+                .cast::<u16>();
+
+                dst[image_configuration.r_index()] = lut_table[rgb.r.min(2048) as usize];
+                dst[image_configuration.g_index()] = lut_table[rgb.g.min(2048) as usize];
+                dst[image_configuration.b_index()] = lut_table[rgb.b.min(2048) as usize];
+            }
+        } else if image_configuration == ImageConfiguration::Bgra
+            || image_configuration == ImageConfiguration::Rgba
+        {
+            {
+                let transient_row = &mut transient_row[cx * 4..];
+                let src = &src[cx * 4usize..];
+                for (dst, src) in transient_row
+                    .as_chunks_mut::<4>()
+                    .0
+                    .iter_mut()
+                    .zip(src.as_chunks::<4>().0.iter())
+                {
+                    let rgb = match target {
+                        OklabTarget::Oklab => {
+                            let oklab = Oklab::new(src[0], src[1], src[2]);
+                            oklab.to_linear_rgb()
+                        }
+                        OklabTarget::Oklch => {
+                            let oklch = Oklch::new(src[0], src[1], src[2]);
+                            oklch.to_linear_rgb()
+                        }
+                    };
+                    dst[0] = rgb.r;
+                    dst[1] = rgb.g;
+                    dst[2] = rgb.b;
+                    dst[3] = src[3];
+                }
+            }
+
+            for (dst, src) in dst
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(transient_row.as_chunks::<4>().0.iter())
+            {
+                let rgb = (Rgb::<f32>::new(
+                    src[0].max(0.).min(1.),
+                    src[1].max(0.).min(1.),
+                    src[2].max(0.).min(1.),
+                ) * Rgb::<f32>::dup(2048f32))
+                .round()
+                .cast::<u16>();
+
+                dst[image_configuration.r_index()] = lut_table[rgb.r.min(2048) as usize];
+                dst[image_configuration.g_index()] = lut_table[rgb.g.min(2048) as usize];
+                dst[image_configuration.b_index()] = lut_table[rgb.b.min(2048) as usize];
+                dst[image_configuration.a_index()] = (src[3] * 255.).round() as u8;
             }
         }
-    });
+    }
+
+    Ok(())
 }
 
 /// This function converts Oklab with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation
@@ -162,23 +186,15 @@ fn oklab_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklab_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts Oklab to RGB. This is much more effective than naive direct transformation
@@ -192,23 +208,15 @@ pub fn oklab_to_rgba(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklab_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts Oklab to BGR. This is much more effective than naive direct transformation
@@ -222,23 +230,15 @@ pub fn oklab_to_rgb(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklab_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts Oklab with interleaved alpha channel to BGRA. This is much more effective than naive direct transformation
@@ -252,23 +252,15 @@ pub fn oklab_to_bgr(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklab_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::Oklab as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts *Oklch* with interleaved alpha channel to RGBA. This is much more effective than naive direct transformation
@@ -282,23 +274,15 @@ pub fn oklab_to_bgra(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklch_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Rgba as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts *Oklch* to RGB. This is much more effective than naive direct transformation
@@ -312,23 +296,15 @@ pub fn oklch_to_rgba(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklch_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Rgb as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts *Oklch* to BGR. This is much more effective than naive direct transformation
@@ -342,23 +318,15 @@ pub fn oklch_to_rgb(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklch_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Bgr as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
 }
 
 /// This function converts *Oklch* with interleaved alpha channel to BGRA. This is much more effective than naive direct transformation
@@ -372,21 +340,216 @@ pub fn oklch_to_bgr(
 /// * `height` - Image height
 /// * `transfer_function` - Transfer function from linear colorspace to gamma
 pub fn oklch_to_bgra(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     oklab_to_image::<{ ImageConfiguration::Bgra as u8 }, { OklabTarget::Oklch as u8 }>(
         src,
-        src_stride,
         dst,
-        dst_stride,
-        width,
-        height,
         transfer_function,
-    );
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::BufferStore;
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    fn make_src(data: Vec<f32>, width: u32, channels: u32) -> ImageBuffer<'static, f32> {
+        ImageBuffer {
+            data: std::borrow::Cow::Owned(data),
+            width,
+            height: 1,
+            channels,
+            stride: width * channels,
+        }
+    }
+
+    fn make_dst(width: u32, channels: u32) -> ImageBufferMut<'static, u8> {
+        ImageBufferMut {
+            data: BufferStore::Owned(vec![0u8; (width * channels) as usize]),
+            width,
+            height: 1,
+            channels,
+            stride: width * channels,
+        }
+    }
+
+    // ── oklab_to_rgb ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklab_to_rgb_white() {
+        // Oklab white: L=1.0, a=0.0, b=0.0 => RGB (255,255,255)
+        let src = make_src(vec![1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(dst.data[0], 255, "R should be 255 for white");
+        assert_eq!(dst.data[1], 255, "G should be 255 for white");
+        assert_eq!(dst.data[2], 255, "B should be 255 for white");
+    }
+
+    #[test]
+    fn test_oklab_to_rgb_black() {
+        // Oklab black: L=0.0, a=0.0, b=0.0 => RGB (0,0,0)
+        let src = make_src(vec![0.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(dst.data[0], 0);
+        assert_eq!(dst.data[1], 0);
+        assert_eq!(dst.data[2], 0);
+    }
+
+    #[test]
+    fn test_oklab_to_rgb_multiple_pixels() {
+        // Two pixels: black and white
+        let src = make_src(vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 2, 3);
+        let mut dst = make_dst(2, 3);
+        oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(&dst.data[0..3], &[0, 0, 0]);
+        assert_eq!(&dst.data[3..6], &[255, 255, 255]);
+    }
+
+    // ── oklab_to_rgba ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklab_to_rgba_white_full_alpha() {
+        // L=1, a=0, b=0, alpha=1.0 => (255,255,255,255)
+        let src = make_src(vec![1.0f32, 0.0, 0.0, 1.0], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklab_to_rgba(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(dst.data[0], 255);
+        assert_eq!(dst.data[1], 255);
+        assert_eq!(dst.data[2], 255);
+        assert_eq!(dst.data[3], 255, "Alpha should be 255");
+    }
+
+    #[test]
+    fn test_oklab_to_rgba_zero_alpha() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0, 0.0], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklab_to_rgba(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(dst.data[3], 0, "Alpha should be 0");
+    }
+
+    #[test]
+    fn test_oklab_to_rgba_half_alpha() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0, 0.5], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklab_to_rgba(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        let alpha = dst.data[3];
+        assert!((alpha as i16 - 128).abs() <= 2, "Alpha ~128, got {alpha}");
+    }
+
+    // ── oklab_to_bgr ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklab_to_bgr_white() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklab_to_bgr(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        // BGR order — all 255 for white
+        assert_eq!(dst.data[0], 255);
+        assert_eq!(dst.data[1], 255);
+        assert_eq!(dst.data[2], 255);
+    }
+
+    // ── oklab_to_bgra ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklab_to_bgra_alpha_preserved() {
+        let src = make_src(vec![0.5f32, 0.0, 0.0, 0.75], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklab_to_bgra(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        let alpha = dst.data[3];
+        assert!((alpha as i16 - 191).abs() <= 2, "Alpha ~191, got {alpha}");
+    }
+
+    // ── oklch_to_rgb ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklch_to_rgb_white() {
+        // Oklch white: L=1.0, C=0.0, H=0.0 => RGB (255,255,255)
+        let src = make_src(vec![1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklch_to_rgb(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(dst.data[0], 255);
+        assert_eq!(dst.data[1], 255);
+        assert_eq!(dst.data[2], 255);
+    }
+
+    #[test]
+    fn test_oklch_to_rgb_black() {
+        let src = make_src(vec![0.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklch_to_rgb(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(&dst.data[0..3], &[0, 0, 0]);
+    }
+
+    // ── oklch_to_rgba ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_oklch_to_rgba_alpha_passthrough() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0, 0.5], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklch_to_rgba(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        let alpha = dst.data[3];
+        assert!((alpha as i16 - 128).abs() <= 2, "Alpha ~128, got {alpha}");
+    }
+
+    // ── oklch_to_bgr / oklch_to_bgra ────────────────────────────────────────
+
+    #[test]
+    fn test_oklch_to_bgr_white() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklch_to_bgr(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(&dst.data[0..3], &[255, 255, 255]);
+    }
+
+    #[test]
+    fn test_oklch_to_bgra_black_zero_alpha() {
+        let src = make_src(vec![0.0f32, 0.0, 0.0, 0.0], 1, 4);
+        let mut dst = make_dst(1, 4);
+        oklch_to_bgra(&src, &mut dst, TransferFunction::Srgb).unwrap();
+        assert_eq!(&dst.data[0..4], &[0, 0, 0, 0]);
+    }
+
+    // ── error / edge cases ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_invalid_channel_count_returns_error() {
+        let src = make_src(vec![1.0f32, 0.0], 1, 2); // 2 channels — unsupported
+        let mut dst = make_dst(1, 2);
+        let result = oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb);
+        assert!(result.is_err(), "Should fail with 2 channels");
+    }
+
+    #[test]
+    fn test_out_of_range_values_clamped() {
+        // Values > 1.0 should clamp to 255, not panic
+        let src = make_src(vec![2.0f32, 0.5, 0.5], 1, 3);
+        let mut dst = make_dst(1, 3);
+        let result = oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb);
+        assert!(result.is_ok());
+        assert_eq!(dst.data[0], 255);
+    }
+
+    #[test]
+    fn test_negative_values_clamped() {
+        let src = make_src(vec![-1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        let result = oklab_to_rgb(&src, &mut dst, TransferFunction::Srgb);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_linear_transfer_function() {
+        let src = make_src(vec![1.0f32, 0.0, 0.0], 1, 3);
+        let mut dst = make_dst(1, 3);
+        oklab_to_rgb(&src, &mut dst, TransferFunction::Linear).unwrap();
+        assert_eq!(&dst.data[0..3], &[255, 255, 255]);
+    }
 }

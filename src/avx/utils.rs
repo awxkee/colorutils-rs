@@ -11,8 +11,9 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[inline(always)]
-pub unsafe fn avx2_interleave_rgb_ps(a: __m256, b: __m256, c: __m256) -> (__m256, __m256, __m256) {
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn avx2_interleave_rgb_ps(a: __m256, b: __m256, c: __m256) -> (__m256, __m256, __m256) {
     let b0 = _mm256_shuffle_epi32::<0x6c>(_mm256_castps_si256(a));
     let g0 = _mm256_shuffle_epi32::<0xb1>(_mm256_castps_si256(b));
     let r0 = _mm256_shuffle_epi32::<0xc6>(_mm256_castps_si256(c));
@@ -32,7 +33,7 @@ pub unsafe fn avx2_interleave_rgb_ps(a: __m256, b: __m256, c: __m256) -> (__m256
 
 #[inline]
 #[target_feature(enable = "avx2")]
-pub unsafe fn _mm256_packus_four_epi32(a: __m256i, b: __m256i, c: __m256i, d: __m256i) -> __m256i {
+pub(crate) fn _mm256_packus_four_epi32(a: __m256i, b: __m256i, c: __m256i, d: __m256i) -> __m256i {
     let ab = _mm256_packs_epi32(a, b);
     let cd = _mm256_packs_epi32(c, d);
 

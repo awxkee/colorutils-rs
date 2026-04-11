@@ -5,895 +5,946 @@
  * // license that can be found in the LICENSE file.
  */
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::avx::avx_xyz_to_channels;
 use crate::gamma_curves::TransferFunction;
 use crate::image::ImageConfiguration;
-#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-use crate::neon::neon_xyz_to_channels;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::sse::sse_xyz_to_channels;
 use crate::xyz_target::XyzTarget;
-use crate::{LCh, Lab, Luv, Xyz, XYZ_TO_SRGB_D65};
-#[cfg(feature = "rayon")]
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
-#[cfg(feature = "rayon")]
-use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-use std::slice;
+use crate::{ColorError, ImageBuffer, ImageBufferMut, LCh, Lab, Luv, Rgb, XYZ_TO_SRGB_D65, Xyz};
+
+pub(crate) fn xyz_target_to_rgb(source: XyzTarget, px: &[f32], matrix: &[[f32; 3]; 3]) -> Rgb<f32> {
+    match source {
+        XyzTarget::Lab => Lab::new(px[0], px[1], px[2]).to_linear_rgb(matrix),
+        XyzTarget::Xyz => Xyz::new(px[0], px[1], px[2]).to_linear_rgb(matrix),
+        XyzTarget::Luv => Luv::new(px[0], px[1], px[2]).to_linear_rgb(matrix),
+        XyzTarget::Lch => LCh::new(px[0], px[1], px[2]).to_linear_rgb(matrix),
+    }
+}
+
+fn write_lut_rgb(dst: &mut [u8], transient: &[f32], lut: &[u8; 2049], cfg: ImageConfiguration) {
+    for (dst, src) in dst
+        .as_chunks_mut::<3>()
+        .0
+        .iter_mut()
+        .zip(transient.as_chunks::<3>().0.iter())
+    {
+        let r = (src[cfg.r_index()].clamp(0., 1.) * 2048.).round() as u16;
+        let g = (src[cfg.g_index()].clamp(0., 1.) * 2048.).round() as u16;
+        let b = (src[cfg.b_index()].clamp(0., 1.) * 2048.).round() as u16;
+        dst[cfg.r_index()] = lut[r.min(2048) as usize];
+        dst[cfg.g_index()] = lut[g.min(2048) as usize];
+        dst[cfg.b_index()] = lut[b.min(2048) as usize];
+    }
+}
+
+fn write_lut_rgba(dst: &mut [u8], transient: &[f32], lut: &[u8; 2049], cfg: ImageConfiguration) {
+    for (dst, src) in dst
+        .as_chunks_mut::<4>()
+        .0
+        .iter_mut()
+        .zip(transient.as_chunks::<4>().0.iter())
+    {
+        let r = (src[cfg.r_index()].clamp(0., 1.) * 2048.).round() as u16;
+        let g = (src[cfg.g_index()].clamp(0., 1.) * 2048.).round() as u16;
+        let b = (src[cfg.b_index()].clamp(0., 1.) * 2048.).round() as u16;
+        dst[cfg.r_index()] = lut[r.min(2048) as usize];
+        dst[cfg.g_index()] = lut[g.min(2048) as usize];
+        dst[cfg.b_index()] = lut[b.min(2048) as usize];
+        dst[cfg.a_index()] = (src[cfg.a_index()] * 255.).clamp(0., 255.).round() as u8;
+    }
+}
 
 fn xyz_to_channels<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, const TARGET: u8>(
-    src: &[f32],
-    src_stride: u32,
-    a_channel: &[f32],
-    a_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
+    a_plane: Option<&ImageBuffer<'_, f32>>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let source: XyzTarget = TARGET.into();
+) -> Result<(), ColorError> {
+    dst.validate()?;
+    src.validate()?;
+    dst.try_match_immutable(src)?;
+    if src.channels != 3 {
+        return Err(ColorError::UnsupportedChannelsCount(src.channels));
+    }
+    if USE_ALPHA && dst.channels != 4 {
+        return Err(ColorError::UnsupportedChannelsCount(4));
+    } else if !USE_ALPHA && dst.channels != 3 {
+        return Err(ColorError::UnsupportedChannelsCount(3));
+    }
+    if let Some(plane) = a_plane
+        && USE_ALPHA
+    {
+        dst.try_match_immutable(plane)?;
+    }
+
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();
+    let source: XyzTarget = TARGET.into();
+
     if USE_ALPHA && !image_configuration.has_alpha() {
         panic!("Alpha may be set only on images with alpha");
     }
+    if USE_ALPHA && a_plane.is_none() {
+        panic!("Alpha plane must be provided when USE_ALPHA is true");
+    }
 
-    let channels = image_configuration.get_channels_count();
-
-    #[allow(clippy::type_complexity)]
     let mut _wide_row_handler: Option<
-        unsafe fn(
-            usize,
-            *const f32,
-            usize,
-            *const f32,
-            usize,
-            *mut f32,
-            usize,
-            u32,
-            &[[f32; 3]; 3],
-        ) -> usize,
+        unsafe fn(usize, &[f32], &[f32], &mut [f32], u32, &[[f32; 3]; 3]) -> usize,
     > = None;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("sse4.1") {
+        use crate::sse::sse_xyz_to_channels;
         _wide_row_handler = Some(sse_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::arch::is_x86_feature_detected!("avx2") {
+        use crate::avx::avx_xyz_to_channels;
         _wide_row_handler = Some(avx_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
     #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
+        use crate::neon::neon_xyz_to_channels;
         _wide_row_handler = Some(neon_xyz_to_channels::<CHANNELS_CONFIGURATION, USE_ALPHA, TARGET>);
     }
 
-    let src_slice_safe_align = unsafe {
-        slice::from_raw_parts_mut(
-            src.as_ptr() as *mut u8,
-            src_stride as usize * height as usize,
-        )
-    };
+    let channels = image_configuration.channel_count();
 
-    let mut lut_table = vec![0u8; 2049];
-    for (i, element) in lut_table.iter_mut().enumerate() {
-        *element = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.).min(255.) as u8;
+    let mut lut_table = [0u8; 2049];
+    for (i, lut) in lut_table.iter_mut().enumerate() {
+        *lut = (transfer_function.gamma(i as f32 * (1. / 2048.0)) * 255.)
+            .round()
+            .min(255.) as u8;
     }
 
-    #[cfg(feature = "rayon")]
-    {
-        if USE_ALPHA {
-            let a_slice_safe_align = unsafe {
-                slice::from_raw_parts_mut(
-                    a_channel.as_ptr() as *mut u8,
-                    a_stride as usize * height as usize,
-                )
-            };
+    let dst_stride = dst.stride();
+    let src_r_width = src.width * src.channels;
+    let dst_r_width = dst.width * dst.channels;
+    let width = src.width;
 
-            dst.par_chunks_exact_mut(dst_stride as usize)
-                .zip(src_slice_safe_align.par_chunks_exact_mut(src_stride as usize))
-                .zip(a_slice_safe_align.par_chunks_exact(a_stride as usize))
-                .for_each(|((dst, src), a_channel)| unsafe {
-                    let mut _cx = 0usize;
+    let mut transient_row = vec![0f32; width as usize * channels];
 
-                    let mut transient_row = vec![0f32; width as usize * channels];
+    let src_rows = src.data.chunks(src.stride());
+    let dst_rows = dst.data.borrow_mut().chunks_mut(dst_stride);
 
-                    if let Some(dispatcher) = _wide_row_handler {
-                        _cx = dispatcher(
-                            _cx,
-                            src.as_ptr() as *const f32,
-                            0,
-                            a_channel.as_ptr() as *const f32,
-                            0,
-                            transient_row.as_mut_ptr(),
-                            0,
-                            width,
-                            matrix,
-                        );
-                    }
+    if USE_ALPHA {
+        let a_plane = a_plane.unwrap();
+        for ((dst, src), a_row) in dst_rows
+            .zip(src_rows)
+            .zip(a_plane.data.chunks(a_plane.stride()))
+        {
+            let src = &src[..src_r_width as usize];
+            let dst = &mut dst[..dst_r_width as usize];
+            let a_row = &a_row[..width as usize];
 
-                    let src_ptr = src.as_ptr() as *mut f32;
+            let mut cx = 0usize;
+            if let Some(dispatcher) = _wide_row_handler {
+                cx = unsafe { dispatcher(0, src, a_row, &mut transient_row, width, matrix) };
+            }
 
-                    for x in _cx..width as usize {
-                        let src_slice = src_ptr.add(x * 3);
-                        let l_x = src_slice.read_unaligned();
-                        let l_y = src_slice.add(1).read_unaligned();
-                        let l_z = src_slice.add(2).read_unaligned();
-                        let rgb = match source {
-                            XyzTarget::Lab => {
-                                let lab = Lab::new(l_x, l_y, l_z);
-                                lab.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Xyz => {
-                                let xyz = Xyz::new(l_x, l_y, l_z);
-                                xyz.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Luv => {
-                                let luv = Luv::new(l_x, l_y, l_z);
-                                luv.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Lch => {
-                                let lch = LCh::new(l_x, l_y, l_z);
-                                lch.to_linear_rgb(matrix)
-                            }
-                        };
+            for ((transient, src), &a) in transient_row[cx * channels..]
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(src[cx * 3..].as_chunks::<3>().0.iter())
+                .zip(a_row[cx..].iter())
+            {
+                let rgb = xyz_target_to_rgb(source, src, matrix);
+                transient[image_configuration.r_index()] = rgb.r;
+                transient[image_configuration.g_index()] = rgb.g;
+                transient[image_configuration.b_index()] = rgb.b;
+                transient[image_configuration.a_index()] = a;
+            }
 
-                        let dst = transient_row.get_unchecked_mut((x * channels)..);
-                        *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                        *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                        *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                        if image_configuration.has_alpha() {
-                            let a_ptr = a_channel.as_ptr() as *const f32;
-                            let a_f = a_ptr.add(x).read_unaligned();
-                            *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) =
-                                a_f;
-                        }
-                    }
+            write_lut_rgba(dst, &transient_row, &lut_table, image_configuration);
+        }
+    } else {
+        for (dst, src) in dst_rows.zip(src_rows) {
+            let src = &src[..src_r_width as usize];
+            let dst = &mut dst[..dst_r_width as usize];
 
-                    for (dst_chunk, src_chunks) in dst
-                        .chunks_exact_mut(channels)
-                        .zip(transient_row.chunks_exact(channels))
-                    {
-                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
+            let mut cx = 0usize;
+            if let Some(dispatcher) = _wide_row_handler {
+                cx = unsafe { dispatcher(0, src, &[], &mut transient_row, width, matrix) };
+            }
 
-                        dst_chunk[image_configuration.get_r_channel_offset()] =
-                            *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[image_configuration.get_g_channel_offset()] =
-                            *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[image_configuration.get_b_channel_offset()] =
-                            *lut_table.get_unchecked(b_cast.min(2048));
+            for (transient, src) in transient_row[cx * channels..]
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(src[cx * 3..].as_chunks::<3>().0.iter())
+            {
+                let rgb = xyz_target_to_rgb(source, src, matrix);
+                transient[image_configuration.r_index()] = rgb.r;
+                transient[image_configuration.g_index()] = rgb.g;
+                transient[image_configuration.b_index()] = rgb.b;
+            }
 
-                        if image_configuration.has_alpha() {
-                            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()]
-                                * 255.)
-                                .min(255.)
-                                .max(0.) as u8;
-                            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                        }
-                    }
-                });
-        } else {
-            dst.par_chunks_exact_mut(dst_stride as usize)
-                .zip(src_slice_safe_align.par_chunks_exact_mut(src_stride as usize))
-                .for_each(|(dst, src)| unsafe {
-                    let mut _cx = 0usize;
-
-                    let mut transient_row = vec![0f32; width as usize * channels];
-
-                    if let Some(dispatcher) = _wide_row_handler {
-                        _cx = dispatcher(
-                            _cx,
-                            src.as_ptr() as *const f32,
-                            0,
-                            a_channel.as_ptr(),
-                            0,
-                            transient_row.as_mut_ptr(),
-                            0,
-                            width,
-                            matrix,
-                        );
-                    }
-
-                    let src_ptr = src.as_ptr() as *mut f32;
-
-                    for x in _cx..width as usize {
-                        let src_slice = src_ptr.add(x * 3);
-                        let l_x = src_slice.read_unaligned();
-                        let l_y = src_slice.add(1).read_unaligned();
-                        let l_z = src_slice.add(2).read_unaligned();
-                        let rgb = match source {
-                            XyzTarget::Lab => {
-                                let lab = Lab::new(l_x, l_y, l_z);
-                                lab.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Xyz => {
-                                let xyz = Xyz::new(l_x, l_y, l_z);
-                                xyz.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Luv => {
-                                let luv = Luv::new(l_x, l_y, l_z);
-                                luv.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Lch => {
-                                let lch = LCh::new(l_x, l_y, l_z);
-                                lch.to_linear_rgb(matrix)
-                            }
-                        };
-
-                        let dst = transient_row.get_unchecked_mut((x * channels)..);
-                        *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                        *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                        *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    }
-
-                    for (dst_chunk, src_chunks) in dst
-                        .chunks_exact_mut(channels)
-                        .zip(transient_row.chunks_exact(channels))
-                    {
-                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-
-                        *dst_chunk.get_unchecked_mut(image_configuration.get_r_channel_offset()) =
-                            *lut_table.get_unchecked(r_cast.min(2048));
-                        *dst_chunk.get_unchecked_mut(image_configuration.get_g_channel_offset()) =
-                            *lut_table.get_unchecked(g_cast.min(2048));
-                        *dst_chunk.get_unchecked_mut(image_configuration.get_b_channel_offset()) =
-                            *lut_table.get_unchecked(b_cast.min(2048));
-                    }
-                });
+            write_lut_rgb(dst, &transient_row, &lut_table, image_configuration);
         }
     }
 
-    #[cfg(not(feature = "rayon"))]
-    {
-        if USE_ALPHA {
-            let a_slice_safe_align = unsafe {
-                slice::from_raw_parts_mut(
-                    a_channel.as_ptr() as *mut u8,
-                    a_stride as usize * height as usize,
-                )
-            };
-
-            for ((dst, src), a_channel) in dst
-                .chunks_exact_mut(dst_stride as usize)
-                .zip(src_slice_safe_align.chunks_exact_mut(src_stride as usize))
-                .zip(a_slice_safe_align.chunks_exact(a_stride as usize))
-            {
-                unsafe {
-                    let mut _cx = 0usize;
-
-                    let mut transient_row = vec![0f32; width as usize * channels];
-
-                    if let Some(dispatcher) = _wide_row_handler {
-                        _cx = dispatcher(
-                            _cx,
-                            src.as_ptr() as *const f32,
-                            0,
-                            a_channel.as_ptr() as *const f32,
-                            0,
-                            transient_row.as_mut_ptr(),
-                            0,
-                            width,
-                            matrix,
-                        );
-                    }
-
-                    let src_ptr = src.as_ptr() as *mut f32;
-
-                    for x in _cx..width as usize {
-                        let src_slice = src_ptr.add(x * 3);
-                        let l_x = src_slice.read_unaligned();
-                        let l_y = src_slice.add(1).read_unaligned();
-                        let l_z = src_slice.add(2).read_unaligned();
-                        let rgb = match source {
-                            XyzTarget::Lab => {
-                                let lab = Lab::new(l_x, l_y, l_z);
-                                lab.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Xyz => {
-                                let xyz = Xyz::new(l_x, l_y, l_z);
-                                xyz.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Luv => {
-                                let luv = Luv::new(l_x, l_y, l_z);
-                                luv.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Lch => {
-                                let lch = LCh::new(l_x, l_y, l_z);
-                                lch.to_linear_rgb(matrix)
-                            }
-                        };
-
-                        let dst = transient_row.get_unchecked_mut((x * channels)..);
-                        *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                        *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                        *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                        if image_configuration.has_alpha() {
-                            let a_ptr = a_channel.as_ptr() as *const f32;
-                            let a_f = a_ptr.add(x).read_unaligned();
-                            *dst.get_unchecked_mut(image_configuration.get_a_channel_offset()) =
-                                a_f;
-                        }
-                    }
-
-                    for (dst_chunk, src_chunks) in dst
-                        .chunks_exact_mut(channels)
-                        .zip(transient_row.chunks_exact(channels))
-                    {
-                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-
-                        dst_chunk[image_configuration.get_r_channel_offset()] =
-                            *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[image_configuration.get_g_channel_offset()] =
-                            *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[image_configuration.get_b_channel_offset()] =
-                            *lut_table.get_unchecked(b_cast.min(2048));
-
-                        if image_configuration.has_alpha() {
-                            let a_cast = (src_chunks[image_configuration.get_a_channel_offset()]
-                                * 255.)
-                                .min(255.)
-                                .max(0.) as u8;
-                            dst_chunk[image_configuration.get_a_channel_offset()] = a_cast;
-                        }
-                    }
-                }
-            }
-        } else {
-            for (dst, src) in dst
-                .chunks_exact_mut(dst_stride as usize)
-                .zip(src_slice_safe_align.chunks_exact_mut(src_stride as usize))
-            {
-                unsafe {
-                    let mut _cx = 0usize;
-
-                    let mut transient_row = vec![0f32; width as usize * channels];
-
-                    if let Some(dispatcher) = _wide_row_handler {
-                        _cx = dispatcher(
-                            _cx,
-                            src.as_ptr() as *const f32,
-                            0,
-                            a_channel.as_ptr(),
-                            0,
-                            transient_row.as_mut_ptr(),
-                            0,
-                            width,
-                            matrix,
-                        );
-                    }
-
-                    let src_ptr = src.as_ptr() as *mut f32;
-
-                    for x in _cx..width as usize {
-                        let src_slice = src_ptr.add(x * 3);
-                        let l_x = src_slice.read_unaligned();
-                        let l_y = src_slice.add(1).read_unaligned();
-                        let l_z = src_slice.add(2).read_unaligned();
-                        let rgb = match source {
-                            XyzTarget::Lab => {
-                                let lab = Lab::new(l_x, l_y, l_z);
-                                lab.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Xyz => {
-                                let xyz = Xyz::new(l_x, l_y, l_z);
-                                xyz.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Luv => {
-                                let luv = Luv::new(l_x, l_y, l_z);
-                                luv.to_linear_rgb(matrix)
-                            }
-                            XyzTarget::Lch => {
-                                let lch = LCh::new(l_x, l_y, l_z);
-                                lch.to_linear_rgb(matrix)
-                            }
-                        };
-
-                        let dst = transient_row.get_unchecked_mut((x * channels)..);
-                        *dst.get_unchecked_mut(image_configuration.get_r_channel_offset()) = rgb.r;
-                        *dst.get_unchecked_mut(image_configuration.get_g_channel_offset()) = rgb.g;
-                        *dst.get_unchecked_mut(image_configuration.get_b_channel_offset()) = rgb.b;
-                    }
-
-                    for (dst_chunk, src_chunks) in dst
-                        .chunks_exact_mut(channels)
-                        .zip(transient_row.chunks_exact(channels))
-                    {
-                        let r_cast = (src_chunks[image_configuration.get_r_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let g_cast = (src_chunks[image_configuration.get_g_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-                        let b_cast = (src_chunks[image_configuration.get_b_channel_offset()]
-                            .min(1.)
-                            .max(0.)
-                            * 2048f32)
-                            .round() as usize;
-
-                        dst_chunk[image_configuration.get_r_channel_offset()] =
-                            *lut_table.get_unchecked(r_cast.min(2048));
-                        dst_chunk[image_configuration.get_g_channel_offset()] =
-                            *lut_table.get_unchecked(g_cast.min(2048));
-                        dst_chunk[image_configuration.get_b_channel_offset()] =
-                            *lut_table.get_unchecked(b_cast.min(2048));
-                    }
-                }
-            }
-        }
-    }
+    Ok(())
 }
 
-/// This function converts XYZ to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains XYZ data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn xyz_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts XYZ to BGR. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains XYZ data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive BGR data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from BGR to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn xyz_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts XYZ to sRGB D65 White point. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains XYZ data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
 pub fn xyz_to_srgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
-) {
-    let empty_vec = vec![];
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         &XYZ_TO_SRGB_D65,
         TransferFunction::Srgb,
-    );
+    )
 }
 
-/// This function converts LAB to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lab_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LAB to BGR. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive BGR data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from BGR to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lab_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LAB to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
 pub fn lab_to_srgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
-) {
-    let empty_vec = vec![];
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         &XYZ_TO_SRGB_D65,
         TransferFunction::Srgb,
-    );
+    )
 }
 
-/// This function converts LAB with separate alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
 pub fn laba_to_srgb(
-    src: &[f32],
-    src_stride: u32,
-    a_plane: &[f32],
-    a_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
-) {
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
+    a_plane: &ImageBuffer<'_, f32>,
+) -> Result<(), ColorError> {
     xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::Lab as u8 }>(
         src,
-        src_stride,
-        a_plane,
-        a_stride,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(a_plane),
         &XYZ_TO_SRGB_D65,
         TransferFunction::Srgb,
-    );
+    )
 }
 
-/// This function converts XYZ with separate alpha channel to RGBA. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `a_plane` - A slice contains Alpha data
-/// * `a_stride` - Bytes per row for alpha plane data
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn xyza_to_rgba(
-    src: &[f32],
-    src_stride: u32,
-    a_plane: &[f32],
-    a_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
+    a_plane: &ImageBuffer<'_, f32>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
+) -> Result<(), ColorError> {
     xyz_to_channels::<{ ImageConfiguration::Rgba as u8 }, true, { XyzTarget::Xyz as u8 }>(
         src,
-        src_stride,
-        a_plane,
-        a_stride,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(a_plane),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LUV to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn luv_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LUV to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn luv_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LCH to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lch_to_rgb(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
 }
 
-/// This function converts LCH to RGB. This is much more effective than naive direct transformation
-///
-/// # Arguments
-/// * `src` - A slice contains LAB data
-/// * `src_stride` - Bytes per row for src data.
-/// * `width` - Image width
-/// * `height` - Image height
-/// * `dst` - A mutable slice to receive RGB data
-/// * `dst_stride` - Bytes per row for dst data
-/// * `matrix` - Transformation matrix from RGB to XYZ. If you don't have specific just pick `XYZ_TO_SRGB_D65`
-/// * `transfer_function` - Transfer function. If you don't have specific pick `Srgb`
 pub fn lch_to_bgr(
-    src: &[f32],
-    src_stride: u32,
-    dst: &mut [u8],
-    dst_stride: u32,
-    width: u32,
-    height: u32,
+    src: &ImageBuffer<'_, f32>,
+    dst: &mut ImageBufferMut<'_, u8>,
     matrix: &[[f32; 3]; 3],
     transfer_function: TransferFunction,
-) {
-    let empty_vec = vec![];
+) -> Result<(), ColorError> {
+    let empty = ImageBuffer::from_vec(vec![0.; 1], 1, 1, 1, 1)?;
     xyz_to_channels::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
-        src_stride,
-        &empty_vec,
-        0,
         dst,
-        dst_stride,
-        width,
-        height,
+        Some(&empty),
         matrix,
         transfer_function,
-    );
+    )
+}
+
+#[cfg(test)]
+mod tests_xyz_to_channels {
+    use super::*;
+    use crate::BufferStore;
+
+    fn make_src_f32(
+        data: Vec<f32>,
+        width: u32,
+        height: u32,
+        channels: u32,
+    ) -> ImageBuffer<'static, f32> {
+        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+    }
+
+    fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
+        ImageBufferMut::new(
+            BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
+            width,
+            height,
+            width * channels,
+            channels,
+        )
+        .unwrap()
+    }
+
+    fn make_alpha(data: Vec<f32>, width: u32, height: u32) -> ImageBuffer<'static, f32> {
+        ImageBuffer::from_vec(data, width, height, width, 1).unwrap()
+    }
+
+    fn assert_approx(a: u8, b: u8, eps: u8, label: &str) {
+        assert!(
+            (a as i16 - b as i16).abs() <= eps as i16,
+            "{label}: got {a}, expected {b}"
+        );
+    }
+
+    // Convert known linear RGB → colour space for use as round-trip input
+    fn linear_rgb_to_xyz(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+        let rgb = Rgb::<f32>::new(r, g, b);
+        let xyz = Xyz::from_linear_rgb(rgb, &crate::SRGB_TO_XYZ_D65);
+        (xyz.x, xyz.y, xyz.z)
+    }
+
+    fn linear_rgb_to_lab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+        let rgb = Rgb::<f32>::new(r, g, b);
+        let xyz = Xyz::from_linear_rgb(rgb, &crate::SRGB_TO_XYZ_D65);
+        let lab = Lab::from_xyz(xyz);
+        (lab.l, lab.a, lab.b)
+    }
+
+    fn linear_rgb_to_luv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+        let rgb = Rgb::<f32>::new(r, g, b);
+        let xyz = Xyz::from_linear_rgb(rgb, &crate::SRGB_TO_XYZ_D65);
+        let luv = Luv::from_xyz(xyz);
+        (luv.l, luv.u, luv.v)
+    }
+
+    fn linear_rgb_to_lch(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+        let rgb = Rgb::<f32>::new(r, g, b);
+        let xyz = Xyz::from_linear_rgb(rgb, &crate::SRGB_TO_XYZ_D65);
+        let luv = Luv::from_xyz(xyz);
+        let lch = LCh::from_luv(luv);
+        (lch.l, lch.c, lch.h)
+    }
+
+    // ── xyz_to_rgb ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_to_rgb_black_roundtrip() {
+        let (x, y, z) = linear_rgb_to_xyz(0.0, 0.0, 0.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0, 2, "R black");
+        assert_approx(d[1], 0, 2, "G black");
+        assert_approx(d[2], 0, 2, "B black");
+    }
+
+    #[test]
+    fn xyz_to_rgb_white_roundtrip() {
+        let (x, y, z) = linear_rgb_to_xyz(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R white");
+        assert_approx(d[1], 255, 2, "G white");
+        assert_approx(d[2], 255, 2, "B white");
+    }
+
+    #[test]
+    fn xyz_to_srgb_matches_xyz_to_rgb() {
+        let (x, y, z) = linear_rgb_to_xyz(0.4, 0.6, 0.8);
+        let src1 = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let src2 = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst1 = make_dst(1, 1, 3);
+        let mut dst2 = make_dst(1, 1, 3);
+        xyz_to_srgb(&src1, &mut dst1).unwrap();
+        xyz_to_rgb(&src2, &mut dst2, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        assert_eq!(&*dst1.data.borrow(), &*dst2.data.borrow());
+    }
+
+    // ── xyz_to_bgr ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_to_bgr_white_roundtrip() {
+        let (x, y, z) = linear_rgb_to_xyz(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        xyz_to_bgr(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "B white");
+        assert_approx(d[1], 255, 2, "G white");
+        assert_approx(d[2], 255, 2, "R white");
+    }
+
+    #[test]
+    fn xyz_to_rgb_bgr_agree_on_grey() {
+        let (x, y, z) = linear_rgb_to_xyz(0.5, 0.5, 0.5);
+        let src_rgb = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let src_bgr = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        xyz_to_rgb(
+            &src_rgb,
+            &mut dst_rgb,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        xyz_to_bgr(
+            &src_bgr,
+            &mut dst_bgr,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        assert_eq!(
+            &*dst_rgb.data.borrow(),
+            &*dst_bgr.data.borrow(),
+            "grey invariant to channel order"
+        );
+    }
+
+    #[test]
+    fn xyz_to_bgr_channel_order_for_red() {
+        let (x, y, z) = linear_rgb_to_xyz(1.0, 0.0, 0.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        xyz_to_bgr(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        // BGR: d[0]=B d[1]=G d[2]=R
+        assert!(d[0] < 20, "B low for red, got {}", d[0]);
+        assert!(d[1] < 20, "G low for red, got {}", d[1]);
+        assert!(d[2] > 200, "R dominant for red, got {}", d[2]);
+    }
+
+    // ── lab_to_rgb ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lab_to_rgb_black_roundtrip() {
+        let (l, a, b) = linear_rgb_to_lab(0.0, 0.0, 0.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0, 2, "R black");
+        assert_approx(d[1], 0, 2, "G black");
+        assert_approx(d[2], 0, 2, "B black");
+    }
+
+    #[test]
+    fn lab_to_rgb_white_roundtrip() {
+        let (l, a, b) = linear_rgb_to_lab(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R white");
+        assert_approx(d[1], 255, 2, "G white");
+        assert_approx(d[2], 255, 2, "B white");
+    }
+
+    #[test]
+    fn lab_to_srgb_matches_lab_to_rgb() {
+        let (l, a, b) = linear_rgb_to_lab(0.3, 0.5, 0.8);
+        let src1 = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let src2 = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst1 = make_dst(1, 1, 3);
+        let mut dst2 = make_dst(1, 1, 3);
+        lab_to_srgb(&src1, &mut dst1).unwrap();
+        lab_to_rgb(&src2, &mut dst2, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        assert_eq!(&*dst1.data.borrow(), &*dst2.data.borrow());
+    }
+
+    #[test]
+    fn lab_to_bgr_white_roundtrip() {
+        let (l, a, b) = linear_rgb_to_lab(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lab_to_bgr(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "B");
+        assert_approx(d[1], 255, 2, "G");
+        assert_approx(d[2], 255, 2, "R");
+    }
+
+    #[test]
+    fn lab_to_rgb_bgr_agree_on_grey() {
+        let (l, a, b) = linear_rgb_to_lab(0.5, 0.5, 0.5);
+        let src_rgb = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let src_bgr = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        lab_to_rgb(
+            &src_rgb,
+            &mut dst_rgb,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        lab_to_bgr(
+            &src_bgr,
+            &mut dst_bgr,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        assert_eq!(&*dst_rgb.data.borrow(), &*dst_bgr.data.borrow());
+    }
+
+    // ── laba_to_srgb ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn laba_to_srgb_white_opaque() {
+        let (l, a, b) = linear_rgb_to_lab(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let alpha = make_alpha(vec![1.0], 1, 1);
+        let mut dst = make_dst(1, 1, 4);
+        laba_to_srgb(&src, &mut dst, &alpha).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R");
+        assert_approx(d[1], 255, 2, "G");
+        assert_approx(d[2], 255, 2, "B");
+        assert_approx(d[3], 255, 1, "A");
+    }
+
+    #[test]
+    fn laba_to_srgb_alpha_denormalized() {
+        let (l, a, b) = linear_rgb_to_lab(0.5, 0.5, 0.5);
+        for alpha in [0.0f32, 0.25, 0.5, 0.75, 1.0] {
+            let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+            let a_plane = make_alpha(vec![alpha], 1, 1);
+            let mut dst = make_dst(1, 1, 4);
+            laba_to_srgb(&src, &mut dst, &a_plane).unwrap();
+            let d = dst.data.borrow();
+            let expected = (alpha * 255.).round() as u8;
+            assert_approx(d[3], expected, 1, &format!("alpha={alpha}"));
+        }
+    }
+
+    #[test]
+    fn laba_to_srgb_rgb_encoded_when_alpha_zero() {
+        let (l, a, b) = linear_rgb_to_lab(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let a_plane = make_alpha(vec![0.0], 1, 1);
+        let mut dst = make_dst(1, 1, 4);
+        laba_to_srgb(&src, &mut dst, &a_plane).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R encoded despite alpha=0");
+        assert_eq!(d[3], 0, "A must be 0");
+    }
+
+    // ── xyza_to_rgba ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn xyza_to_rgba_white_opaque() {
+        let (x, y, z) = linear_rgb_to_xyz(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let alpha = make_alpha(vec![1.0], 1, 1);
+        let mut dst = make_dst(1, 1, 4);
+        xyza_to_rgba(
+            &src,
+            &mut dst,
+            &alpha,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R");
+        assert_approx(d[1], 255, 2, "G");
+        assert_approx(d[2], 255, 2, "B");
+        assert_approx(d[3], 255, 1, "A");
+    }
+
+    #[test]
+    fn xyza_to_rgba_alpha_denormalized() {
+        let (x, y, z) = linear_rgb_to_xyz(0.5, 0.5, 0.5);
+        for alpha in [0.0f32, 0.25, 0.5, 0.75, 1.0] {
+            let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+            let a_plane = make_alpha(vec![alpha], 1, 1);
+            let mut dst = make_dst(1, 1, 4);
+            xyza_to_rgba(
+                &src,
+                &mut dst,
+                &a_plane,
+                &XYZ_TO_SRGB_D65,
+                TransferFunction::Srgb,
+            )
+            .unwrap();
+            let d = dst.data.borrow();
+            let expected = (alpha * 255.).round() as u8;
+            assert_approx(d[3], expected, 1, &format!("alpha={alpha}"));
+        }
+    }
+
+    // ── luv_to_rgb / luv_to_bgr ───────────────────────────────────────────────
+
+    #[test]
+    fn luv_to_rgb_white_roundtrip() {
+        let (l, u, v) = linear_rgb_to_luv(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, u, v], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        luv_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R white");
+        assert_approx(d[1], 255, 2, "G white");
+        assert_approx(d[2], 255, 2, "B white");
+    }
+
+    #[test]
+    fn luv_to_rgb_black_roundtrip() {
+        let (l, u, v) = linear_rgb_to_luv(0.0, 0.0, 0.0);
+        let src = make_src_f32(vec![l, u, v], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        luv_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0, 2, "R black");
+        assert_approx(d[1], 0, 2, "G black");
+        assert_approx(d[2], 0, 2, "B black");
+    }
+
+    #[test]
+    fn luv_to_rgb_bgr_agree_on_grey() {
+        let (l, u, v) = linear_rgb_to_luv(0.5, 0.5, 0.5);
+        let src_rgb = make_src_f32(vec![l, u, v], 1, 1, 3);
+        let src_bgr = make_src_f32(vec![l, u, v], 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        luv_to_rgb(
+            &src_rgb,
+            &mut dst_rgb,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        luv_to_bgr(
+            &src_bgr,
+            &mut dst_bgr,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        assert_eq!(&*dst_rgb.data.borrow(), &*dst_bgr.data.borrow());
+    }
+
+    // ── lch_to_rgb / lch_to_bgr ───────────────────────────────────────────────
+
+    #[test]
+    fn lch_to_rgb_white_roundtrip() {
+        let (l, c, h) = linear_rgb_to_lch(1.0, 1.0, 1.0);
+        let src = make_src_f32(vec![l, c, h], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lch_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 255, 2, "R white");
+        assert_approx(d[1], 255, 2, "G white");
+        assert_approx(d[2], 255, 2, "B white");
+    }
+
+    #[test]
+    fn lch_to_rgb_black_roundtrip() {
+        let (l, c, h) = linear_rgb_to_lch(0.0, 0.0, 0.0);
+        let src = make_src_f32(vec![l, c, h], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lch_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert_approx(d[0], 0, 2, "R black");
+        assert_approx(d[1], 0, 2, "G black");
+        assert_approx(d[2], 0, 2, "B black");
+    }
+
+    #[test]
+    fn lch_to_rgb_bgr_agree_on_grey() {
+        let (l, c, h) = linear_rgb_to_lch(0.5, 0.5, 0.5);
+        let src_rgb = make_src_f32(vec![l, c, h], 1, 1, 3);
+        let src_bgr = make_src_f32(vec![l, c, h], 1, 1, 3);
+        let mut dst_rgb = make_dst(1, 1, 3);
+        let mut dst_bgr = make_dst(1, 1, 3);
+        lch_to_rgb(
+            &src_rgb,
+            &mut dst_rgb,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        lch_to_bgr(
+            &src_bgr,
+            &mut dst_bgr,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        assert_eq!(&*dst_rgb.data.borrow(), &*dst_bgr.data.borrow());
+    }
+
+    // ── channel ordering ──────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_to_rgb_channel_order_for_red() {
+        let (x, y, z) = linear_rgb_to_xyz(1.0, 0.0, 0.0);
+        let src = make_src_f32(vec![x, y, z], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert!(d[0] > 200, "R dominant for red, got {}", d[0]);
+        assert!(d[1] < 20, "G low for red, got {}", d[1]);
+        assert!(d[2] < 20, "B low for red, got {}", d[2]);
+    }
+
+    #[test]
+    fn lab_to_rgb_channel_order_for_blue() {
+        let (l, a, b) = linear_rgb_to_lab(0.0, 0.0, 1.0);
+        let src = make_src_f32(vec![l, a, b], 1, 1, 3);
+        let mut dst = make_dst(1, 1, 3);
+        lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        assert!(d[0] < 20, "R low for blue, got {}", d[0]);
+        assert!(d[1] < 20, "G low for blue, got {}", d[1]);
+        assert!(d[2] > 200, "B dominant for blue, got {}", d[2]);
+    }
+
+    // ── multi-pixel / multi-row consistency ───────────────────────────────────
+
+    #[test]
+    fn xyz_to_rgb_multi_pixel_consistent() {
+        let (x, y, z) = linear_rgb_to_xyz(0.4, 0.6, 0.2);
+        let src = make_src_f32(vec![x, y, z].repeat(4), 4, 1, 3);
+        let mut dst = make_dst(4, 1, 3);
+        xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        let first = [d[0], d[1], d[2]];
+        for (i, chunk) in d.chunks(3).enumerate() {
+            assert_eq!(chunk, first, "px={i}");
+        }
+    }
+
+    #[test]
+    fn lab_to_rgb_multi_row_consistent() {
+        let (l, a, b) = linear_rgb_to_lab(0.6, 0.3, 0.8);
+        let src = make_src_f32(vec![l, a, b].repeat(4), 2, 2, 3);
+        let mut dst = make_dst(2, 2, 3);
+        lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).unwrap();
+        let d = dst.data.borrow();
+        let first = [d[0], d[1], d[2]];
+        for (i, chunk) in d.chunks(3).enumerate() {
+            assert_eq!(chunk, first, "px={i}");
+        }
+    }
+
+    #[test]
+    fn laba_to_srgb_multi_pixel_consistent() {
+        let (l, a, b) = linear_rgb_to_lab(0.3, 0.5, 0.7);
+        let src = make_src_f32(vec![l, a, b].repeat(4), 4, 1, 3);
+        let alpha = make_alpha(vec![0.8; 4], 4, 1);
+        let mut dst = make_dst(4, 1, 4);
+        laba_to_srgb(&src, &mut dst, &alpha).unwrap();
+        let d = dst.data.borrow();
+        let first = [d[0], d[1], d[2], d[3]];
+        for (i, chunk) in d.chunks(4).enumerate() {
+            assert_eq!(chunk, first, "px={i}");
+        }
+    }
+
+    // ── all colour spaces recover same sRGB for known input ───────────────────
+
+    #[test]
+    fn all_colour_spaces_agree_on_midgrey() {
+        let r = 0.5f32;
+        let g = 0.5f32;
+        let b = 0.5f32;
+
+        let (x, y, z) = linear_rgb_to_xyz(r, g, b);
+        let (l, a, bv) = linear_rgb_to_lab(r, g, b);
+        let (lu, u, v) = linear_rgb_to_luv(r, g, b);
+        let (lc, c, h) = linear_rgb_to_lch(r, g, b);
+
+        let mut dst_xyz = make_dst(1, 1, 3);
+        let mut dst_lab = make_dst(1, 1, 3);
+        let mut dst_luv = make_dst(1, 1, 3);
+        let mut dst_lch = make_dst(1, 1, 3);
+
+        xyz_to_rgb(
+            &make_src_f32(vec![x, y, z], 1, 1, 3),
+            &mut dst_xyz,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        lab_to_rgb(
+            &make_src_f32(vec![l, a, bv], 1, 1, 3),
+            &mut dst_lab,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        luv_to_rgb(
+            &make_src_f32(vec![lu, u, v], 1, 1, 3),
+            &mut dst_luv,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+        lch_to_rgb(
+            &make_src_f32(vec![lc, c, h], 1, 1, 3),
+            &mut dst_lch,
+            &XYZ_TO_SRGB_D65,
+            TransferFunction::Srgb,
+        )
+        .unwrap();
+
+        let xyz = dst_xyz.data.borrow();
+        let lab = dst_lab.data.borrow();
+        let luv = dst_luv.data.borrow();
+        let lch = dst_lch.data.borrow();
+
+        for ch in 0..3 {
+            assert_approx(lab[ch], xyz[ch], 2, &format!("lab vs xyz ch{ch}"));
+            assert_approx(luv[ch], xyz[ch], 2, &format!("luv vs xyz ch{ch}"));
+            assert_approx(lch[ch], xyz[ch], 2, &format!("lch vs xyz ch{ch}"));
+        }
+    }
+
+    // ── error paths ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_to_rgb_rejects_wrong_channel_count() {
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let mut dst = make_dst(1, 1, 3);
+        assert!(xyz_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
+    }
+
+    #[test]
+    fn lab_to_rgb_rejects_wrong_channel_count() {
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let mut dst = make_dst(1, 1, 3);
+        assert!(lab_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
+    }
+
+    #[test]
+    fn luv_to_rgb_rejects_wrong_channel_count() {
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let mut dst = make_dst(1, 1, 3);
+        assert!(luv_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
+    }
+
+    #[test]
+    fn lch_to_rgb_rejects_wrong_channel_count() {
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let mut dst = make_dst(1, 1, 3);
+        assert!(lch_to_rgb(&src, &mut dst, &XYZ_TO_SRGB_D65, TransferFunction::Srgb).is_err());
+    }
 }

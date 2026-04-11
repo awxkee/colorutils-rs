@@ -10,14 +10,14 @@ use crate::lab::Lab;
 use crate::luv::Luv;
 use crate::oklch::Oklch;
 use crate::{
+    Hsl, Jzazbz, LAlphaBeta, LCh, Oklab, Rgba, Sigmoidal, TaxicabDistance, TransferFunction, Xyz,
     adjust_saturation, clip_color, color_add, color_burn, color_darken, color_difference,
     color_dodge, color_exclusion, color_hard_light, color_hard_mix, color_lighten,
     color_linear_burn, color_linear_light, color_pin_light, color_reflect, color_screen,
-    color_soft_light, color_soft_light_weight, color_vivid_light, pdf_lum, Hsl, Jzazbz, LAlphaBeta,
-    LCh, Oklab, Rgba, Sigmoidal, TaxicabDistance, TransferFunction, Xyz,
+    color_soft_light, color_soft_light_weight, color_vivid_light, pdf_lum,
 };
 use num_traits::{AsPrimitive, Bounded, Float, Num, Pow};
-use std::cmp::{max, min, Ordering};
+use std::cmp::{Ordering, max, min};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 #[repr(C)]
@@ -288,11 +288,11 @@ impl From<Rgb<f32>> for Rgb<u8> {
 
 impl Rgb<f32> {
     #[inline]
-    pub fn apply(&self, gen: fn(f32) -> f32) -> Self {
+    pub fn apply(&self, fun: fn(f32) -> f32) -> Self {
         Self {
-            r: gen(self.r),
-            g: gen(self.g),
-            b: gen(self.b),
+            r: fun(self.r),
+            g: fun(self.g),
+            b: fun(self.b),
         }
     }
 

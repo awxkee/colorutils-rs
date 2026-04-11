@@ -8,29 +8,32 @@
 use erydanos::{vexpq_f32, vlnq_fast_f32};
 use std::arch::aarch64::*;
 
-#[inline(always)]
-pub(crate) unsafe fn neon_color_to_sigmoidal(x: float32x4_t) -> float32x4_t {
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_color_to_sigmoidal(x: float32x4_t) -> float32x4_t {
     let x = vmulq_n_f32(x, 1f32 / 255f32);
     let negg = vnegq_f32(x);
-    let den = vaddq_f32(vdupq_n_f32(1f32), vexpq_f32(negg));
+    let den = vaddq_f32(vdupq_n_f32(1f32), unsafe { vexpq_f32(negg) });
     let erase_nan_mask = vceqzq_f32(den);
     let rcp = vrecpeq_f32(den);
     vbslq_f32(erase_nan_mask, vdupq_n_f32(0f32), rcp)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn neon_sigmoidal_to_color(x: float32x4_t) -> float32x4_t {
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_sigmoidal_to_color(x: float32x4_t) -> float32x4_t {
     let den = vsubq_f32(vdupq_n_f32(1f32), x);
     let zero_mask_1 = vceqzq_f32(den);
     let k = vmulq_f32(x, vrecpeq_f32(den));
     let zeros = vdupq_n_f32(0f32);
     let zero_mask_2 = vcleq_f32(k, zeros);
-    let ln = vlnq_fast_f32(k);
+    let ln = unsafe { vlnq_fast_f32(k) };
     vbslq_f32(vandq_u32(zero_mask_1, zero_mask_2), zeros, ln)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn neon_rgb_to_sigmoidal(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_rgb_to_sigmoidal(
     r: uint32x4_t,
     g: uint32x4_t,
     b: uint32x4_t,
@@ -41,8 +44,9 @@ pub(crate) unsafe fn neon_rgb_to_sigmoidal(
     (sr, sg, sb)
 }
 
-#[inline(always)]
-pub(crate) unsafe fn neon_sigmoidal_to_rgb(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_sigmoidal_to_rgb(
     sr: float32x4_t,
     sg: float32x4_t,
     sb: float32x4_t,

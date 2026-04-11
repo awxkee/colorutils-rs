@@ -4,10 +4,10 @@
  * // Use of this source code is governed by a BSD-style
  * // license that can be found in the LICENSE file.
  */
+use crate::EuclideanDistance;
 use crate::rgb::Rgb;
 use crate::taxicab::TaxicabDistance;
 use crate::xyz::Xyz;
-use crate::EuclideanDistance;
 use num_traits::Pow;
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,

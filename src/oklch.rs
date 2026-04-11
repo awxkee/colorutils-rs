@@ -5,7 +5,6 @@
  * // license that can be found in the LICENSE file.
  */
 use crate::{EuclideanDistance, Oklab, Rgb, TaxicabDistance, TransferFunction};
-use erydanos::{eatan2f, ehypotf, Cosine, Sine};
 use num_traits::Pow;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -68,8 +67,8 @@ impl Oklch {
     /// Converts *Oklab* to *Oklch*
     #[inline]
     pub fn from_oklab(oklab: Oklab) -> Oklch {
-        let chroma = ehypotf(oklab.b, oklab.a);
-        let hue = eatan2f(oklab.b, oklab.a);
+        let chroma = f32::hypot(oklab.b, oklab.a);
+        let hue = f32::atan2(oklab.b, oklab.a);
         Oklch::new(oklab.l, chroma, hue)
     }
 
@@ -77,8 +76,8 @@ impl Oklch {
     #[inline]
     pub fn to_oklab(&self) -> Oklab {
         let l = self.l;
-        let a = self.c * self.h.ecos();
-        let b = self.c * self.h.esin();
+        let a = self.c * self.h.cos();
+        let b = self.c * self.h.sin();
         Oklab::new(l, a, b)
     }
 }

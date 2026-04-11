@@ -11,12 +11,12 @@ use crate::routines::{
     op_screen, op_soft_light, op_vivid_light,
 };
 use crate::{
-    adjust_saturation, clip_color, color_add, pdf_lum, EuclideanDistance, TaxicabDistance,
-    TransferFunction,
+    EuclideanDistance, TaxicabDistance, TransferFunction, adjust_saturation, clip_color, color_add,
+    pdf_lum,
 };
 use half::f16;
-use num_traits::{clamp, AsPrimitive, Bounded, Float, Num, Pow};
-use std::cmp::{max, min, Ordering};
+use num_traits::{AsPrimitive, Bounded, Float, Num, Pow, clamp};
+use std::cmp::{Ordering, max, min};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Neg, Sub};
 
 #[repr(C)]

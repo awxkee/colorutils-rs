@@ -6,8 +6,8 @@
  */
 use crate::utils::mlaf;
 use crate::{
-    EuclideanDistance, Jzczhz, Rgb, TaxicabDistance, TransferFunction, Xyz, SRGB_TO_XYZ_D65,
-    XYZ_TO_SRGB_D65,
+    EuclideanDistance, Jzczhz, Rgb, SRGB_TO_XYZ_D65, TaxicabDistance, TransferFunction,
+    XYZ_TO_SRGB_D65, Xyz,
 };
 use num_traits::Pow;
 use std::ops::{
@@ -123,6 +123,12 @@ impl Jzazbz {
     pub fn from_rgb(rgb: Rgb<u8>, transfer_function: TransferFunction) -> Jzazbz {
         let xyz = rgb.to_xyz(&SRGB_TO_XYZ_D65, transfer_function);
         Self::from_xyz_with_display_luminance(xyz, 200.)
+    }
+
+    #[inline]
+    pub fn from_linear_rgb_with_luminance(p0: Rgb<f32>, display_luminance: f32) -> Jzazbz {
+        let q = Xyz::from_linear_rgb(p0, &SRGB_TO_XYZ_D65);
+        Self::from_xyz_with_display_luminance(q, display_luminance)
     }
 
     /// Converts Rgb to Jzazbz

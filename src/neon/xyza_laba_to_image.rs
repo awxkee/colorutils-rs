@@ -11,8 +11,9 @@ use crate::neon::math::vcolorq_matrix_f32;
 use crate::xyz_target::XyzTarget;
 use std::arch::aarch64::*;
 
-#[inline(always)]
-pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: *const f32,
     c1: float32x4_t,
     c2: float32x4_t,
@@ -25,7 +26,7 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     c9: float32x4_t,
 ) -> (float32x4_t, float32x4_t, float32x4_t, float32x4_t) {
     let target: XyzTarget = TARGET.into();
-    let lab_pixel = vld4q_f32(src);
+    let lab_pixel = unsafe { vld4q_f32(src) };
     let (mut r_f32, mut g_f32, mut b_f32) = (lab_pixel.0, lab_pixel.1, lab_pixel.2);
 
     match target {
@@ -56,13 +57,12 @@ pub(crate) unsafe fn neon_xyza_lab_vld<const CHANNELS_CONFIGURATION: u8, const T
     (linear_r, linear_g, linear_b, lab_pixel.3)
 }
 
-#[inline(always)]
-pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     start_cx: usize,
-    src: *const f32,
-    src_offset: usize,
-    dst: *mut f32,
-    dst_offset: usize,
+    src: &[f32],
+    dst: &mut [f32],
     width: u32,
     matrix: &[[f32; 3]; 3],
 ) -> usize {
@@ -71,24 +71,24 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
         panic!("Alpha may be set only on images with alpha");
     }
 
-    let channels = image_configuration.get_channels_count();
+    let channels = image_configuration.channel_count();
 
     let mut cx = start_cx;
 
-    let c1 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(0));
-    let c2 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(1));
-    let c3 = vdupq_n_f32(*matrix.get_unchecked(0).get_unchecked(2));
-    let c4 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(0));
-    let c5 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(1));
-    let c6 = vdupq_n_f32(*matrix.get_unchecked(1).get_unchecked(2));
-    let c7 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(0));
-    let c8 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(1));
-    let c9 = vdupq_n_f32(*matrix.get_unchecked(2).get_unchecked(2));
+    let c1 = vdupq_n_f32(matrix[0][0]);
+    let c2 = vdupq_n_f32(matrix[0][1]);
+    let c3 = vdupq_n_f32(matrix[0][2]);
+    let c4 = vdupq_n_f32(matrix[1][0]);
+    let c5 = vdupq_n_f32(matrix[1][1]);
+    let c6 = vdupq_n_f32(matrix[1][2]);
+    let c7 = vdupq_n_f32(matrix[2][0]);
+    let c8 = vdupq_n_f32(matrix[2][1]);
+    let c9 = vdupq_n_f32(matrix[2][2]);
 
     const CHANNELS: usize = 4usize;
 
-    while cx + 4 < width as usize {
-        let offset_src_ptr = ((src as *const u8).add(src_offset) as *const f32).add(cx * CHANNELS);
+    while cx + 4 <= width as usize {
+        let offset_src_ptr = unsafe { src.get_unchecked(cx * CHANNELS..).as_ptr() };
 
         let src_ptr_0 = offset_src_ptr;
 
@@ -97,7 +97,7 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
                 src_ptr_0, c1, c2, c3, c4, c5, c6, c7, c8, c9,
             );
 
-        let dst_ptr = ((dst as *mut u8).add(dst_offset) as *mut f32).add(cx * channels);
+        let dst_ptr = unsafe { dst.get_unchecked_mut(cx * channels) };
 
         let store_rows = match image_configuration {
             ImageConfiguration::Rgb | ImageConfiguration::Rgba => {
@@ -107,7 +107,9 @@ pub unsafe fn neon_xyza_to_image<const CHANNELS_CONFIGURATION: u8, const TARGET:
                 float32x4x4_t(b_row0_, g_row0_, r_row0_, a_row0_)
             }
         };
-        vst4q_f32(dst_ptr, store_rows);
+        unsafe {
+            vst4q_f32(dst_ptr, store_rows);
+        }
 
         cx += 4;
     }

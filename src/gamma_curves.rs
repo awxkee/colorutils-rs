@@ -183,11 +183,11 @@ pub fn bt1361_to_linear(gamma: f32) -> f32 {
 /// Pure gamma transfer function for gamma 2.2
 pub fn pure_gamma_function(x: f32, gamma: f32) -> f32 {
     if x <= 0f32 {
-        0f32
+        0.
     } else if x >= 1f32 {
-        return 1f32;
+        1.
     } else {
-        return x.powf(gamma);
+        x.powf(gamma)
     }
 }
 
@@ -291,7 +291,7 @@ pub fn hlg_from_linear(linear: f32) -> f32 {
 #[inline]
 /// Gamma transfer function for HLG
 pub fn trc_linear(v: f32) -> f32 {
-    v.min(1.).min(0.)
+    v.min(1.).max(0.)
 }
 
 #[repr(C)]
