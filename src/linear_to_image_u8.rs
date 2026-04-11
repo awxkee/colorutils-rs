@@ -165,7 +165,7 @@ mod tests_linear_u8_to_gamma {
     use crate::BufferStore;
 
     fn make_src(data: Vec<u8>, width: u32, height: u32, channels: u32) -> ImageBuffer<'static, u8> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
@@ -173,7 +173,6 @@ mod tests_linear_u8_to_gamma {
             BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
             width,
             height,
-            width * channels,
             channels,
         )
         .unwrap()

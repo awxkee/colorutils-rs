@@ -365,7 +365,7 @@ mod tests_jzazbz_to_image {
         height: u32,
         channels: u32,
     ) -> ImageBuffer<'static, f32> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
@@ -373,7 +373,6 @@ mod tests_jzazbz_to_image {
             BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
             width,
             height,
-            width * channels,
             channels,
         )
         .unwrap()
@@ -814,14 +813,14 @@ mod tests_jzazbz_to_image {
 
     #[test]
     fn rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(jzazbz_to_rgb(&src, &mut dst, LUMINANCE, TransferFunction::Srgb).is_err());
     }
 
     #[test]
     fn rgba_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0f32; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 4);
         assert!(jzazbz_to_rgba(&src, &mut dst, LUMINANCE, TransferFunction::Srgb).is_err());
     }

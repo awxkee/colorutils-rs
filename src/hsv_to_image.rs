@@ -202,7 +202,7 @@ mod tests_hsv_u16_to_channels {
         height: u32,
         channels: u32,
     ) -> ImageBuffer<'static, u16> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, u8> {
@@ -210,7 +210,6 @@ mod tests_hsv_u16_to_channels {
             BufferStore::Owned(vec![0u8; (width * height * channels) as usize]),
             width,
             height,
-            width * channels,
             channels,
         )
         .unwrap()
@@ -553,28 +552,28 @@ mod tests_hsv_u16_to_channels {
 
     #[test]
     fn hsv_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(hsv_to_rgb(&src, &mut dst, SCALE).is_err());
     }
 
     #[test]
     fn hsv_rgba_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 4);
         assert!(hsv_to_rgba(&src, &mut dst, SCALE).is_err());
     }
 
     #[test]
     fn hsl_rgb_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 3);
         assert!(hsl_to_rgb(&src, &mut dst, SCALE).is_err());
     }
 
     #[test]
     fn hsl_rgba_rejects_wrong_channel_count() {
-        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2, 2).unwrap();
+        let src = ImageBuffer::from_vec(vec![0u16; 2], 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1, 4);
         assert!(hsl_to_rgba(&src, &mut dst, SCALE).is_err());
     }

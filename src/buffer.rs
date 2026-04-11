@@ -24,21 +24,9 @@ impl<'a, F: Sized> ImageBuffer<'a, F>
 where
     [F]: ToOwned<Owned = Vec<F>>,
 {
-    pub fn new(
-        data: &'a [F],
-        width: u32,
-        height: u32,
-        stride: u32,
-        channels: u32,
-    ) -> Result<Self, ColorError> {
+    pub fn new(data: &'a [F], width: u32, height: u32, channels: u32) -> Result<Self, ColorError> {
         let min_stride = width * channels;
-        if stride < min_stride {
-            return Err(ColorError::StrideTooNarrow {
-                min: min_stride,
-                given: stride,
-            });
-        }
-        let required = stride as usize * height as usize;
+        let required = min_stride as usize * height as usize;
         if data.len() < required {
             return Err(ColorError::BufferTooSmall {
                 expected: required,
@@ -49,7 +37,7 @@ where
             data: Cow::Borrowed(data),
             width,
             height,
-            stride,
+            stride: min_stride,
             channels,
         })
     }
@@ -58,17 +46,9 @@ where
         data: Vec<F>,
         width: u32,
         height: u32,
-        stride: u32,
         channels: u32,
     ) -> Result<Self, ColorError> {
-        let min_stride = width * channels;
-        if stride < min_stride {
-            return Err(ColorError::StrideTooNarrow {
-                min: min_stride,
-                given: stride,
-            });
-        }
-        let required = stride as usize * height as usize;
+        let required = width as usize * channels as usize * height as usize;
         if data.len() < required {
             return Err(ColorError::BufferTooSmall {
                 expected: required,
@@ -79,7 +59,7 @@ where
             data: Cow::Owned(data),
             width,
             height,
-            stride,
+            stride: width * channels,
             channels,
         })
     }
@@ -205,14 +185,13 @@ impl<'a, F: Copy + Debug + Sized> ImageBufferMut<'a, F> {
         data: BufferStore<'a, F>,
         width: u32,
         height: u32,
-        stride: u32,
         channels: u32,
     ) -> Result<Self, ColorError> {
         let buf = Self {
             data,
             width,
             height,
-            stride,
+            stride: width * channels,
             channels,
         };
         buf.validate()?;

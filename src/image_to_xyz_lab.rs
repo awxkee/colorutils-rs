@@ -242,7 +242,7 @@ pub fn rgb_to_xyz(
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -268,7 +268,7 @@ pub fn bgr_to_xyz(
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -292,7 +292,7 @@ pub fn srgb_to_xyz(
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         &SRGB_TO_XYZ_D65,
         TransferFunction::Srgb,
     )
@@ -318,7 +318,7 @@ pub fn rgb_to_lab(
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -344,7 +344,7 @@ pub fn rgba_to_xyz(
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -368,7 +368,7 @@ pub fn srgba_to_xyz(
     channels_to_xyz::<{ ImageConfiguration::Rgba as u8 }, false, { XyzTarget::Xyz as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         &SRGB_TO_XYZ_D65,
         TransferFunction::Srgb,
     )
@@ -533,7 +533,7 @@ pub fn bgr_to_lab(
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lab as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -559,7 +559,7 @@ pub fn rgb_to_luv(
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -585,7 +585,7 @@ pub fn bgr_to_luv(
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Luv as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -611,7 +611,7 @@ pub fn rgb_to_lch(
     channels_to_xyz::<{ ImageConfiguration::Rgb as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -637,7 +637,7 @@ pub fn bgr_to_lch(
     channels_to_xyz::<{ ImageConfiguration::Bgr as u8 }, false, { XyzTarget::Lch as u8 }>(
         src,
         dst,
-        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1, 1)?,
+        &mut ImageBufferMut::new(BufferStore::Owned(vec![0.; 1]), 1, 1, 1)?,
         matrix,
         transfer_function,
     )
@@ -648,24 +648,17 @@ mod tests {
     use super::*;
 
     fn make_src(data: Vec<u8>, width: u32, height: u32, channels: u32) -> ImageBuffer<'static, u8> {
-        ImageBuffer::from_vec(data, width, height, width * channels, channels).unwrap()
+        ImageBuffer::from_vec(data, width, height, channels).unwrap()
     }
 
     fn make_dst(width: u32, height: u32, channels: u32) -> ImageBufferMut<'static, f32> {
         let len = (width * height * channels) as usize;
-        ImageBufferMut::new(
-            BufferStore::Owned(vec![0f32; len]),
-            width,
-            height,
-            width * channels,
-            channels,
-        )
-        .unwrap()
+        ImageBufferMut::new(BufferStore::Owned(vec![0f32; len]), width, height, channels).unwrap()
     }
 
     fn make_alpha(width: u32, height: u32) -> ImageBufferMut<'static, f32> {
         let len = (width * height) as usize;
-        ImageBufferMut::new(BufferStore::Owned(vec![0f32; len]), width, height, width, 1).unwrap()
+        ImageBufferMut::new(BufferStore::Owned(vec![0f32; len]), width, height, 1).unwrap()
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

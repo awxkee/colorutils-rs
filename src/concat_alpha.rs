@@ -73,19 +73,19 @@ mod tests {
         let data = (0..stride * height)
             .map(|i| (i as f32) / (stride * height) as f32)
             .collect::<Vec<_>>();
-        ImageBuffer::from_vec(data, width, height, stride, 3).unwrap()
+        ImageBuffer::from_vec(data, width, height, 3).unwrap()
     }
 
     fn make_alpha(width: u32, height: u32, fill: f32) -> ImageBuffer<'static, f32> {
         let stride = width;
         let data = vec![fill; (stride * height) as usize];
-        ImageBuffer::from_vec(data, width, height, stride, 1).unwrap()
+        ImageBuffer::from_vec(data, width, height, 1).unwrap()
     }
 
     fn make_dst(width: u32, height: u32) -> ImageBufferMut<'static, f32> {
         let stride = width * 4;
         let data = BufferStore::Owned(vec![0f32; (stride * height) as usize]);
-        ImageBufferMut::new(data, width, height, stride, 4).unwrap()
+        ImageBufferMut::new(data, width, height, 4).unwrap()
     }
 
     #[test]
@@ -124,8 +124,8 @@ mod tests {
 
     #[test]
     fn works_with_single_pixel() {
-        let src = ImageBuffer::new(&[0.1f32, 0.2, 0.3], 1, 1, 3, 3).unwrap();
-        let alpha = ImageBuffer::new(&[0.9f32], 1, 1, 1, 1).unwrap();
+        let src = ImageBuffer::new(&[0.1f32, 0.2, 0.3], 1, 1, 3).unwrap();
+        let alpha = ImageBuffer::new(&[0.9f32], 1, 1, 1).unwrap();
         let mut dst = make_dst(1, 1);
 
         append_alpha(&src, &mut dst, &alpha).unwrap();
@@ -143,7 +143,7 @@ mod tests {
     fn rejects_src_with_wrong_channel_count() {
         let stride = 4;
         let data = vec![0f32; (stride * 1) as usize];
-        let src = ImageBuffer::new(data.leak(), 1, 1, stride, 4).unwrap();
+        let src = ImageBuffer::new(data.leak(), 1, 1, 4).unwrap();
         let alpha = make_alpha(1, 1, 1.0);
         let mut dst = make_dst(1, 1);
 
@@ -157,7 +157,7 @@ mod tests {
         let alpha = make_alpha(1, 1, 1.0);
         let stride = 3;
         let data = BufferStore::Owned(vec![0f32; (stride * 1) as usize]);
-        let mut dst = ImageBufferMut::new(data, 1, 1, stride, 3).unwrap();
+        let mut dst = ImageBufferMut::new(data, 1, 1, 3).unwrap();
 
         let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
         assert!(matches!(err, ColorError::Generic(_)));
@@ -168,7 +168,7 @@ mod tests {
         let src = make_src(1, 1);
         let stride = 2;
         let data = vec![0f32; (stride * 1) as usize];
-        let alpha = ImageBuffer::new(data.leak(), 1, 1, stride, 2).unwrap();
+        let alpha = ImageBuffer::new(data.leak(), 1, 1, 2).unwrap();
         let mut dst = make_dst(1, 1);
 
         let err = append_alpha(&src, &mut dst, &alpha).unwrap_err();
