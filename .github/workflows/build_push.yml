@@ -20,9 +20,14 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [ stable, "1.89.0" ]
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
       - run: rustup target add aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu i686-unknown-linux-gnu powerpc-unknown-linux-gnu
       - run: RUSTFLAGS="-C target-feature=+neon" cargo build --all-features --target aarch64-unknown-linux-gnu
       - run: RUSTFLAGS="-C target-feature=+sse4.1" cargo build --all-features --target i686-unknown-linux-gnu
@@ -32,3 +37,4 @@ jobs:
       - run: RUSTFLAGS="-C target-feature=+avx2" cargo build --all-features --target x86_64-unknown-linux-gnu
       - name: Test release pipeline
         run: cargo publish --dry-run
+        if: matrix.toolchain == 'stable'

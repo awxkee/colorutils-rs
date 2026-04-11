@@ -33,14 +33,14 @@ mod xyza_laba_to_image;
 
 pub(crate) use cie::*;
 pub(crate) use from_sigmoidal::sse_from_sigmoidal_row;
-pub use hsv_to_image::*;
-pub use image_to_hsv::*;
+pub(crate) use hsv_to_image::*;
+pub(crate) use image_to_hsv::*;
 pub(crate) use image_to_jzazbz::sse_image_to_jzazbz;
 pub(crate) use image_to_oklab::sse_image_to_oklab;
 pub(crate) use jzazbz_to_image::sse_jzazbz_to_image;
-pub use math::*;
+pub(crate) use math::*;
 pub(crate) use oklab_to_image::sse_oklab_to_image;
-pub use support::*;
+pub(crate) use support::*;
 pub(crate) use to_sigmoidal::sse_image_to_sigmoidal_row;
 pub(crate) use to_xyz_lab::sse_channels_to_xyz_or_lab;
 pub(crate) use to_xyza_laba::sse_channels_to_xyza_laba;

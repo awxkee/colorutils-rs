@@ -88,7 +88,6 @@ fn main() {
         // let dst_stride = width * 4 * std::mem::size_of::<f32>() as u32;
         // append_alpha(&mut destination, dst_stride, &store, store_stride as u32, &alpha_store, alpha_stride as u32, width, height);
 
-        let lab_stride = width as usize * 3usize * std::mem::size_of::<f32>();
         //
         // let mut src_shift = 0usize;
         // for _ in 0..height as usize {

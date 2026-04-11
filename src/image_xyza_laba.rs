@@ -9,7 +9,6 @@ use crate::image::ImageConfiguration;
 use crate::xyz_target::XyzTarget;
 use crate::{ColorError, ImageBuffer, ImageBufferMut, LCh, Lab, Luv, Rgb, TransferFunction, Xyz};
 
-#[allow(clippy::type_complexity)]
 fn channels_to_xyz_with_alpha<const CHANNELS_CONFIGURATION: u8, const TARGET: u8>(
     src: &ImageBuffer<'_, u8>,
     dst: &mut ImageBufferMut<'_, f32>,

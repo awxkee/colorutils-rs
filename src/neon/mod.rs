@@ -25,7 +25,7 @@ mod xyza_laba_to_image;
 
 pub(crate) use colors::*;
 pub(crate) use from_sigmoidal::neon_from_sigmoidal_row;
-pub use hsv_to_image::*;
+pub(crate) use hsv_to_image::*;
 pub(crate) use image_to_hsv::neon_channels_to_hsv_u16;
 pub(crate) use image_to_jzazbz::neon_image_to_jzazbz;
 pub(crate) use image_to_oklab::neon_image_to_oklab;

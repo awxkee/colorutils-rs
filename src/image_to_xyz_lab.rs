@@ -31,10 +31,8 @@ fn channels_to_xyz<const CHANNELS_CONFIGURATION: u8, const USE_ALPHA: bool, cons
     if dst.channels != 3 {
         return Err(ColorError::UnsupportedChannelsCount(src.channels));
     }
-    if USE_ALPHA {
-        if a_plane.channels != 1 {
-            return Err(ColorError::UnsupportedChannelsCount(a_plane.channels));
-        }
+    if USE_ALPHA && a_plane.channels != 1 {
+        return Err(ColorError::UnsupportedChannelsCount(a_plane.channels));
     }
     let target: XyzTarget = TARGET.into();
     let image_configuration: ImageConfiguration = CHANNELS_CONFIGURATION.into();

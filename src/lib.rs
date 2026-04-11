@@ -7,7 +7,8 @@
 #![allow(
     clippy::too_many_arguments,
     clippy::excessive_precision,
-    clippy::manual_clamp
+    clippy::manual_clamp,
+    clippy::type_complexity
 )]
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx;
