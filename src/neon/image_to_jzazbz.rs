@@ -31,15 +31,15 @@ macro_rules! triple_to_jzazbz {
     ($r: expr, $g: expr, $b: expr, $target: expr, $luminance: expr
     ) => {{
         let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(1)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(2)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(0)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(1)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(2)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(0)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(1)),
-            vdupq_n_f32(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(2)),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[0][0]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[0][1]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[0][2]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[1][0]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[1][1]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[1][2]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[2][0]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[2][1]),
+            vdupq_n_f32(SRGB_TO_XYZ_D65[2][2]),
         );
 
         let (mut x, mut y, mut z) = vcolorq_matrix_f32($r, $g, $b, x0, x1, x2, x3, x4, x5, x6, x7, x8);
@@ -122,10 +122,10 @@ pub(crate) fn neon_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const TARGE
 
             if image_configuration.has_alpha() {
                 let xyz_low_low = float32x4x4_t(x_low_low, y_low_low, z_low_low, a_chan);
-                vst4q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+                vst4q_f32(dst_ptr, xyz_low_low);
             } else {
                 let xyz_low_low = float32x4x3_t(x_low_low, y_low_low, z_low_low);
-                vst3q_f32(dst_ptr.add(cx * channels), xyz_low_low);
+                vst3q_f32(dst_ptr, xyz_low_low);
             }
 
             cx += 4;
