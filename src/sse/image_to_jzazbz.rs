@@ -137,11 +137,11 @@ pub(crate) unsafe fn sse_image_to_jzazbz<const CHANNELS_CONFIGURATION: u8, const
             let (x_low_low, y_low_low, z_low_low) =
                 triple_to_jzazbz!(r_chan, g_chan, b_chan, target, luminance);
             if image_configuration.has_alpha() {
-                let ptr = dst_ptr.add(cx * 4);
-                store_and_interleave_v4_direct_f32!(ptr, x_low_low, y_low_low, z_low_low, a_chan);
+                store_and_interleave_v4_direct_f32!(
+                    dst_ptr, x_low_low, y_low_low, z_low_low, a_chan
+                );
             } else {
-                let ptr = dst_ptr.add(cx * 3);
-                store_and_interleave_v3_direct_f32!(ptr, x_low_low, y_low_low, z_low_low);
+                store_and_interleave_v3_direct_f32!(dst_ptr, x_low_low, y_low_low, z_low_low);
             }
         }
 
