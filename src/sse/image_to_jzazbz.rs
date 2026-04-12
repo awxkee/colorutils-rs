@@ -44,15 +44,15 @@ macro_rules! triple_to_jzazbz {
     ($r: expr, $g: expr, $b: expr,$target: expr, $luminance: expr
     ) => {{
         let (x0, x1, x2, x3, x4, x5, x6, x7, x8) = (
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(0)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(1)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(0).get_unchecked(2)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(0)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(1)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(1).get_unchecked(2)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(0)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(1)),
-            _mm_set1_ps(*SRGB_TO_XYZ_D65.get_unchecked(2).get_unchecked(2)),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[0][0]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[0][1]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[0][2]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[1][0]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[1][1]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[1][2]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[2][0]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[2][1]),
+            _mm_set1_ps(SRGB_TO_XYZ_D65[2][2]),
         );
 
         let (mut x, mut y, mut z) = _mm_color_matrix_ps(
